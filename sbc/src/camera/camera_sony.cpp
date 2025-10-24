@@ -24,13 +24,12 @@ public:
     ~SonyCameraCallback() = default;
 
     void OnConnected(SDK::DeviceConnectionVersioin version) override {
-        std::lock_guard<std::mutex> lock(mutex_);
         connected_ = true;
         Logger::info("Camera connected (SDK connection version)");
+        (void)version; // Suppress unused parameter warning
     }
 
     void OnDisconnected(CrInt32u error) override {
-        std::lock_guard<std::mutex> lock(mutex_);
         connected_ = false;
         error_code_ = error;
         if (error != 0) {
@@ -49,23 +48,19 @@ public:
     }
 
     void OnError(CrInt32u error) override {
-        std::lock_guard<std::mutex> lock(mutex_);
         error_code_ = error;
         Logger::error("Camera error: 0x" + std::to_string(error));
     }
 
     bool isConnected() const {
-        std::lock_guard<std::mutex> lock(mutex_);
         return connected_;
     }
 
     CrInt32u getLastError() const {
-        std::lock_guard<std::mutex> lock(mutex_);
         return error_code_;
     }
 
 private:
-    mutable std::mutex mutex_;
     std::atomic<bool> connected_;
     std::atomic<CrInt32u> error_code_;
 };
