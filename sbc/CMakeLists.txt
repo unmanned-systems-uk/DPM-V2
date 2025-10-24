@@ -184,3 +184,46 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+
+# ============================================================
+# Integration Test Program (for testing components without network)
+# ============================================================
+
+# Create test_integration executable
+add_executable(test_integration 
+    src/test_integration.cpp
+    src/utils/logger.cpp
+    src/utils/system_info.cpp
+    src/camera/camera_sony.cpp
+)
+
+# Add include directories
+target_include_directories(test_integration
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${SONY_SDK_INCLUDE}
+)
+
+# Link libraries
+target_link_libraries(test_integration
+    PRIVATE
+        -Wl,--no-as-needed
+        pthread
+        ${SONY_SDK_LIB_DIR}/libCr_Core.so
+        xml2
+        -Wl,--as-needed
+)
+
+# nlohmann/json
+if(nlohmann_json_FOUND)
+    target_link_libraries(test_integration PRIVATE nlohmann_json::nlohmann_json)
+endif()
+
+# Set RPATH
+set_target_properties(test_integration PROPERTIES
+    BUILD_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+    INSTALL_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+)
+
+message(STATUS "Integration test program enabled")
+
