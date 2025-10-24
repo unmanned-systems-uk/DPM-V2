@@ -52,7 +52,7 @@ if [ "$MODE" = "dev" ]; then
         --network host \
         -v /dev/bus/usb:/dev/bus/usb \
         -v $(pwd):/app/sbc:rw \
-        -v /home/dpm/SonySDK/CrSDK_v2.00.00_20250805a_Linux64ARMv8:/app/sdk:ro \
+        -v /home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8:/app/sdk:ro \
         -v $(pwd)/logs:/app/logs:rw \
         -e MODE=development \
         -e LD_LIBRARY_PATH=/app/sdk/external/crsdk:/app/sdk/external/crsdk/CrAdapter \
