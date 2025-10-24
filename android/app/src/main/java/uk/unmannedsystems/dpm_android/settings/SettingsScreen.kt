@@ -1,0 +1,240 @@
+package uk.unmannedsystems.dpm_android.settings
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import uk.unmannedsystems.dpm_android.network.ConnectionState
+import uk.unmannedsystems.dpm_android.network.NetworkSettings
+
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel = viewModel(),
+    modifier: Modifier = Modifier
+) {
+    val networkStatus by viewModel.networkStatus.collectAsState()
+    val currentSettings by viewModel.networkSettings.collectAsState()
+
+    SettingsContent(
+        networkStatus = networkStatus.state,
+        currentSettings = currentSettings,
+        onSaveSettings = viewModel::updateSettings,
+        onConnect = viewModel::connect,
+        onDisconnect = viewModel::disconnect,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun SettingsContent(
+    networkStatus: ConnectionState,
+    currentSettings: NetworkSettings,
+    onSaveSettings: (NetworkSettings) -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var targetIp by rememberSaveable { mutableStateOf(currentSettings.targetIp) }
+    var commandPort by rememberSaveable { mutableStateOf(currentSettings.commandPort.toString()) }
+    var statusPort by rememberSaveable { mutableStateOf(currentSettings.statusListenPort.toString()) }
+    var heartbeatPort by rememberSaveable { mutableStateOf(currentSettings.heartbeatPort.toString()) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Connection Status Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = when (networkStatus) {
+                    ConnectionState.CONNECTED, ConnectionState.OPERATIONAL -> MaterialTheme.colorScheme.primaryContainer
+                    ConnectionState.CONNECTING -> MaterialTheme.colorScheme.secondaryContainer
+                    ConnectionState.ERROR -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Connection Status",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = networkStatus.name,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Connection Controls
+        if (networkStatus == ConnectionState.DISCONNECTED || networkStatus == ConnectionState.ERROR) {
+            Button(
+                onClick = onConnect,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Connect to Raspberry Pi")
+            }
+        } else {
+            Button(
+                onClick = onDisconnect,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Disconnect")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Advanced Network Settings
+        Text(
+            text = "Advanced Network Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Network Interface: H16 internal interface",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Target IP
+        OutlinedTextField(
+            value = targetIp,
+            onValueChange = { targetIp = it },
+            label = { Text("Target IP Address") },
+            placeholder = { Text("192.168.144.20") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Command Port (TCP)
+        OutlinedTextField(
+            value = commandPort,
+            onValueChange = { commandPort = it },
+            label = { Text("Command Port (TCP)") },
+            placeholder = { Text("5000") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Status Listen Port (UDP)
+        OutlinedTextField(
+            value = statusPort,
+            onValueChange = { statusPort = it },
+            label = { Text("Status Listen Port (UDP)") },
+            placeholder = { Text("5001") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Heartbeat Port (UDP)
+        OutlinedTextField(
+            value = heartbeatPort,
+            onValueChange = { heartbeatPort = it },
+            label = { Text("Heartbeat Target/Listen Port (UDP)") },
+            placeholder = { Text("5002") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Save Settings Button
+        Button(
+            onClick = {
+                val newSettings = NetworkSettings(
+                    targetIp = targetIp,
+                    commandPort = commandPort.toIntOrNull() ?: 5000,
+                    statusListenPort = statusPort.toIntOrNull() ?: 5001,
+                    heartbeatPort = heartbeatPort.toIntOrNull() ?: 5002
+                )
+                onSaveSettings(newSettings)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Save Network Settings")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Info Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Default Configuration",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = """
+                        • Target: 192.168.144.20:5000
+                        • Status Listen Port: 5001
+                        • Heartbeat Port: 5002
+
+                        These settings match the protocol specification for communication with the Raspberry Pi payload manager.
+                    """.trimIndent(),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}

@@ -1,0 +1,50 @@
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build and runtime dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    g++ \
+    libxml2 \
+    libxml2-dev \
+    nlohmann-json3-dev \
+    libudev-dev \
+    libusb-1.0-0 \
+    libusb-1.0-0-dev \
+    usbutils \
+    net-tools \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Sony SDK from build context
+COPY SonySDK/CrSDK_v2.00.00_20250805a_Linux64ARMv8 /app/sdk
+
+# Copy SBC source code
+COPY DPM/sbc /app/sbc
+
+# Build payload_manager (skip test_camera for production)
+RUN cd /app/sbc && \
+    mkdir -p build && \
+    cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake --build . --target payload_manager -j4 && \
+    mkdir -p CrAdapter && \
+    cp -r /app/sdk/external/crsdk/CrAdapter/* CrAdapter/
+
+# Set library path for Sony SDK
+ENV LD_LIBRARY_PATH=/app/sdk/external/crsdk:/app/sdk/external/crsdk/CrAdapter:$LD_LIBRARY_PATH
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Expose network ports
+EXPOSE 5000/tcp 5001/udp 5002/udp
+
+# Run payload_manager
+CMD ["/app/sbc/build/payload_manager"]

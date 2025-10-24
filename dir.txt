@@ -1,0 +1,28 @@
+ Volume in drive D is Dev
+ Volume Serial Number is 6EF3-08E8
+
+ Directory of D:\DPM\DPM
+
+22/10/2025  23:03    <DIR>          .
+22/10/2025  14:00    <DIR>          ..
+22/10/2025  16:09    <DIR>          .claude
+22/10/2025  14:20               225 .gitignore
+22/10/2025  22:06    <DIR>          .gradle
+22/10/2025  16:09    <DIR>          .idea
+22/10/2025  15:15    <DIR>          .kotlin
+22/10/2025  16:12    <DIR>          app
+22/10/2025  15:35            31,418 build-log-detailed.txt
+22/10/2025  15:34               705 build-log.txt
+22/10/2025  14:20               269 build.gradle.kts
+22/10/2025  22:40    <DIR>          CrSDK_v2.00.00_20250805a_Linux64ARMv8
+22/10/2025  23:03                 0 dit.txt
+22/10/2025  23:02    <DIR>          docs
+22/10/2025  16:12    <DIR>          gradle
+22/10/2025  14:20             1,346 gradle.properties
+22/10/2025  14:20             8,728 gradlew
+22/10/2025  14:20             2,937 gradlew.bat
+22/10/2025  14:20               449 local.properties
+22/10/2025  11:33                10 README.md
+22/10/2025  14:20               535 settings.gradle.kts
+              11 File(s)         46,622 bytes
+              10 Dir(s)  1,853,429,637,120 bytes free

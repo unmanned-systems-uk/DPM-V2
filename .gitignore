@@ -1,0 +1,33 @@
+# Build artifacts
+build/
+*.o
+*.so
+*.a
+payload_manager
+test_camera
+test_shutter
+
+# External SDKs - DO NOT COMMIT
+external/SonySDK/
+external/crsdk/
+*.tar.gz
+
+# Docker
+*.tar
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+logs/
+*.log
+
+# Temporary
+*.tmp
+*.bak
+
+# OS
+.DS_Store
+EOF

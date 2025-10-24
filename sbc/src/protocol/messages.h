@@ -1,0 +1,176 @@
+#ifndef MESSAGES_H
+#define MESSAGES_H
+
+#include <string>
+#include <vector>
+#include <ctime>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+namespace messages {
+
+// Error codes
+enum class ErrorCode {
+    INVALID_JSON = 5000,
+    INVALID_PROTOCOL_VERSION = 5001,
+    COMMAND_NOT_IMPLEMENTED = 5002,
+    UNKNOWN_COMMAND = 5003,
+    INTERNAL_ERROR = 5004
+};
+
+inline std::string errorCodeToString(ErrorCode code) {
+    switch (code) {
+        case ErrorCode::INVALID_JSON:
+            return "Invalid JSON format";
+        case ErrorCode::INVALID_PROTOCOL_VERSION:
+            return "Invalid protocol version";
+        case ErrorCode::COMMAND_NOT_IMPLEMENTED:
+            return "Command not implemented";
+        case ErrorCode::UNKNOWN_COMMAND:
+            return "Unknown command";
+        case ErrorCode::INTERNAL_ERROR:
+            return "Internal server error";
+        default:
+            return "Unknown error";
+    }
+}
+
+// Base message structure
+struct BaseMessage {
+    std::string protocol_version;
+    std::string message_type;
+    int sequence_id;
+    int64_t timestamp;
+    json payload;
+
+    json toJson() const {
+        return {
+            {"protocol_version", protocol_version},
+            {"message_type", message_type},
+            {"sequence_id", sequence_id},
+            {"timestamp", timestamp},
+            {"payload", payload}
+        };
+    }
+};
+
+// System status structure
+struct SystemStatus {
+    int64_t uptime_seconds;
+    double cpu_percent;
+    int64_t memory_mb;
+    int64_t memory_total_mb;
+    double disk_free_gb;
+    double network_rx_mbps;
+    double network_tx_mbps;
+
+    json toJson() const {
+        return {
+            {"uptime_seconds", uptime_seconds},
+            {"cpu_percent", cpu_percent},
+            {"memory_mb", memory_mb},
+            {"memory_total_mb", memory_total_mb},
+            {"disk_free_gb", disk_free_gb},
+            {"network_rx_mbps", network_rx_mbps},
+            {"network_tx_mbps", network_tx_mbps}
+        };
+    }
+};
+
+// Camera status structure
+struct CameraStatus {
+    bool connected;
+    std::string model;
+    int battery_percent;
+    int remaining_shots;
+
+    json toJson() const {
+        return {
+            {"connected", connected},
+            {"model", model},
+            {"battery_percent", battery_percent},
+            {"remaining_shots", remaining_shots}
+        };
+    }
+};
+
+// Gimbal status structure (Phase 3)
+struct GimbalStatus {
+    bool connected;
+
+    json toJson() const {
+        return {
+            {"connected", connected}
+        };
+    }
+};
+
+// Create success response
+inline json createSuccessResponse(int seq_id, const std::string& command, const json& result) {
+    return {
+        {"protocol_version", "1.0"},
+        {"message_type", "response"},
+        {"sequence_id", seq_id},
+        {"timestamp", std::time(nullptr)},
+        {"payload", {
+            {"command", command},
+            {"status", "success"},
+            {"result", result}
+        }}
+    };
+}
+
+// Create error response
+inline json createErrorResponse(int seq_id, const std::string& command,
+                               ErrorCode error_code, const std::string& details = "") {
+    return {
+        {"protocol_version", "1.0"},
+        {"message_type", "response"},
+        {"sequence_id", seq_id},
+        {"timestamp", std::time(nullptr)},
+        {"payload", {
+            {"command", command},
+            {"status", "error"},
+            {"error", {
+                {"code", static_cast<int>(error_code)},
+                {"message", errorCodeToString(error_code)},
+                {"details", details}
+            }}
+        }}
+    };
+}
+
+// Create status broadcast message
+inline json createStatusMessage(int seq_id, const SystemStatus& system,
+                               const CameraStatus& camera, const GimbalStatus& gimbal) {
+    return {
+        {"protocol_version", "1.0"},
+        {"message_type", "status"},
+        {"sequence_id", seq_id},
+        {"timestamp", std::time(nullptr)},
+        {"payload", {
+            {"system", system.toJson()},
+            {"camera", camera.toJson()},
+            {"gimbal", gimbal.toJson()}
+        }}
+    };
+}
+
+// Create heartbeat message
+inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_t uptime) {
+    return {
+        {"protocol_version", "1.0"},
+        {"message_type", "heartbeat"},
+        {"sequence_id", seq_id},
+        {"timestamp", std::time(nullptr)},
+        {"payload", {
+            {"sender", sender},
+            {"uptime_seconds", uptime}
+        }}
+    };
+}
+
+} // namespace messages
+
+#endif // MESSAGES_H
