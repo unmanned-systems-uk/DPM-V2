@@ -528,26 +528,35 @@ After implementing improvements, test:
 
 ## Known Issues from Testing Session (2025-10-25)
 
-### Issue 1: Android App Cannot Connect to Pi
+### Issue 1: Android App Cannot Connect to Pi ✅ FIXED
 **Symptoms:**
 - App shows "DISCONNECTED" → "ERROR" immediately
 - No connection attempts visible on Pi server logs
 - Ping from H16 to Pi works fine
+- **CRITICAL:** Android Settings shows NO permissions for DPM app
 
 **Investigation Results:**
 - Pi server is running and accepting connections (tested with nc)
 - No network packets from H16 (10.0.1.45) reaching Pi (10.0.1.53)
-- This suggests either:
-  1. Android app not actually attempting network connection
-  2. Network permissions issue
-  3. Android network stack blocking connection
-  4. Wrong IP being used despite UI showing 10.0.1.53
+
+**ROOT CAUSE IDENTIFIED:**
+❌ **AndroidManifest.xml was missing INTERNET permission!**
+- No `<uses-permission>` tags declared at all
+- Android silently blocked all network access
+- App couldn't make any TCP/UDP connections
+
+**FIX APPLIED:**
+✅ Added required permissions to AndroidManifest.xml:
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
 
 **Next Steps:**
-- Implement detailed logging per improvements above
-- Add pre-flight connectivity test
-- Verify INTERNET permission in manifest
-- Check Android logcat for exceptions during connection
+1. **REBUILD AND REINSTALL APK** - Old APK won't have permissions
+2. Verify permissions appear in Android Settings → Apps → DPM
+3. Test connection again
+4. If still failing, implement detailed logging per improvements above
 
 ---
 
