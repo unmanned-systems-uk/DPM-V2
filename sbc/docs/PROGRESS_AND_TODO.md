@@ -20,13 +20,43 @@ Testing:               ███████████████████
 Integration:           ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
 ```
 
-**Overall Completion:** 85% (Camera shutter control verified working! Migration guide created!)
+**Overall Completion:** 90% (Migrated to Pi 5! Camera shutter control working! Ready for full integration!)
 
-**Last Updated:** October 24, 2025 16:45 - Migration guide created for Raspberry Pi 5
+**Last Updated:** October 24, 2025 21:30 - Migrated to Raspberry Pi 5, system verification complete
 
 ---
 
 ## RECENT UPDATES (October 23-24, 2025)
+
+### ✅ Raspberry Pi 5 Migration Complete! (October 24, 2025 21:30)
+
+**Hardware Upgrade:**
+- ✅ Successfully migrated from Pi 4 Model B to **Pi 5 Model B Rev 1.1**
+- ✅ RAM upgrade: 4GB → **8GB** (7.7GB available)
+- ✅ Dedicated USB controller benefits for camera connection
+- ✅ Ubuntu 25.10 "Questing" (Kernel 6.17.0-1003-raspi)
+
+**System Verification:**
+- ✅ Docker 28.5.1 installed and accessible
+- ✅ payload-manager:latest image present (507MB, built successfully)
+- ✅ Sony ILCE-1 camera detected on USB Bus 005
+- ✅ Boot configuration updated (`usbcore.usbfs_memory_mb=150`)
+- ⚠️ **Action Required:** System reboot needed to apply USB buffer settings (currently 16MB, needs 150MB)
+
+**Path Updates:**
+- Project relocated: `/home/dpm/DPM/` → `/home/dpm/DPM-V2/`
+- Sony SDK location: `/home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8/`
+- Documentation updated with new paths and system specs
+
+**Next Steps:**
+1. Reboot system to apply USB buffer settings
+2. Verify Docker container functionality
+3. Test camera connection on Pi 5
+4. Continue with full camera integration
+
+**Migration Status:** Hardware ✅ Complete | Software ⚠️ Reboot Required | Testing ⏳ Pending
+
+---
 
 ### 🚀 Migration Preparation - Raspberry Pi 5 (October 24, 2025)
 
@@ -210,24 +240,29 @@ Sony SDK: /app/sdk
 - ✅ Initializes SDK successfully
 - ✅ Enumerates camera successfully
 - ✅ SDK::Connect() returns success
-- ❌ OnConnected callback never fires (error 0x8208)
-- ❌ Shutter commands fail (error 0x8402)
-- 🔍 Under investigation - comparing with RemoteCli
+- ✅ OnConnected callback fires correctly (after USB buffer fix)
+- ✅ Shutter DOWN/UP commands work perfectly
+- ✅ Successfully captured 2 test photos on Sony A1
+- ✅ Clean connection and disconnection with no errors
 
-### 📋 Pending Tasks (Camera Testing)
+### 📋 Camera Testing - Phase 1.5
 
+**✅ Completed:**
 - [x] Connect Sony A1 camera via USB
 - [x] Test camera enumeration inside container
 - [x] Test camera connection via Sony SDK
-- [ ] **DEBUG:** Fix connection error 0x8208
-- [ ] **DEBUG:** Determine why OnConnected callback doesn't fire
-- [ ] Test shutter down/up commands
-- [ ] Verify photo capture on camera
+- [x] **RESOLVED:** Fix connection error 0x8208 (USB buffer issue)
+- [x] **RESOLVED:** OnConnected callback now fires correctly
+- [x] Test shutter down/up commands - ✅ Working!
+- [x] Verify photo capture on camera - ✅ Confirmed (2 test photos)
+
+**📋 Remaining Tasks:**
 - [ ] Test basic camera property queries
 - [ ] Implement camera_sony.cpp (replace stub)
+- [ ] Full integration with payload_manager
 
-**Status:** 🐛 **DEBUGGING** - Connection handshake issue
-**Next:** Reconnect camera after recharge, continue debugging connection error
+**Status:** ✅ **SHUTTER CONTROL WORKING** - Basic camera functionality verified
+**Next:** Migrate to Pi 5, then implement full camera integration
 
 ---
 
@@ -493,19 +528,16 @@ Sony SDK: /app/sdk
 
 ### 🐛 Known Issues
 
-**Issue #1: Connection Error 0x8208 (ACTIVE)**
+**Issue #1: Connection Error 0x8208 (RESOLVED)**
 - **File:** src/test_shutter.cpp:195
-- **Symptom:** SDK::Connect() succeeds but OnConnected callback never fires
+- **Symptom:** SDK::Connect() succeeded but OnConnected callback never fired
 - **Error Code:** 0x8208 (CrError_Connect_SendCommand - "Sending command failed during connection phase")
-- **Impact:** Cannot send shutter commands (fail with 0x8402)
-- **Context:** RemoteCli works fine with same camera/SDK/Docker environment
-- **Status:** Under investigation
-- **Attempted Fixes:**
-  - Increased callback wait timeout (500ms → 10s) - No change
-  - Restarted Docker container - No change
-  - Killed payload_manager to avoid SDK conflicts - No change
-  - Added proper callback wait loop - Still waiting but callback never fires
-- **Next Steps:** Compare RemoteCli connection sequence in detail
+- **Root Cause:** USB bulk transfer buffer too small (16MB default insufficient for Sony SDK)
+- **Solution:** Increased usbfs_memory_mb from 16MB to 150MB (per Sony SDK requirements)
+- **Fix Applied:** Updated `/boot/firmware/cmdline.txt` with `usbcore.usbfs_memory_mb=150`
+- **Status:** ✅ RESOLVED
+- **Result:** Connection fully establishes, OnConnected callback fires, shutter control working perfectly
+- **Verification:** Successfully captured 2 test photos on Sony A1 camera
 
 **Issue #2: libxml2 ABI Incompatibility (RESOLVED)**
 - **Status:** ✅ RESOLVED via Docker container with Ubuntu 22.04
@@ -517,14 +549,14 @@ Sony SDK: /app/sdk
 
 ### 🚧 Blockers
 
-**Current Blocker:**
-- **Error 0x8208:** Preventing shutter testing and photo capture verification
-- **Impact:** Cannot proceed with Phase 2 camera integration until resolved
-- **Workaround:** None yet - investigating root cause
+**Current Blockers:** None - All critical issues resolved! ✅
 
-### ⚠️ Warnings
+### ⚠️ Important Notes
 
-- **Camera Battery:** Currently recharging - remember to reconnect before testing
+- **Pi 5 Migration:** System migrated to Raspberry Pi 5 Model B Rev 1.1 (8GB RAM)
+- **USB Buffer:** Boot config updated to 150MB, **system reboot required** to apply
+- **Sony SDK Path:** Located at `/home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8` (note: no SonySDK parent dir)
+- **Docker Image:** Existing image built before migration, may need rebuild for new paths
 - **RemoteCli Build:** Not persistent in Docker, needs rebuild for interactive testing
 
 ---
@@ -588,18 +620,22 @@ Sony SDK: /app/sdk
 
 ## NOTES
 
-### Development Environment
-- Platform: Raspberry Pi (Linux ARM64v8)
-- OS: Ubuntu 20.04 LTS (assumed)
-- Compiler: GCC 9+ (C++17 support)
+### Development Environment (Updated October 24, 2025)
+- Platform: Raspberry Pi 5 Model B Rev 1.1 (ARM64v8)
+- RAM: 8GB
+- OS: Ubuntu 25.10 "Questing"
+- Kernel: 6.17.0-1003-raspi
+- Compiler: GCC (C++17 support)
 - CMake: 3.16+
+- Docker: 28.5.1
 - User: dpm
 
 ### Important Paths
-- Project Root: `/home/dpm/DPM/sbc/`
-- Sony SDK: `/home/dpm/SonySDK/CrSDK_v2.00.00_20250805a_Linux64ARMv8/`
-- Logs: `/home/dpm/DPM/sbc/logs/`
-- Build: `/home/dpm/DPM/sbc/build/`
+- Project Root: `/home/dpm/DPM-V2/sbc/`
+- Sony SDK: `/home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8/`
+- Logs: `/home/dpm/DPM-V2/sbc/logs/`
+- Build: `/home/dpm/DPM-V2/sbc/build/`
+- Boot Config: `/boot/firmware/cmdline.txt`
 
 ### Key Decisions
 - Phase 1 uses camera stub (NO Sony SDK integration)
@@ -611,5 +647,5 @@ Sony SDK: /app/sdk
 
 ---
 
-**Last Updated:** October 23, 2025
-**Next Review:** After user approval
+**Last Updated:** October 24, 2025 21:30
+**Next Review:** After Pi 5 system reboot and container deployment
