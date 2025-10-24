@@ -1,13 +1,27 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <string>
+#include <cstdlib>
+
 namespace config {
     // Network configuration
     constexpr int TCP_PORT = 5000;
     constexpr int UDP_STATUS_PORT = 5001;
     constexpr int UDP_HEARTBEAT_PORT = 5002;
-    constexpr const char* GROUND_IP = "192.168.144.11";
+    constexpr const char* GROUND_IP = "192.168.144.11";  // Default (R16 ethernet)
     constexpr const char* AIR_IP = "192.168.144.20";
+
+    // Dynamic IP configuration (supports WiFi testing via environment variable)
+    // Set DPM_GROUND_IP environment variable to override default ground station IP
+    // Example: DPM_GROUND_IP=10.0.1.100 ./payload_manager
+    inline std::string getGroundStationIP() {
+        const char* env_ip = std::getenv("DPM_GROUND_IP");
+        if (env_ip != nullptr && env_ip[0] != '\0') {
+            return std::string(env_ip);
+        }
+        return GROUND_IP;  // Default to R16 ethernet IP
+    }
 
     // Timing configuration
     constexpr int STATUS_INTERVAL_MS = 200;      // 5 Hz

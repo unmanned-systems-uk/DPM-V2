@@ -1,6 +1,22 @@
 #!/bin/bash
 # run_container.sh - Run the C++ payload manager Docker container
-# Usage: ./run_container.sh [dev|prod]
+# Usage: ./run_container.sh [dev|prod] [--test-wifi] [--ground-ip <IP>]
+#
+# Modes:
+#   dev  - Development mode with source mounted as volume
+#   prod - Production mode using code baked into image (default)
+#
+# WiFi Testing:
+#   --test-wifi              - Enable WiFi testing mode (uses 10.0.1.x network)
+#   --ground-ip <IP>         - Manually specify ground station IP address
+#
+# Examples:
+#   ./run_container.sh                           - Production mode, default ethernet
+#   ./run_container.sh dev                       - Development mode, default ethernet
+#   ./run_container.sh --test-wifi               - Production mode, WiFi testing
+#   ./run_container.sh dev --test-wifi           - Development mode, WiFi testing
+#   ./run_container.sh --ground-ip 10.0.1.100    - Custom ground IP
+#   ./run_container.sh dev --ground-ip 10.0.1.100 - Dev mode with custom IP
 
 set -e
 
@@ -8,14 +24,73 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
-MODE="${1:-prod}"  # Default to production mode
+# Parse arguments
+MODE="prod"
+GROUND_IP=""
+WIFI_MODE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        dev|prod)
+            MODE="$1"
+            shift
+            ;;
+        --test-wifi)
+            WIFI_MODE=true
+            shift
+            ;;
+        --ground-ip)
+            GROUND_IP="$2"
+            shift 2
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown argument '$1'${NC}"
+            echo "Usage: $0 [dev|prod] [--test-wifi] [--ground-ip <IP>]"
+            exit 1
+            ;;
+    esac
+done
+
+# Determine ground IP if not explicitly set
+if [ -z "$GROUND_IP" ]; then
+    if [ "$WIFI_MODE" = true ]; then
+        # WiFi mode - script will help find H16 IP
+        echo -e "${BLUE}WiFi testing mode - attempting to discover H16...${NC}"
+        # Try to find H16 on 10.0.1.x network (if find_h16.sh exists)
+        if [ -f "scripts/find_h16.sh" ]; then
+            DISCOVERED_IP=$(bash scripts/find_h16.sh 2>/dev/null || echo "")
+            if [ -n "$DISCOVERED_IP" ]; then
+                GROUND_IP="$DISCOVERED_IP"
+                echo -e "${GREEN}Discovered H16 at: $GROUND_IP${NC}"
+            else
+                echo -e "${YELLOW}Could not auto-discover H16, using default WiFi IP: 10.0.1.100${NC}"
+                GROUND_IP="10.0.1.100"
+            fi
+        else
+            echo -e "${YELLOW}Auto-discovery not available, using default WiFi IP: 10.0.1.100${NC}"
+            GROUND_IP="10.0.1.100"
+        fi
+    else
+        # Default ethernet mode
+        GROUND_IP="192.168.144.11"
+    fi
+fi
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Payload Manager Container Runner${NC}"
 echo -e "${GREEN}(C++ Implementation)${NC}"
 echo -e "${GREEN}========================================${NC}"
+echo ""
+echo -e "Mode: ${GREEN}$MODE${NC}"
+echo -e "Ground Station IP: ${GREEN}$GROUND_IP${NC}"
+if [ "$WIFI_MODE" = true ]; then
+    echo -e "Network: ${BLUE}WiFi Testing (10.0.1.x)${NC}"
+else
+    echo -e "Network: ${GREEN}Ethernet (192.168.144.x)${NC}"
+fi
 echo ""
 
 # Check if image exists
@@ -55,6 +130,7 @@ if [ "$MODE" = "dev" ]; then
         -v /home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8:/app/sdk:ro \
         -v $(pwd)/logs:/app/logs:rw \
         -e MODE=development \
+        -e DPM_GROUND_IP="$GROUND_IP" \
         -e LD_LIBRARY_PATH=/app/sdk/external/crsdk:/app/sdk/external/crsdk/CrAdapter \
         payload-manager:latest \
         /app/sbc/build/payload_manager
@@ -78,6 +154,7 @@ else
         -v /dev/bus/usb:/dev/bus/usb \
         -v $(pwd)/logs:/app/logs:rw \
         -e MODE=production \
+        -e DPM_GROUND_IP="$GROUND_IP" \
         payload-manager:latest
 fi
 
@@ -94,10 +171,18 @@ if docker ps | grep -q "payload-manager"; then
     echo "Status: Running"
     echo "Implementation: C++ binary"
     echo ""
+    echo "Configuration:"
+    echo "  Ground Station IP: $GROUND_IP"
+    if [ "$WIFI_MODE" = true ]; then
+        echo "  Network Mode: WiFi Testing (10.0.1.x)"
+    else
+        echo "  Network Mode: Ethernet (192.168.144.x)"
+    fi
+    echo ""
     echo "Network endpoints:"
     echo "  TCP: 192.168.144.20:5000 (commands)"
-    echo "  UDP: 192.168.144.20:5001 (status)"
-    echo "  UDP: 192.168.144.20:5002 (heartbeat)"
+    echo "  UDP Status → $GROUND_IP:5001 (5 Hz)"
+    echo "  UDP Heartbeat → $GROUND_IP:5002 (1 Hz)"
     echo ""
     echo "Useful commands:"
     echo "  View logs:        docker logs -f payload-manager"

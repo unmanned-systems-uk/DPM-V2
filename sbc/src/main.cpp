@@ -98,10 +98,11 @@ int main(int argc, char* argv[]) {
         g_tcp_server = std::make_unique<TCPServer>(config::TCP_PORT);
 
         // Create UDP broadcaster
-        Logger::info("Creating UDP broadcaster (target: " + std::string(config::GROUND_IP) + ":" + std::to_string(config::UDP_STATUS_PORT) + ")...");
+        std::string ground_ip = config::getGroundStationIP();
+        Logger::info("Creating UDP broadcaster (target: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + ")...");
         g_udp_broadcaster = std::make_unique<UDPBroadcaster>(
             config::UDP_STATUS_PORT,
-            config::GROUND_IP
+            ground_ip.c_str()
         );
         g_udp_broadcaster->setCamera(g_camera);
 
@@ -109,7 +110,7 @@ int main(int argc, char* argv[]) {
         Logger::info("Creating heartbeat handler (port " + std::to_string(config::UDP_HEARTBEAT_PORT) + ")...");
         g_heartbeat = std::make_unique<Heartbeat>(
             config::UDP_HEARTBEAT_PORT,
-            config::GROUND_IP
+            ground_ip.c_str()
         );
 
         // Start all components
@@ -125,8 +126,8 @@ int main(int argc, char* argv[]) {
         Logger::info("Payload Manager Service Running");
         Logger::info("========================================");
         Logger::info("TCP Command Server: 0.0.0.0:" + std::to_string(config::TCP_PORT));
-        Logger::info("UDP Status Broadcast: " + std::string(config::GROUND_IP) + ":" + std::to_string(config::UDP_STATUS_PORT) + " (5 Hz)");
-        Logger::info("Heartbeat: " + std::string(config::GROUND_IP) + ":" + std::to_string(config::UDP_HEARTBEAT_PORT) + " (1 Hz)");
+        Logger::info("UDP Status Broadcast: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + " (5 Hz)");
+        Logger::info("Heartbeat: " + ground_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT) + " (1 Hz)");
         Logger::info(std::string("Camera: Sony SDK ") + (camera_connected ? "(connected)" : "(not connected)"));
         Logger::info("========================================");
         Logger::info("Press Ctrl+C to stop");
@@ -134,8 +135,8 @@ int main(int argc, char* argv[]) {
 
         std::cout << "\nService started successfully!\n";
         std::cout << "TCP server: port " << config::TCP_PORT << "\n";
-        std::cout << "UDP status: " << config::GROUND_IP << ":" << config::UDP_STATUS_PORT << " (5 Hz)\n";
-        std::cout << "Heartbeat: " << config::GROUND_IP << ":" << config::UDP_HEARTBEAT_PORT << " (1 Hz)\n";
+        std::cout << "UDP status: " << ground_ip << ":" << config::UDP_STATUS_PORT << " (5 Hz)\n";
+        std::cout << "Heartbeat: " << ground_ip << ":" << config::UDP_HEARTBEAT_PORT << " (1 Hz)\n";
         std::cout << "\nPress Ctrl+C to stop...\n\n";
 
         // Main loop - wait for shutdown signal
