@@ -22,10 +22,23 @@ class VideoPlayerViewModel : ViewModel() {
     private val _videoState = MutableStateFlow<VideoState>(VideoState.Disconnected)
     val videoState: StateFlow<VideoState> = _videoState.asStateFlow()
 
+    // Trigger for forcing PlayerView updates when video becomes ready
+    private val _surfaceUpdateTrigger = MutableStateFlow(0)
+    val surfaceUpdateTrigger: StateFlow<Int> = _surfaceUpdateTrigger.asStateFlow()
+
     private var exoPlayer: ExoPlayer? = null
+    private var hasRenderedFirstFrame = false
+
+    // Auto-reconnection state
+    private var lastContext: Context? = null
+    private var lastRtspUrl: String? = null
+    private var lastBufferDurationMs: Long = 500
+    private var reconnectionAttempts = 0
+    private val maxReconnectionAttempts = 3
 
     companion object {
         private const val TAG = "VideoPlayerViewModel"
+        private const val RECONNECTION_DELAY_MS = 2000L
     }
 
     /**
@@ -48,7 +61,19 @@ class VideoPlayerViewModel : ViewModel() {
     fun initializePlayer(context: Context, rtspUrl: String, bufferDurationMs: Long = 500) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Initializing player for URL: $rtspUrl with buffer: ${bufferDurationMs}ms")
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "Initializing player for URL: $rtspUrl")
+                Log.d(TAG, "Buffer duration: ${bufferDurationMs}ms")
+                Log.d(TAG, "========================================")
+
+                // Save connection parameters for auto-reconnection
+                lastContext = context
+                lastRtspUrl = rtspUrl
+                lastBufferDurationMs = bufferDurationMs
+
+                // Reset first frame flag for new connection
+                hasRenderedFirstFrame = false
+
                 _videoState.value = VideoState.Connecting
 
                 // Configure low-latency load control
@@ -79,8 +104,10 @@ class VideoPlayerViewModel : ViewModel() {
                                         } else {
                                             "Unknown"
                                         }
-                                        Log.d(TAG, "Video ready: $resolution")
+                                        Log.d(TAG, "Video ready: $resolution - Playing: ${this@apply.isPlaying}")
                                         _videoState.value = VideoState.Connected(resolution)
+                                        // Reset reconnection attempts on successful connection
+                                        reconnectionAttempts = 0
                                     }
                                     Player.STATE_BUFFERING -> {
                                         Log.d(TAG, "Video buffering...")
@@ -95,10 +122,39 @@ class VideoPlayerViewModel : ViewModel() {
                                 }
                             }
 
+                            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                                Log.d(TAG, "Playback state changed - isPlaying: $isPlaying")
+                                if (isPlaying && !hasRenderedFirstFrame) {
+                                    // Trigger PlayerView surface update ONLY before first frame
+                                    _surfaceUpdateTrigger.value++
+                                    Log.d(TAG, "Surface update triggered (pre-first-frame)")
+                                }
+                            }
+
+                            override fun onRenderedFirstFrame() {
+                                Log.d(TAG, "✓✓✓ FIRST FRAME RENDERED ✓✓✓")
+                                hasRenderedFirstFrame = true
+                            }
+
                             override fun onPlayerError(error: PlaybackException) {
                                 val errorMsg = error.message ?: "Unknown playback error"
                                 Log.e(TAG, "Player error: $errorMsg", error)
-                                _videoState.value = VideoState.Error(errorMsg)
+
+                                // Attempt automatic reconnection for network errors
+                                if (lastContext != null && lastRtspUrl != null && reconnectionAttempts < maxReconnectionAttempts) {
+                                    reconnectionAttempts++
+                                    Log.d(TAG, "Attempting auto-reconnection (attempt $reconnectionAttempts/$maxReconnectionAttempts)")
+
+                                    viewModelScope.launch {
+                                        kotlinx.coroutines.delay(RECONNECTION_DELAY_MS)
+                                        reconnect(lastContext!!, lastRtspUrl!!, lastBufferDurationMs)
+                                    }
+                                } else {
+                                    if (reconnectionAttempts >= maxReconnectionAttempts) {
+                                        Log.e(TAG, "Max reconnection attempts reached")
+                                    }
+                                    _videoState.value = VideoState.Error(errorMsg)
+                                }
                             }
                         })
 

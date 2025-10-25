@@ -16,6 +16,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,7 @@ fun FullScreenVideoPlayer(
 ) {
     val context = LocalContext.current
     val videoState by videoPlayerViewModel.videoState.collectAsState()
+    val surfaceUpdateTrigger by videoPlayerViewModel.surfaceUpdateTrigger.collectAsState()
 
     // Initialize player when composable enters composition or settings change
     LaunchedEffect(videoSettings.rtspUrl, videoSettings.bufferDurationMs) {
@@ -67,37 +69,69 @@ fun FullScreenVideoPlayer(
 
     Box(modifier = modifier.fillMaxSize()) {
         if (videoSettings.enabled) {
-            // Video player view
-            AndroidView(
-                factory = { context ->
-                    PlayerView(context).apply {
-                        player = videoPlayerViewModel.getPlayer()
-                        useController = false  // Hide default controls
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
+            // Video player view with key to force recreation on URL change
+            key(videoSettings.rtspUrl) {
+                AndroidView(
+                    factory = { context ->
+                        android.util.Log.d("VideoPlayerView", "Creating NEW PlayerView for URL: ${videoSettings.rtspUrl}")
 
-                        // Set resize mode based on aspect ratio setting
-                        resizeMode = when (videoSettings.aspectRatioMode) {
+                        PlayerView(context).apply {
+                            // Explicitly use SurfaceView for better RTSP compatibility
+                            setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                            useController = false
+
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+
+                            // Set resize mode
+                            resizeMode = when (videoSettings.aspectRatioMode) {
+                                AspectRatioMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                AspectRatioMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                AspectRatioMode.AUTO -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+
+                            // Configure visibility and screen settings
+                            visibility = android.view.View.VISIBLE
+                            keepScreenOn = true
+                            setBackgroundColor(android.graphics.Color.BLACK)
+
+                            // Bind player immediately if available
+                            val currentPlayer = videoPlayerViewModel.getPlayer()
+                            if (currentPlayer != null) {
+                                player = currentPlayer
+                                android.util.Log.d("VideoPlayerView", "Player bound in factory - Playing: ${currentPlayer.isPlaying}, Tracks: ${currentPlayer.currentTracks.groups.size}")
+                            } else {
+                                android.util.Log.w("VideoPlayerView", "No player available in factory!")
+                            }
+                        }
+                    },
+                    update = { playerView ->
+                        val currentPlayer = videoPlayerViewModel.getPlayer()
+
+                        android.util.Log.d("VideoPlayerView", "Update (trigger=$surfaceUpdateTrigger) - Player exists: ${currentPlayer != null}, Currently bound: ${playerView.player != null}, Playing: ${currentPlayer?.isPlaying}")
+
+                        // Bind player if not already bound (don't rebind during playback)
+                        if (currentPlayer != null && playerView.player != currentPlayer) {
+                            playerView.player = currentPlayer
+                            android.util.Log.d("VideoPlayerView", "Player bound - Tracks: ${currentPlayer.currentTracks.groups.size}")
+                        }
+
+                        // Update resize mode
+                        playerView.resizeMode = when (videoSettings.aspectRatioMode) {
                             AspectRatioMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
                             AspectRatioMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                             AspectRatioMode.AUTO -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
-                    }
-                },
-                update = { playerView ->
-                    playerView.player = videoPlayerViewModel.getPlayer()
 
-                    // Update resize mode if settings changed
-                    playerView.resizeMode = when (videoSettings.aspectRatioMode) {
-                        AspectRatioMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                        AspectRatioMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        AspectRatioMode.AUTO -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                        // Ensure visibility
+                        playerView.visibility = android.view.View.VISIBLE
+                        playerView.keepScreenOn = true
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             // Show overlay states over video
             when (val state = videoState) {

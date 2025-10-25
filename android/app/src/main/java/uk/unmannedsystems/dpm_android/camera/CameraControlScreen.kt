@@ -132,6 +132,8 @@ private fun CameraControlContent(
     onConnectionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val videoState by videoPlayerViewModel.videoState.collectAsState()
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -144,23 +146,34 @@ private fun CameraControlContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Connection status indicator - top-left corner
-        ConnectionStatusIndicator(
-            isConnected = cameraState.isConnected,
-            onClick = onConnectionClick,
+        // Connection status indicators - top-left corner (stacked vertically)
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(16.dp)
-        )
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Air-Side connection status
+            ConnectionStatusIndicator(
+                isConnected = cameraState.isConnected,
+                onClick = onConnectionClick
+            )
 
-        // Minimized settings below connection indicator
+            // Video connection status
+            VideoConnectionIndicator(
+                videoState = videoState,
+                videoEnabled = videoSettings.enabled
+            )
+        }
+
+        // Minimized settings below connection indicators
         if (expandedSetting == ExpandedSetting.NONE) {
             MinimizedSettings(
                 cameraState = cameraState,
                 onExpandSetting = onExpandSetting,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 80.dp, end = 16.dp)
+                    .padding(start = 16.dp, top = 160.dp, end = 16.dp)
             )
         }
 
@@ -441,6 +454,93 @@ private fun ConnectionStatusIndicator(
             )
             Text(
                 text = if (isConnected) "Tap to disconnect" else "Tap to connect",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp
+            )
+        }
+    }
+}
+
+/**
+ * Video connection status indicator with colored circle
+ * Shows video streaming state
+ */
+@Composable
+private fun VideoConnectionIndicator(
+    videoState: VideoPlayerViewModel.VideoState,
+    videoEnabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val (statusColor, statusText, detailText) = when {
+        !videoEnabled -> Triple(
+            Color(0xFF888888), // Gray
+            "Video Disabled",
+            "Enable in Settings"
+        )
+        videoState is VideoPlayerViewModel.VideoState.Disconnected -> Triple(
+            Color(0xFFFF0000), // Red
+            "Video Disconnected",
+            "Waiting for stream"
+        )
+        videoState is VideoPlayerViewModel.VideoState.Connecting -> Triple(
+            Color(0xFFFFAA00), // Yellow
+            "Video Connecting",
+            "Buffering..."
+        )
+        videoState is VideoPlayerViewModel.VideoState.Connected -> Triple(
+            Color(0xFF00FF00), // Green
+            "Video Connected",
+            videoState.resolution
+        )
+        videoState is VideoPlayerViewModel.VideoState.Error -> Triple(
+            Color(0xFFFF0000), // Red
+            "Video Error",
+            videoState.message.take(30)
+        )
+        else -> Triple(
+            Color(0xFF888888),
+            "Unknown",
+            ""
+        )
+    }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Colored circle indicator
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .background(
+                    color = statusColor,
+                    shape = CircleShape
+                )
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    shape = CircleShape
+                )
+        )
+
+        // Status text
+        Column {
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = detailText,
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 10.sp
