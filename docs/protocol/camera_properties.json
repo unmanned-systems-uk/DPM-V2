@@ -3,6 +3,12 @@
   "title": "DPM Camera Properties",
   "description": "Sony camera property definitions with validation and implementation tracking",
   "version": "1.0.0",
+  
+  "protocol_design": {
+    "value_format": "human_readable",
+    "rationale": "Protocol uses human-readable string values (e.g., '1/8000') not Sony SDK raw values (e.g., 0x00010001). Air-side handles conversion to Sony SDK format. This keeps the protocol camera-agnostic, debuggable, and testable.",
+    "see_also": "docs/protocol/PROTOCOL_VALUE_MAPPING.md"
+  },
 
   "property_categories": {
     "exposure": ["shutter_speed", "aperture", "iso", "exposure_compensation", "metering_mode"],
@@ -29,8 +35,13 @@
         "property_code": "CrDeviceProperty_ShutterSpeed",
         "get_function": "GetDeviceProperty",
         "set_function": "SetDeviceProperty",
-        "value_mapping": "ShutterSpeedValue enum",
-        "notes": "Must be in Manual or Shutter Priority mode"
+        "value_mapping": "Air-side maps human-readable strings to ShutterSpeedValue enum (0x00010001, etc.)",
+        "notes": "Must be in Manual or Shutter Priority mode. Protocol uses human-readable values."
+      },
+      "protocol": {
+        "format": "string",
+        "example": "1/8000",
+        "notes": "Always send human-readable values in protocol messages. Air-side handles conversion to Sony SDK format."
       },
       "ui_hints": {
         "control_type": "dropdown",
