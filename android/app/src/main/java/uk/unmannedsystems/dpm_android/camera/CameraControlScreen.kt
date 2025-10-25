@@ -90,6 +90,13 @@ fun CameraControlScreen(
         onMenuClick = {
             // TODO: Show settings menu
         },
+        onConnectionClick = {
+            if (cameraState.isConnected) {
+                viewModel.disconnect()
+            } else {
+                viewModel.connect()
+            }
+        },
         modifier = modifier
     )
 }
@@ -112,6 +119,7 @@ private fun CameraControlContent(
     onFileFormatClick: () -> Unit,
     onCaptureClick: () -> Unit,
     onMenuClick: () -> Unit,
+    onConnectionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -136,6 +144,7 @@ private fun CameraControlContent(
         // Connection status indicator - top-left corner
         ConnectionStatusIndicator(
             isConnected = cameraState.isConnected,
+            onClick = onConnectionClick,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
@@ -384,14 +393,23 @@ private fun ExpandedSettingDialog(
 
 /**
  * Connection status indicator with RED/GREEN circle
+ * Click to connect/disconnect
  */
 @Composable
 private fun ConnectionStatusIndicator(
     isConnected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .background(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -411,18 +429,20 @@ private fun ConnectionStatusIndicator(
         )
 
         // Status text
-        Text(
-            text = if (isConnected) "Air-Side Connected" else "Air-Side Disconnected",
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .background(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        )
+        Column {
+            Text(
+                text = if (isConnected) "Air-Side Connected" else "Air-Side Disconnected",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isConnected) "Tap to disconnect" else "Tap to connect",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp
+            )
+        }
     }
 }
 

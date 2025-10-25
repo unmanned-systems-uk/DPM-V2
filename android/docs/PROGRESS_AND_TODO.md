@@ -8,16 +8,22 @@
 - Added real-time connection status indicator to main camera screen
 - **RED circle** = Air-Side disconnected (no heartbeats received)
 - **GREEN circle** = Air-Side connected (heartbeats active)
+- **CLICKABLE** - Tap the indicator to connect/disconnect without going to settings!
 - Indicator positioned prominently in top-left corner
 - Shows status text: "Air-Side Connected" / "Air-Side Disconnected"
+- Shows hint text: "Tap to connect" / "Tap to disconnect"
+- Visual feedback: Semi-transparent background, rounded corners, clickable ripple
 - CameraViewModel now monitors network connection status in real-time
 - Updated CameraViewModel.kt:
   - Integrated NetworkClient for connection monitoring
+  - Added `connect()` and `disconnect()` functions
   - Updates camera state when network status changes
   - Properly cleans up network resources on ViewModel clear
 - Updated CameraControlScreen.kt:
-  - Added ConnectionStatusIndicator composable
+  - Added ConnectionStatusIndicator composable with onClick callback
   - 24dp colored circle with white border
+  - Clickable area with visual feedback
+  - Two-line text: status + action hint
   - Moved connection status from bottom bar to prominent top-left position
   - Removed redundant connection indicator from bottom status bar
 

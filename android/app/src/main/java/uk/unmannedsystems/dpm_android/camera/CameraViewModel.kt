@@ -141,6 +141,20 @@ class CameraViewModel : ViewModel() {
     }
 
     /**
+     * Connect to Air-Side
+     */
+    fun connect() {
+        networkClient.connect()
+    }
+
+    /**
+     * Disconnect from Air-Side
+     */
+    fun disconnect() {
+        networkClient.disconnect()
+    }
+
+    /**
      * Set file format
      */
     fun setFileFormat(format: FileFormat) {
