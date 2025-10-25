@@ -1,813 +1,714 @@
-# DPM Android App - Progress & TODO
+# Progress and TODO Tracker
+## Ground Station Android App - Phase 1 (MVP)
 
-## RECENT UPDATES (October 25, 2025)
-
-### Latest Changes ✅
-
-**10. Fixed Auto-Connect on App Launch** *(DPMApplication)*
-
-**Issue Fixed:**
-- Auto-connect only happened when entering Settings screen
-- If user stayed on Camera screen, no connection attempt made
-- NetworkManager initialized too late (when ViewModel created)
-
-**Solution - Custom Application Class:**
-- Created DPMApplication.kt:
-  * Extends Application class - runs before any Activity
-  * Loads saved settings using SettingsRepository
-  * Initializes NetworkManager on app startup
-  * Auto-connects immediately when app launches
-  * Uses applicationScope for coroutine lifecycle
-  * Comprehensive error handling and logging
-
-- Updated AndroidManifest.xml:
-  * Added android:name=".DPMApplication" to <application> tag
-  * App now uses custom Application class
-
-- Updated SettingsViewModel.kt:
-  * Removed auto-connect logic (now in Application)
-  * Still reinitializes NetworkManager when settings change
-  * Simplified initialization flow
-
-**Benefits:**
-✅ Auto-connect happens IMMEDIATELY on app startup
-✅ Works regardless of which screen is shown first
-✅ NetworkManager initialized before any UI
-✅ Connection attempt happens in background
-✅ User sees GREEN circle on Camera screen right away (if connected)
-
-**9. Fixed Connection Status Issues - NetworkManager Singleton** *(Critical Bug Fixes)*
-
-**Issues Fixed:**
-1. **Settings screen status not updating on first connect** - FIXED
-2. **Camera screen not showing connection status** - FIXED
-
-**Root Cause:**
-- Each ViewModel was creating its own NetworkClient instance
-- SettingsViewModel and CameraViewModel had separate connections
-- StateFlow references were recreated when settings changed
-- Camera was trying to connect to default IP, not saved IP
-
-**Solution - NetworkManager Singleton:**
-- Created NetworkManager.kt:
-  * Singleton pattern ensures single NetworkClient instance
-  * Stable StateFlow that survives client recreation
-  * Manages all connection operations centrally
-  * Forwards connection status from NetworkClient to stable flow
-  * Proper logging for debugging
-- Updated SettingsViewModel.kt:
-  * Uses NetworkManager instead of local NetworkClient
-  * Subscribes to NetworkManager.connectionStatus (stable reference)
-  * All connect/disconnect calls go through NetworkManager
-- Updated CameraViewModel.kt:
-  * Removed local NetworkClient instance
-  * Subscribes to shared NetworkManager.connectionStatus
-  * Both screens now see the same connection state
-  * Removed onCleared cleanup (NetworkManager handles it)
-
-**Benefits:**
-✅ Single connection instance across entire app
-✅ Connection status updates immediately in all screens
-✅ Settings and Camera always show same status
-✅ No duplicate connection attempts
-✅ Saved settings shared across app
-✅ Connection survives screen navigation
-
-**8. Persistent Settings & Auto-Connect** *(Multiple files)*
-- **Settings are now saved and remembered across app restarts**
-- **Auto-connect on app startup** using saved settings
-- **Reset to Defaults button** - quick restore of default configuration
-
-Implementation Details:
-- Created SettingsRepository.kt:
-  - Uses DataStore Preferences for persistent storage
-  - Saves all network settings (IP, ports, timeouts, intervals)
-  - Provides Flow-based reactive settings updates
-  - `resetToDefaults()` function for quick reset
-- Updated SettingsViewModel.kt:
-  - Changed to AndroidViewModel to access Application context
-  - Loads saved settings on initialization
-  - Auto-connects on first load (after settings are loaded)
-  - `updateSettings()` now persists to DataStore
-  - Added `resetToDefaults()` function
-  - Flag to prevent multiple auto-connect attempts
-- Updated SettingsScreen.kt:
-  - Converted default settings info card to interactive card with button
-  - Added "Reset to Defaults" button
-  - Text fields update automatically when defaults are loaded
-  - Snackbar confirmation when resetting to defaults
-  - LaunchedEffect to sync UI with settings changes
-- Updated build.gradle.kts & libs.versions.toml:
-  - Added DataStore Preferences dependency (v1.0.0)
-
-User Experience:
-- App remembers your last network configuration
-- No need to re-enter IP and ports after restart
-- Automatic connection on startup (uses saved settings)
-- One-click reset to default configuration
-- Confirmation messages for all settings changes
-
-**7. Live Connection Status on Camera Screen** *(app/src/main/java/uk/unmannedsystems/dpm_android/camera/)*
-- Added real-time connection status indicator to main camera screen
-- **RED circle** = Air-Side disconnected (no heartbeats received)
-- **GREEN circle** = Air-Side connected (heartbeats active)
-- **CLICKABLE** - Tap the indicator to connect/disconnect without going to settings!
-- Indicator positioned prominently in top-left corner
-- Shows status text: "Air-Side Connected" / "Air-Side Disconnected"
-- Shows hint text: "Tap to connect" / "Tap to disconnect"
-- Visual feedback: Semi-transparent background, rounded corners, clickable ripple
-- CameraViewModel now monitors network connection status in real-time
-- Updated CameraViewModel.kt:
-  - Integrated NetworkClient for connection monitoring
-  - Added `connect()` and `disconnect()` functions
-  - Updates camera state when network status changes
-  - Properly cleans up network resources on ViewModel clear
-- Updated CameraControlScreen.kt:
-  - Added ConnectionStatusIndicator composable with onClick callback
-  - 24dp colored circle with white border
-  - Clickable area with visual feedback
-  - Two-line text: status + action hint
-  - Moved connection status from bottom bar to prominent top-left position
-  - Removed redundant connection indicator from bottom status bar
-
-### Implemented Features ✅
-
-**1. Connection Status Diagnostics** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt)*
-- Added `ConnectionLogEntry` data class with timestamp, level, and message
-- Added `LogLevel` enum (INFO, SUCCESS, WARNING, ERROR)
-- Enhanced `NetworkStatus` with:
-  - `connectionLogs: List<ConnectionLogEntry>` - keeps last 50 connection events
-  - `targetIp: String?` - shows target IP being connected to
-  - `targetPort: Int?` - shows target port being connected to
-
-**2. Enhanced NetworkClient Logging** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt)*
-- Added `addConnectionLog()` function to log connection events
-- Connection process now logs every step:
-  - "Attempting to connect to IP:PORT"
-  - "Connecting TCP socket..."
-  - "TCP socket connected successfully"
-  - "Sending handshake..."
-  - "Starting UDP listeners..."
-  - Error messages with details
-- Logs are color-coded by level and displayed in real-time
-- Integration with global EventLog for cross-app diagnostics
-
-**3. Connection Status UI Enhancements** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
-- Connection status card now shows:
-  - Current state (DISCONNECTED, CONNECTING, CONNECTED, etc.)
-  - Target IP and port being connected to
-  - Real-time connection logs on the right side (last 5 entries)
-  - Logs are color-coded: INFO (blue), SUCCESS (green), WARNING (yellow), ERROR (red)
-  - Timestamps in HH:mm:ss format
-- Added `ConnectionLogsList` composable for displaying logs
-
-**4. Settings Save Confirmation** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
-- Added Snackbar notification when network settings are saved
-- Shows: "Settings saved: IP:PORT"
-- Provides immediate user feedback
-- Uses Material3 Scaffold with SnackbarHost
-
-**5. Event Log Screen for Development Diagnostics** *(NEW FILES)*
-- Created `EventLogViewModel.kt`:
-  - Singleton ViewModel for app-wide event logging
-  - Stores last 1000 events
-  - Event categories: NETWORK, CAMERA, UI, SYSTEM, ERROR
-  - Event levels: DEBUG, INFO, WARNING, ERROR
-  - Convenience methods: `logDebug()`, `logInfo()`, `logWarning()`, `logError()`
-  - Filter by category and level
-- Created `EventLogScreen.kt`:
-  - Full-screen event log viewer
-  - Auto-scrolls to newest events
-  - Filter buttons (All, Network, Errors)
-  - Clear log button
-  - Color-coded event cards by level
-  - Shows timestamp, category, level, message, and optional details
-- Added "Event Log" menu item to navigation drawer
-
-**6. MainActivity Navigation Update** *(app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt)*
-- Added EVENT_LOG destination to navigation menu
-- Icon: Icons.Default.List
-- Accessible from navigation drawer
-
-### Testing Results ✅ (October 25, 2025)
-
-**Tested in Emulator:**
-- ✅ Connection status diagnostics display correctly
-- ✅ Real-time connection logs appear on right side of status card
-- ✅ Logs are color-coded (INFO, SUCCESS, WARNING, ERROR)
-- ✅ Target IP and port displayed when connecting
-- ✅ Settings save confirmation Snackbar appears with correct message
-- ✅ Event Log menu item visible and accessible
-- ✅ Event Log screen displays events correctly
-- ✅ Filter buttons work (All, Network, Errors)
-- ✅ Clear log button works
-- ✅ Auto-scroll to newest events working
-
-**Build Status:**
-- ✅ APK builds successfully (BUILD SUCCESSFUL in 1m 51s)
-- ⚠️ Minor deprecation warning: Icons.Default.List (non-critical)
-
-**Git Commit:**
-- Commit: `6d10c30` - [UI] Enhanced connection diagnostics and event logging
-
-### Current Status (2025-10-25)
-
-### Working Features ✓
-- Basic UI layout with Camera Control and Settings screens
-- Network settings configuration (IP, ports)
-- Connection state management with detailed logging
-- Protocol message structures defined
-- TCP/UDP client implementation with step-by-step diagnostics
-- Real-time connection status display with logs
-- Settings save confirmation feedback
-- Development event log for diagnostics
-
-### Issues Resolved ✅
-1. ~~**No connection diagnostics**~~ - **FIXED**: Now shows detailed connection logs with timestamps
-2. ~~**No settings save confirmation**~~ - **FIXED**: Snackbar shows confirmation message
-3. ~~**Poor error visibility**~~ - **FIXED**: Connection logs show each step and errors in detail
-4. **No network permission verification** - Permissions added to manifest (previous fix)
-5. **No pre-flight checks** - TODO: Add network connectivity validation
-6. ~~**Target IP not shown in status**~~ - **FIXED**: Target IP and port now displayed
-
-### Remaining Issues ❌
-1. **No pre-flight checks** - No validation before attempting connection
-2. **Network permission runtime check** - Should verify permissions at startup
+**Project:** DPM Ground Station Application
+**Platform:** Android (Kotlin/Java)
+**Target Device:** SkyDroid H16 Pro Ground Station
+**Version:** 1.0
+**Start Date:** October 24, 2025
+**Current Phase:** Phase 1 - Initial Setup & Protocol Implementation
+**Status:** Not Started
 
 ---
 
-## Priority Improvements for Android Studio
+## OVERALL PROGRESS
 
-### 🔴 HIGH PRIORITY - Network Diagnostics & Error Handling
-
-#### 1. Enhanced Network Status Model
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt`
-
-**Changes Required:**
-```kotlin
-data class NetworkStatus(
-    val state: ConnectionState = ConnectionState.DISCONNECTED,
-    val lastHeartbeatMs: Long = 0,
-    val roundTripTimeMs: Long = 0,
-    val errorMessage: String? = null,
-
-    // NEW FIELDS FOR DIAGNOSTICS
-    val targetIp: String? = null,           // Currently attempting to connect to this IP
-    val targetPort: Int? = null,            // Currently attempting this port
-    val connectionStep: String? = null,     // Current step: "Resolving", "TCP Connect", "Handshake", etc.
-    val lastAttemptTime: Long = 0,          // Timestamp of last connection attempt
-    val detailedError: String? = null       // Technical error details for debugging
-)
+```
+Documentation Review:  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
+Project Setup:         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
+Implementation:        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
+Testing:               ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
+Integration:           ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Not Started
 ```
 
-**Why:** Users need to see exactly what the app is trying to do and where it's failing.
+**Overall Completion:** 0%
+
+**Last Updated:** October 24, 2025 17:00 - Document Created
 
 ---
 
-#### 2. Improved NetworkClient Logging & Status Updates
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt`
+## RECENT UPDATES
 
-**Changes Required:**
+### 📋 Initial Document Creation (October 24, 2025)
 
-**a) Update connection state at each step:**
-```kotlin
-fun connect() {
-    // ... existing code ...
+- ✅ **PROGRESS_AND_TODO.md created** for Ground Station tracking
+- 📄 Based on Air-Side template structure
+- 🎯 Ready to begin Android development
 
-    connectJob = scope.launch {
-        try {
-            // Step 1: Starting connection
-            updateConnectionState(
-                ConnectionState.CONNECTING,
-                step = "Initializing connection to ${settings.targetIp}:${settings.commandPort}",
-                targetIp = settings.targetIp,
-                targetPort = settings.commandPort
-            )
-
-            // Step 2: TCP Connection
-            updateConnectionState(
-                ConnectionState.CONNECTING,
-                step = "Connecting TCP socket..."
-            )
-            connectTcp()
-
-            // Step 3: Sending handshake
-            updateConnectionState(
-                ConnectionState.CONNECTING,
-                step = "Sending handshake..."
-            )
-            sendHandshake()
-
-            // Step 4: Starting listeners
-            updateConnectionState(
-                ConnectionState.CONNECTING,
-                step = "Starting UDP listeners..."
-            )
-            startUdpStatusListener()
-            startHeartbeat()
-
-            // Success!
-            updateConnectionState(
-                ConnectionState.CONNECTED,
-                step = "Connected successfully"
-            )
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Connection failed at step: ${_connectionStatus.value.connectionStep}", e)
-            updateConnectionState(
-                ConnectionState.ERROR,
-                errorMessage = "Failed: ${e.message}",
-                detailedError = "${e.javaClass.simpleName}: ${e.message}\nStep: ${_connectionStatus.value.connectionStep}"
-            )
-
-            // Retry logic...
-        }
-    }
-}
-```
-
-**b) Enhanced error handling in connectTcp():**
-```kotlin
-private suspend fun connectTcp() {
-    try {
-        val address = InetAddress.getByName(settings.targetIp)
-        Log.d(TAG, "Resolved ${settings.targetIp} to $address")
-
-        updateConnectionState(
-            ConnectionState.CONNECTING,
-            step = "Opening socket to ${address.hostAddress}:${settings.commandPort}"
-        )
-
-        tcpSocket = withContext(Dispatchers.IO) {
-            Socket(address, settings.commandPort).apply {
-                soTimeout = settings.connectionTimeoutMs.toInt()
-            }
-        }
-
-        Log.i(TAG, "TCP socket connected successfully")
-        tcpWriter = PrintWriter(tcpSocket!!.getOutputStream(), true)
-        tcpReader = BufferedReader(InputStreamReader(tcpSocket!!.getInputStream()))
-
-    } catch (e: UnknownHostException) {
-        throw Exception("Cannot resolve hostname: ${settings.targetIp}", e)
-    } catch (e: ConnectException) {
-        throw Exception("Connection refused by ${settings.targetIp}:${settings.commandPort}. Is the server running?", e)
-    } catch (e: SocketTimeoutException) {
-        throw Exception("Connection timeout after ${settings.connectionTimeoutMs}ms. Server not responding?", e)
-    } catch (e: Exception) {
-        throw Exception("TCP connection failed: ${e.message}", e)
-    }
-}
-```
-
-**c) Update the updateConnectionState function signature:**
-```kotlin
-private fun updateConnectionState(
-    state: ConnectionState,
-    errorMessage: String? = null,
-    detailedError: String? = null,
-    step: String? = null,
-    targetIp: String? = null,
-    targetPort: Int? = null
-) {
-    _connectionStatus.value = _connectionStatus.value.copy(
-        state = state,
-        errorMessage = errorMessage,
-        detailedError = detailedError,
-        connectionStep = step,
-        targetIp = targetIp ?: _connectionStatus.value.targetIp,
-        targetPort = targetPort ?: _connectionStatus.value.targetPort,
-        lastAttemptTime = if (state == ConnectionState.CONNECTING) {
-            System.currentTimeMillis()
-        } else {
-            _connectionStatus.value.lastAttemptTime
-        }
-    )
-}
-```
-
-**Why:** This provides step-by-step visibility into the connection process and specific error messages.
+**Status:** Ready to Start
+**Next:** Review documentation and set up Android Studio project
 
 ---
 
-#### 3. Network Permission Verification
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt`
+## PHASE 1: PLANNING & PREPARATION
 
-**Changes Required:**
+### 📋 Pending Tasks
 
-**a) Add permission check in MainActivity:**
-```kotlin
-import android.content.pm.PackageManager
-import android.Manifest
+- [ ] Review Command_Protocol_Specification_v1.0.md
+- [ ] Review Protocol_Implementation_Quick_Start.md
+- [ ] Review Android Ground Station architecture documentation
+- [ ] Review Phase1_Requirements_Update.md
+- [ ] Understand TCP/UDP protocol requirements
+- [ ] Understand JSON message format
+- [ ] Review H16 Ground Station specifications
+- [ ] Identify Android SDK requirements (API 25 minimum for H16)
+- [ ] Document Android app architecture plan
+- [ ] Create implementation strategy document
+- [ ] Get user approval for implementation plan
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Check network permission
-        checkNetworkPermission()
-
-        setContent {
-            // ... existing UI code ...
-        }
-    }
-
-    private fun checkNetworkPermission() {
-        val permission = Manifest.permission.INTERNET
-        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-            Log.e("MainActivity", "INTERNET permission not granted!")
-            // In modern Android, INTERNET is automatically granted, but log it anyway
-        } else {
-            Log.d("MainActivity", "INTERNET permission OK")
-        }
-    }
-}
-```
-
-**b) Add AndroidManifest.xml verification:**
-Ensure `app/src/main/AndroidManifest.xml` contains:
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-```
-
-**Why:** Explicit verification prevents silent failures due to missing permissions.
+**Estimated Time:** 2-3 hours
+**Status:** Not Started
+**Dependencies:** None
 
 ---
 
-#### 4. Pre-flight Network Connectivity Check
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt`
+## PHASE 2: PROJECT SETUP
 
-**Add new function:**
-```kotlin
-/**
- * Pre-flight check before attempting connection
- * Tests basic network connectivity and reachability
- */
-suspend fun testConnectivity(): Result<String> {
-    return withContext(Dispatchers.IO) {
-        try {
-            // Test 1: Check if we have network connectivity
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val activeNetwork = connectivityManager.activeNetworkInfo
-            if (activeNetwork?.isConnected != true) {
-                return@withContext Result.failure(Exception("No network connectivity. Check WiFi/Mobile data."))
-            }
+### 📋 Pending Tasks
 
-            // Test 2: Try to resolve the target IP
-            val address = try {
-                InetAddress.getByName(settings.targetIp)
-            } catch (e: UnknownHostException) {
-                return@withContext Result.failure(Exception("Cannot resolve ${settings.targetIp}. Check IP address."))
-            }
+#### Android Studio Configuration
+- [ ] Install/verify Android Studio
+- [ ] Install JDK 17 (Eclipse Adoptium)
+- [ ] Configure Android SDK for API 25+ (Android 7.1.2 for H16)
+- [ ] Install required build tools
+- [ ] Configure Gradle settings
 
-            // Test 3: Check if target is reachable (ICMP ping - may not work on all networks)
-            val reachable = address.isReachable(2000)
-            if (!reachable) {
-                Log.w(TAG, "Target ${settings.targetIp} not responding to ping (this may be normal if ICMP is blocked)")
-            }
+#### Project Creation
+- [ ] Create new Android project "DPM Ground Station"
+- [ ] Select Kotlin as primary language
+- [ ] Set minimum SDK to API 25 (Android 7.1.2)
+- [ ] Set target SDK to API 30 (Android 11)
+- [ ] Configure project structure
+- [ ] Add required dependencies to build.gradle:
+  - [ ] com.google.code.gson:gson:2.10.1 (JSON parsing)
+  - [ ] kotlinx-coroutines-android:1.7.3 (async operations)
+  - [ ] androidx.lifecycle:lifecycle-viewmodel-ktx (MVVM)
+  - [ ] androidx.lifecycle:lifecycle-livedata-ktx (reactive data)
 
-            Result.success("Pre-flight check passed. Target: ${address.hostAddress}")
+#### Project Structure
+- [ ] Create package structure:
+  - [ ] com.dpm.groundstation.network (TCP/UDP clients)
+  - [ ] com.dpm.groundstation.protocol (message handling)
+  - [ ] com.dpm.groundstation.ui (activities/fragments)
+  - [ ] com.dpm.groundstation.viewmodel (MVVM layer)
+  - [ ] com.dpm.groundstation.model (data classes)
+  - [ ] com.dpm.groundstation.camera (camera control logic)
+  - [ ] com.dpm.groundstation.gimbal (gimbal control logic)
+  - [ ] com.dpm.groundstation.utils (utilities)
 
-        } catch (e: Exception) {
-            Result.failure(Exception("Pre-flight check failed: ${e.message}"))
-        }
-    }
-}
-```
+#### Version Control
+- [ ] Initialize Git repository (if not using monorepo)
+- [ ] Create .gitignore for Android project
+- [ ] Document commit strategy
+- [ ] Set up branch structure
 
-**Note:** Requires Context - pass in NetworkClient constructor or use Application context.
-
-**Why:** Catch common issues (no network, bad IP) before attempting full connection.
-
----
-
-### 🟡 MEDIUM PRIORITY - UI/UX Improvements
-
-#### 5. Settings Save Confirmation
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt`
-
-**Changes Required:**
-```kotlin
-@Composable
-fun SettingsScreen(
-    viewModel: SettingsViewModel = viewModel(),
-    modifier: Modifier = Modifier
-) {
-    val networkStatus by viewModel.networkStatus.collectAsState()
-    val currentSettings by viewModel.networkSettings.collectAsState()
-
-    // NEW: Add Snackbar state
-    val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        SettingsContent(
-            // ... existing parameters ...
-            onSaveSettings = { newSettings ->
-                viewModel.updateSettings(newSettings)
-                // Show confirmation
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = "Settings saved: ${newSettings.targetIp}:${newSettings.commandPort}",
-                        duration = SnackbarDuration.Short
-                    )
-                }
-            },
-            // ...
-        )
-    }
-}
-```
-
-**Why:** User feedback confirms the action was successful.
+**Estimated Time:** 1-2 hours
+**Status:** Not Started
+**Dependencies:** Phase 1 complete
 
 ---
 
-#### 6. Enhanced Connection Status Display
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt`
+## PHASE 3: PROTOCOL FOUNDATION
 
-**Changes Required:**
-```kotlin
-// Enhanced status card showing detailed information
-Card(
-    modifier = Modifier.fillMaxWidth(),
-    colors = CardDefaults.cardColors(
-        containerColor = when (networkStatus.state) {
-            ConnectionState.CONNECTED, ConnectionState.OPERATIONAL -> MaterialTheme.colorScheme.primaryContainer
-            ConnectionState.CONNECTING -> MaterialTheme.colorScheme.secondaryContainer
-            ConnectionState.ERROR -> MaterialTheme.colorScheme.errorContainer
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        }
-    )
-) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text(
-            text = "Connection Status",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+### 📋 Data Classes & Models
 
-        // Status state
-        Text(
-            text = networkStatus.state.name,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold
-        )
+#### Message Models
+- [ ] Create ProtocolMessage.kt (base message structure)
+  - [ ] protocol_version field
+  - [ ] message_type field (command/status/response/heartbeat)
+  - [ ] sequence_id field
+  - [ ] timestamp field
+  - [ ] payload field (flexible JSON object)
+- [ ] Create CommandMessage.kt (extends ProtocolMessage)
+- [ ] Create ResponseMessage.kt (extends ProtocolMessage)
+- [ ] Create StatusMessage.kt (extends ProtocolMessage)
+- [ ] Create HeartbeatMessage.kt (extends ProtocolMessage)
+- [ ] Create ErrorResponse.kt
 
-        // NEW: Show target if available
-        networkStatus.targetIp?.let { ip ->
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Target: $ip:${networkStatus.targetPort ?: currentSettings.commandPort}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+#### Camera Models
+- [ ] Create CameraStatus.kt
+  - [ ] Connected state
+  - [ ] Model information
+  - [ ] Battery level
+  - [ ] Storage information
+  - [ ] Current settings (shutter, aperture, ISO, etc.)
+- [ ] Create CameraProperty.kt (property identifiers)
+- [ ] Create CameraCapability.kt (available options)
+- [ ] Create CaptureMode.kt (Still/Video/Burst)
+- [ ] Create FocusMode.kt (Auto/Manual/Continuous)
 
-        // NEW: Show current step if connecting
-        networkStatus.connectionStep?.let { step ->
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = step,
-                style = MaterialTheme.typography.bodySmall,
-                fontStyle = FontStyle.Italic
-            )
-        }
+#### Gimbal Models
+- [ ] Create GimbalStatus.kt
+  - [ ] Connected state
+  - [ ] Current angles (pitch/roll/yaw)
+  - [ ] Mode (Follow/Lock/Home)
+- [ ] Create GimbalMode.kt (mode enumeration)
 
-        // Error message
-        networkStatus.errorMessage?.let { error ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Error: $error",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+#### System Models
+- [ ] Create SystemStatus.kt
+  - [ ] CPU usage
+  - [ ] Memory usage
+  - [ ] Temperature
+  - [ ] Network status
+  - [ ] Uptime
 
-        // NEW: Last attempt time
-        if (networkStatus.lastAttemptTime > 0) {
-            Spacer(modifier = Modifier.height(4.dp))
-            val timeSince = (System.currentTimeMillis() - networkStatus.lastAttemptTime) / 1000
-            Text(
-                text = "Last attempt: ${timeSince}s ago",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-```
-
-**Why:** Shows exactly what the app is doing and where it failed.
+**Estimated Time:** 2 hours
+**Status:** Not Started
+**Dependencies:** Phase 2 complete
 
 ---
 
-#### 7. Diagnostic Information Panel (Expandable)
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt`
+## PHASE 4: NETWORK LAYER IMPLEMENTATION
 
-**Add new section:**
-```kotlin
-// NEW: Diagnostic panel (collapsible)
-var showDiagnostics by rememberSaveable { mutableStateOf(false) }
+### 📋 TCP Client Implementation
 
-Card(
-    modifier = Modifier.fillMaxWidth(),
-    colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
-    )
-) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Diagnostics",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            IconButton(onClick = { showDiagnostics = !showDiagnostics }) {
-                Icon(
-                    imageVector = if (showDiagnostics) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (showDiagnostics) "Hide" else "Show"
-                )
-            }
-        }
+- [ ] Create TcpClient.kt
+  - [ ] Connect to 192.168.144.20:5000
+  - [ ] Handle socket lifecycle
+  - [ ] Send command messages
+  - [ ] Receive response messages
+  - [ ] Parse JSON responses
+  - [ ] Handle connection errors
+  - [ ] Implement reconnection logic
+  - [ ] Thread-safe operations using Coroutines
 
-        if (showDiagnostics) {
-            Spacer(modifier = Modifier.height(8.dp))
+#### Commands to Implement
+- [ ] Handshake command
+- [ ] camera.set_property command
+- [ ] camera.capture command
+- [ ] camera.record command
+- [ ] camera.focus command
+- [ ] camera.set_focus_area command
+- [ ] gimbal.set_angle command
+- [ ] gimbal.set_mode command
+- [ ] content.list command
+- [ ] content.download command
+- [ ] system.get_status command
 
-            // Current settings
-            Text("Current Settings:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-            Text("• Target: ${currentSettings.targetIp}:${currentSettings.commandPort}", style = MaterialTheme.typography.bodySmall)
-            Text("• Status Port: ${currentSettings.statusListenPort}", style = MaterialTheme.typography.bodySmall)
-            Text("• Heartbeat Port: ${currentSettings.heartbeatPort}", style = MaterialTheme.typography.bodySmall)
-            Text("• Timeout: ${currentSettings.connectionTimeoutMs}ms", style = MaterialTheme.typography.bodySmall)
+**Estimated Time:** 3 hours
+**Status:** Not Started
+**Dependencies:** Phase 3 complete
 
-            Spacer(modifier = Modifier.height(8.dp))
+### 📋 UDP Client Implementation
 
-            // Connection status details
-            Text("Connection Details:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-            Text("• State: ${networkStatus.state}", style = MaterialTheme.typography.bodySmall)
-            networkStatus.connectionStep?.let {
-                Text("• Step: $it", style = MaterialTheme.typography.bodySmall)
-            }
-            if (networkStatus.lastHeartbeatMs > 0) {
-                val timeSince = (System.currentTimeMillis() - networkStatus.lastHeartbeatMs) / 1000
-                Text("• Last Heartbeat: ${timeSince}s ago", style = MaterialTheme.typography.bodySmall)
-            }
+- [ ] Create UdpStatusReceiver.kt
+  - [ ] Listen on 192.168.144.11:5001
+  - [ ] Receive status broadcasts at 5 Hz
+  - [ ] Parse JSON status messages
+  - [ ] Update LiveData/StateFlow
+  - [ ] Handle receive errors
+  - [ ] Background thread operation
 
-            // Detailed error (if available)
-            networkStatus.detailedError?.let { error ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Technical Error:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontFamily = FontFamily.Monospace)
-            }
-        }
-    }
-}
-```
+- [ ] Create UdpHeartbeat.kt
+  - [ ] Send heartbeat to 192.168.144.20:5002 at 1 Hz
+  - [ ] Receive heartbeat from air side
+  - [ ] Track last received timestamp
+  - [ ] Detect connection loss (> 10 seconds)
+  - [ ] Trigger reconnection on timeout
 
-**Why:** Advanced users can see technical details without cluttering the main UI.
+**Estimated Time:** 2 hours
+**Status:** Not Started
+**Dependencies:** Phase 3 complete
 
----
+### 📋 Network Manager
 
-### 🟢 LOW PRIORITY - Additional Enhancements
+- [ ] Create NetworkManager.kt (singleton)
+  - [ ] Coordinate TCP/UDP clients
+  - [ ] Manage connection state
+  - [ ] Handle network availability changes
+  - [ ] Provide unified API for UI layer
+  - [ ] Expose connection status LiveData
+  - [ ] Expose camera status LiveData
+  - [ ] Expose gimbal status LiveData
+  - [ ] Expose system status LiveData
 
-#### 8. Connection Test Button
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt`
-
-**Add button:**
-```kotlin
-// NEW: Test Connection button (separate from Connect)
-OutlinedButton(
-    onClick = {
-        coroutineScope.launch {
-            val result = viewModel.testConnectivity()
-            snackbarHostState.showSnackbar(
-                message = result.getOrElse { it.message ?: "Test failed" },
-                duration = SnackbarDuration.Long
-            )
-        }
-    },
-    modifier = Modifier.fillMaxWidth()
-) {
-    Icon(Icons.Default.NetworkCheck, contentDescription = null)
-    Spacer(modifier = Modifier.width(8.dp))
-    Text("Test Network Connectivity")
-}
-```
-
-**Why:** Allows testing without full connection attempt.
+**Estimated Time:** 2 hours
+**Status:** Not Started
+**Dependencies:** TCP and UDP implementations complete
 
 ---
 
-#### 9. Auto-Retry Configuration
-**File:** `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt`
+## PHASE 5: UI IMPLEMENTATION
 
-**Add settings:**
-```kotlin
-data class NetworkSettings(
-    // ... existing fields ...
-    val autoRetryEnabled: Boolean = true,
-    val maxRetryAttempts: Int = 3,
-    val retryDelayMs: Long = 2000
-)
-```
+### 📋 Main Activity
 
-**Update NetworkClient to respect these settings.**
+- [ ] Create MainActivity.kt
+  - [ ] Setup ViewBinding
+  - [ ] Initialize ViewModel
+  - [ ] Setup navigation (if using fragments)
+  - [ ] Handle permissions
+  - [ ] Observe connection state
+  - [ ] Display connection status indicator
 
-**Why:** Configurable retry behavior.
+### 📋 Connection Screen
 
----
+- [ ] Create ConnectionFragment.kt (or Activity)
+  - [ ] IP address input field (default: 192.168.144.20)
+  - [ ] Port configuration (TCP: 5000, UDP: 5001/5002)
+  - [ ] Connect button
+  - [ ] Connection status display
+  - [ ] Error message display
+  - [ ] Auto-reconnect toggle
 
-## Testing Checklist
+### 📋 Camera Control Screen
 
-After implementing improvements, test:
+- [ ] Create CameraControlFragment.kt
+  - [ ] **Exposure Controls Section:**
+    - [ ] Shutter speed selector (dropdown or wheel)
+    - [ ] Aperture selector (dropdown or wheel)
+    - [ ] ISO selector (dropdown or wheel)
+    - [ ] Exposure compensation slider
+  - [ ] **Focus Controls Section:**
+    - [ ] Focus mode selector (Auto/Manual/Continuous)
+    - [ ] Manual focus control (if in manual mode)
+    - [ ] Focus area selection (tap to focus on preview?)
+  - [ ] **White Balance Section:**
+    - [ ] WB preset selector (Auto/Daylight/Cloudy/etc.)
+    - [ ] Manual temperature control (if manual WB)
+  - [ ] **Capture Controls:**
+    - [ ] Capture button (still photo)
+    - [ ] Record button (video start/stop)
+    - [ ] Burst mode toggle
+    - [ ] File format selector (JPEG/RAW/JPEG+RAW)
+  - [ ] **Camera Status Display:**
+    - [ ] Battery level indicator
+    - [ ] Storage remaining
+    - [ ] Current settings display
+    - [ ] Connection status
 
-- [ ] Settings save shows confirmation
-- [ ] Connection status shows target IP and port
-- [ ] Connection status shows current step ("Connecting TCP...", etc.)
-- [ ] Error messages are specific and helpful
-- [ ] Diagnostics panel shows technical details
-- [ ] Connection to wrong IP shows clear error
-- [ ] Connection timeout shows clear error
-- [ ] Connection refused shows clear error
-- [ ] Network permission is verified on startup
-- [ ] Settings persist after app restart
+### 📋 Gimbal Control Screen
 
----
+- [ ] Create GimbalControlFragment.kt
+  - [ ] Gimbal angle display (Pitch/Roll/Yaw)
+  - [ ] Manual control joystick/sliders
+  - [ ] Mode selector (Follow/Lock/Home)
+  - [ ] Quick position buttons (Home/Center)
+  - [ ] Gimbal status display
 
-## Known Issues from Testing Session (2025-10-25)
+### 📋 System Status Screen
 
-### Issue 1: Android App Cannot Connect to Pi ✅ FIXED
-**Symptoms:**
-- App shows "DISCONNECTED" → "ERROR" immediately
-- No connection attempts visible on Pi server logs
-- Ping from H16 to Pi works fine
-- **CRITICAL:** Android Settings shows NO permissions for DPM app
+- [ ] Create SystemStatusFragment.kt
+  - [ ] CPU usage display
+  - [ ] Memory usage display
+  - [ ] Temperature display
+  - [ ] Network statistics
+  - [ ] Uptime display
+  - [ ] Air-side log viewer (optional)
 
-**Investigation Results:**
-- Pi server is running and accepting connections (tested with nc)
-- No network packets from H16 (10.0.1.45) reaching Pi (10.0.1.53)
+### 📋 Content Management Screen
 
-**ROOT CAUSE IDENTIFIED:**
-❌ **AndroidManifest.xml was missing INTERNET permission!**
-- No `<uses-permission>` tags declared at all
-- Android silently blocked all network access
-- App couldn't make any TCP/UDP connections
+- [ ] Create ContentFragment.kt
+  - [ ] List files on camera
+  - [ ] Thumbnail display (if available)
+  - [ ] Download button per file
+  - [ ] Download progress indicator
+  - [ ] Storage cleanup controls
 
-**FIX APPLIED:**
-✅ Added required permissions to AndroidManifest.xml:
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-```
+### 📋 Settings Screen
 
-**Next Steps:**
-1. **REBUILD AND REINSTALL APK** - Old APK won't have permissions
-2. Verify permissions appear in Android Settings → Apps → DPM
-3. Test connection again
-4. If still failing, implement detailed logging per improvements above
+- [ ] Create SettingsFragment.kt
+  - [ ] Network configuration (IP/ports)
+  - [ ] Auto-reconnect settings
+  - [ ] Logging level
+  - [ ] UI preferences
+  - [ ] About/version information
 
----
-
-## Development Environment Setup
-
-1. **Open Project in Android Studio**
-   ```bash
-   # From project root
-   cd android
-   # Open in Android Studio: File → Open → Select 'android' folder
-   ```
-
-2. **Verify Dependencies**
-   - Kotlin Coroutines
-   - Jetpack Compose
-   - Gson for JSON
-   - Material3 for UI
-
-3. **Build Configuration**
-   - Target SDK: 34 (Android 14)
-   - Min SDK: 26 (Android 8.0)
-
-4. **Testing Setup**
-   - Use ADB to install on H16
-   - Monitor logcat for errors:
-     ```bash
-     adb logcat | grep -i "NetworkClient\|DPM"
-     ```
+**Estimated Time:** 8-10 hours
+**Status:** Not Started
+**Dependencies:** Phase 4 complete
 
 ---
 
-## References
+## PHASE 6: VIEWMODEL LAYER
 
-- **Protocol Specification:** `../sbc/docs/protocol-specification.md`
-- **Network Architecture:** `../sbc/docs/network-architecture.md`
-- **WiFi Testing Guide:** `../sbc/docs/WIFI_TESTING.md`
-- **Main Project TODO:** `../sbc/docs/PROGRESS_AND_TODO.md`
+### 📋 ViewModels to Implement
+
+- [ ] Create ConnectionViewModel.kt
+  - [ ] Manage connection state
+  - [ ] Handle connect/disconnect actions
+  - [ ] Expose connection status LiveData
+
+- [ ] Create CameraViewModel.kt
+  - [ ] Manage camera state
+  - [ ] Handle camera commands
+  - [ ] Expose camera status LiveData
+  - [ ] Handle camera property changes
+  - [ ] Manage capture operations
+
+- [ ] Create GimbalViewModel.kt
+  - [ ] Manage gimbal state
+  - [ ] Handle gimbal commands
+  - [ ] Expose gimbal status LiveData
+  - [ ] Handle angle/mode changes
+
+- [ ] Create SystemViewModel.kt
+  - [ ] Manage system status
+  - [ ] Expose system metrics LiveData
+  - [ ] Handle status updates
+
+- [ ] Create ContentViewModel.kt
+  - [ ] Manage file list
+  - [ ] Handle download operations
+  - [ ] Track download progress
+
+**Estimated Time:** 4 hours
+**Status:** Not Started
+**Dependencies:** Phase 4 and 5 in progress
+
+---
+
+## PHASE 7: INTEGRATION & TESTING
+
+### 📋 Network Layer Tests
+
+- [ ] Test TCP connection to 192.168.144.20:5000
+- [ ] Test handshake exchange
+- [ ] Test camera commands (all types)
+- [ ] Test command responses
+- [ ] Test error handling (invalid JSON, unknown commands)
+- [ ] Test UDP status reception at 5 Hz
+- [ ] Test heartbeat exchange at 1 Hz
+- [ ] Test connection loss detection
+- [ ] Test reconnection logic
+
+### 📋 UI Tests
+
+- [ ] Test connection screen functionality
+- [ ] Test camera control UI responsiveness
+- [ ] Test gimbal control UI responsiveness
+- [ ] Test status display updates
+- [ ] Test settings persistence
+- [ ] Test error message display
+- [ ] Test navigation flow
+
+### 📋 Integration Tests
+
+- [ ] Test full connection → command → status flow
+- [ ] Test camera control end-to-end
+- [ ] Test gimbal control end-to-end
+- [ ] Test content download flow
+- [ ] Test simultaneous operations (camera + gimbal)
+- [ ] Test app lifecycle (pause/resume/background)
+- [ ] Test memory usage (no leaks)
+- [ ] Test battery consumption
+
+### 📋 H16 Hardware Tests
+
+- [ ] Deploy APK to H16 via ADB
+- [ ] Test on actual H16 hardware
+- [ ] Test screen resolution compatibility
+- [ ] Test touch input responsiveness
+- [ ] Test performance on H16's Android 11
+- [ ] Test with real air-side system
+- [ ] Test in flight conditions (if possible)
+
+### 📋 Error Handling Tests
+
+- [ ] Test air-side unavailable scenario
+- [ ] Test network loss during operation
+- [ ] Test invalid command responses
+- [ ] Test camera disconnection
+- [ ] Test timeout scenarios
+- [ ] Test malformed JSON responses
+
+### 📋 Performance Tests
+
+- [ ] Measure command latency (< 50ms target)
+- [ ] Verify status update frequency (5 Hz)
+- [ ] Test UI responsiveness under load
+- [ ] Monitor memory usage (< 512 MB target)
+- [ ] Monitor CPU usage (< 30% target)
+- [ ] Test 1-hour continuous operation
+
+**Estimated Time:** 4-6 hours
+**Status:** Not Started
+**Dependencies:** Phase 5 complete
+
+---
+
+## PHASE 8: POLISH & OPTIMIZATION
+
+### 📋 UI/UX Improvements
+
+- [ ] Improve button layout and sizing for H16 screen
+- [ ] Add haptic feedback for critical actions
+- [ ] Improve error message clarity
+- [ ] Add loading indicators
+- [ ] Add success/failure notifications
+- [ ] Improve color scheme for outdoor visibility
+- [ ] Add dark/light theme support
+- [ ] Improve accessibility (font sizes, contrast)
+
+### 📋 Performance Optimization
+
+- [ ] Optimize network operations (reduce overhead)
+- [ ] Optimize UI rendering (reduce recompositions)
+- [ ] Optimize memory usage
+- [ ] Add caching where appropriate
+- [ ] Reduce battery consumption
+- [ ] Profile and fix performance bottlenecks
+
+### 📋 Code Quality
+
+- [ ] Code review (self-review against best practices)
+- [ ] Add inline documentation
+- [ ] Fix all compiler warnings
+- [ ] Add error handling for edge cases
+- [ ] Refactor complex functions
+- [ ] Follow Kotlin coding conventions
+
+**Estimated Time:** 3-4 hours
+**Status:** Not Started
+**Dependencies:** Phase 7 complete
+
+---
+
+## PHASE 9: DOCUMENTATION & DEPLOYMENT
+
+### 📋 Documentation Tasks
+
+- [ ] Write README.md for Android app
+- [ ] Document build instructions
+- [ ] Document APK generation process
+- [ ] Document deployment to H16
+- [ ] Document network configuration requirements
+- [ ] Create user manual (basic operation)
+- [ ] Document known issues/limitations
+- [ ] Document troubleshooting procedures
+- [ ] Create quick reference guide
+- [ ] Document Phase 2 preparation notes
+
+### 📋 Deployment Tasks
+
+- [ ] Generate release APK
+- [ ] Sign APK with release key
+- [ ] Test release APK on H16
+- [ ] Create deployment checklist
+- [ ] Document H16 setup procedure
+- [ ] Create backup/restore procedure
+- [ ] Document version control strategy
+
+**Estimated Time:** 2-3 hours
+**Status:** Not Started
+**Dependencies:** Phase 8 complete
+
+---
+
+## ISSUE TRACKER
+
+### 🐛 Known Issues
+
+*No issues yet - development not started*
+
+### 🚧 Blockers
+
+**Current Blockers:**
+- None yet - ready to start Phase 1
+
+### ⚠️ Warnings
+
+- **H16 Hardware:** Not yet available for testing
+- **Air-Side System:** Must be operational for integration testing
+- **Network Configuration:** Verify 192.168.144.x network is correct for H16
+
+---
+
+## COMPLETION CHECKLIST
+
+### Phase 1 MVP Completion Criteria
+
+**Functionality:**
+- [ ] App compiles without errors or warnings
+- [ ] App installs and runs on Android device
+- [ ] TCP client connects to air-side (192.168.144.20:5000)
+- [ ] Handshake exchange works correctly
+- [ ] Camera commands can be sent
+- [ ] Command responses received and parsed
+- [ ] UDP status broadcasts received at ~5 Hz
+- [ ] Status updates displayed in UI
+- [ ] Heartbeat exchange works (1 Hz bidirectional)
+- [ ] Connection loss detected and handled
+- [ ] Camera controls functional
+- [ ] Gimbal controls functional
+- [ ] Graceful error handling
+
+**Testing:**
+- [ ] All network layer tests pass
+- [ ] All UI tests pass
+- [ ] All integration tests pass
+- [ ] At least 80% of error handling tests pass
+- [ ] Can connect to air-side system
+- [ ] Can control camera successfully
+- [ ] Can control gimbal successfully
+- [ ] No memory leaks (profiler clean)
+- [ ] No ANR (Application Not Responding) errors
+- [ ] Battery usage acceptable
+
+**Code Quality:**
+- [ ] Code follows Kotlin best practices
+- [ ] Proper use of Coroutines
+- [ ] LiveData/StateFlow used correctly
+- [ ] MVVM architecture implemented
+- [ ] Clean separation of concerns
+- [ ] Error handling comprehensive
+- [ ] Code documented
+
+**Documentation:**
+- [ ] README complete
+- [ ] Build instructions documented
+- [ ] Deployment guide created
+- [ ] User manual drafted
+- [ ] Test report created
+
+---
+
+## TIMELINE
+
+**Planned Start:** October 24, 2025 (pending approval)
+**Target Completion:** TBD
+**Estimated Duration:** 25-35 hours of implementation work
+
+**Milestones:**
+- [ ] Project Setup Complete
+- [ ] Protocol Foundation Complete
+- [ ] Network Layer Complete
+- [ ] UI Implementation Complete
+- [ ] ViewModel Layer Complete
+- [ ] Integration & Testing Complete
+- [ ] Polish & Optimization Complete
+- [ ] Documentation Complete
+- [ ] Phase 1 MVP Complete
+
+---
+
+## NOTES
+
+### Development Environment
+- **Platform:** Android
+- **Language:** Kotlin (primary), Java (if needed)
+- **Target Device:** SkyDroid H16 Pro Ground Station
+- **Min SDK:** API 25 (Android 7.1.2)
+- **Target SDK:** API 30 (Android 11)
+- **IDE:** Android Studio
+- **JDK:** 17 (Eclipse Adoptium)
+
+### Target Hardware Specifications
+- **Device:** SkyDroid H16 Pro
+- **OS:** Android 11 (custom H16 firmware)
+- **Screen:** Integrated display
+- **Network:** Built-in connection to R16 air unit
+- **IP Range:** 192.168.144.x (H16 internal network)
+
+### Important Addresses
+- **Air-Side TCP:** 192.168.144.20:5000 (commands)
+- **Air-Side Status:** 192.168.144.11:5001 (UDP broadcasts from air)
+- **Ground Station:** 192.168.144.11 (this app)
+- **Heartbeat:** 192.168.144.20:5002 (bidirectional UDP)
+
+### Key Dependencies
+- **Gson:** 2.10.1 (JSON parsing)
+- **Coroutines:** 1.7.3 (async operations)
+- **Lifecycle:** ViewModels and LiveData
+- **AndroidX:** Core Android libraries
+
+### Key Design Decisions
+- **Kotlin over Java:** Modern Android development
+- **MVVM Architecture:** Clean separation of concerns
+- **Coroutines over RxJava:** Official Android async pattern
+- **LiveData for UI updates:** Lifecycle-aware reactive data
+- **Single Activity + Fragments:** Modern Android navigation
+- **Protocol-First Development:** Interface defined by protocol spec
+- **No External Dependencies:** Minimal external libraries
+
+### Network Protocol Summary
+- **TCP Port 5000:** Commands (Ground → Air)
+- **UDP Port 5001:** Status broadcasts (Air → Ground, 5 Hz)
+- **UDP Port 5002:** Heartbeat (Bidirectional, 1 Hz)
+- **Format:** JSON (UTF-8 encoded)
+- **Protocol Version:** 1.0
+
+### Development Phases Priority
+1. **Connection + Protocol** (Weeks 1-2) - Critical foundation
+2. **Basic Camera Control** (Week 3) - Core functionality
+3. **Full UI** (Weeks 4-6) - Professional interface
+4. **Polish + Testing** (Weeks 7-8) - Quality assurance
+
+---
+
+## WEEKLY BREAKDOWN (Aligned with Project Timeline)
+
+### Week 1: TCP Communication
+- **Days 1-2:** Project setup + Protocol foundation
+- **Days 3-4:** TCP client implementation
+- **Day 5:** Basic UI + Connection testing
+
+### Week 2: UDP + Status Updates
+- **Days 1-2:** UDP status receiver + Heartbeat
+- **Days 3-4:** Network manager + Status display UI
+- **Day 5:** Integration testing
+
+### Week 3: Basic Camera Control
+- **Days 1-2:** Camera command implementation
+- **Days 3-4:** Camera control UI
+- **Day 5:** Camera testing with real hardware
+
+### Weeks 4-6: Full UI Development
+- Camera control screen (advanced features)
+- Gimbal control screen
+- System status screen
+- Settings screen
+- UI polish
+
+### Weeks 7-10: Complete Feature Set (Per Project Timeline)
+- White balance controls
+- Focus area selection
+- File format controls
+- Content download UI
+- Full testing suite
+
+---
+
+## REFERENCE DOCUMENTS
+
+### Required Reading
+1. Command_Protocol_Specification_v1.0.md
+2. Protocol_Implementation_Quick_Start.md
+3. Drone_Payload_Manager_Phase1_Scope.md
+4. Phase1_Requirements_Update.md
+5. Updated_System_Architecture_H16.md
+
+### Android Resources
+- Kotlin Coroutines Guide: https://kotlinlang.org/docs/coroutines-guide.html
+- Android Architecture Components: https://developer.android.com/topic/architecture
+- Network Programming: Standard Java sockets + Kotlin coroutines
+- Gson Documentation: https://github.com/google/gson
+
+---
+
+**Document Created:** October 24, 2025
+**Last Updated:** October 24, 2025 17:00
+**Next Review:** After Phase 1 completion
+**Status:** 📋 Ready to Begin
+
+---
+
+## NEXT IMMEDIATE ACTIONS
+
+### 🎯 This Week (High Priority):
+1. **Review all protocol documentation** (2-3 hours)
+2. **Set up Android Studio project** (1 hour)
+3. **Create data classes for protocol messages** (2 hours)
+4. **Implement TCP client** (3 hours)
+5. **Create basic connection UI** (2 hours)
+6. **Test TCP connection with air-side** (1 hour)
+
+### 📅 Next Week:
+7. Implement UDP status receiver
+8. Implement heartbeat system
+9. Create status display UI
+10. Test connection reliability
+11. Begin camera command implementation
+
+---
+
+**Ready to start Ground Station development! 🚀**
