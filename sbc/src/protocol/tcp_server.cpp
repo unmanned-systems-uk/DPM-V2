@@ -251,6 +251,10 @@ json TCPServer::processCommand(const json& command) {
             return handleSystemGetStatus(command["payload"], seq_id);
         } else if (cmd == "camera.capture") {
             return handleCameraCapture(command["payload"], seq_id);
+        } else if (cmd == "camera.set_property") {
+            return handleCameraSetProperty(command["payload"], seq_id);
+        } else if (cmd == "camera.get_properties") {
+            return handleCameraGetProperties(command["payload"], seq_id);
         } else {
             // Check if it's a Phase 2 command
             if (cmd.find("camera.") == 0 || cmd.find("gimbal.") == 0) {
@@ -347,6 +351,113 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
     };
 
     return messages::createSuccessResponse(seq_id, "camera.capture", result);
+}
+
+json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
+    // Check if camera is available
+    if (!camera_) {
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Camera interface not initialized"
+        );
+    }
+
+    // Check if camera is connected
+    if (!camera_->isConnected()) {
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected"
+        );
+    }
+
+    // Validate parameters
+    if (!payload.contains("property") || !payload.contains("value")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required parameters: property and value"
+        );
+    }
+
+    std::string property = payload["property"].get<std::string>();
+    std::string value = payload["value"].is_string() ?
+                        payload["value"].get<std::string>() :
+                        std::to_string(payload["value"].get<int>());
+
+    Logger::info("Executing camera.set_property: " + property + " = " + value);
+
+    // Set the property
+    bool success = camera_->setProperty(property, value);
+
+    if (!success) {
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Failed to set camera property: " + property
+        );
+    }
+
+    // Return success response
+    json result = {
+        {"property", property},
+        {"value", value},
+        {"status", "success"}
+    };
+
+    return messages::createSuccessResponse(seq_id, "camera.set_property", result);
+}
+
+json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
+    // Check if camera is available
+    if (!camera_) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Camera interface not initialized"
+        );
+    }
+
+    // Check if camera is connected
+    if (!camera_->isConnected()) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected"
+        );
+    }
+
+    // Validate parameters
+    if (!payload.contains("properties")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required parameter: properties (array)"
+        );
+    }
+
+    json properties_array = payload["properties"];
+    if (!properties_array.is_array()) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::INVALID_JSON,
+            "Parameter 'properties' must be an array"
+        );
+    }
+
+    Logger::info("Executing camera.get_properties for " +
+                 std::to_string(properties_array.size()) + " properties");
+
+    // Get each property
+    json result = json::object();
+    for (const auto& prop : properties_array) {
+        std::string property = prop.get<std::string>();
+        std::string value = camera_->getProperty(property);
+        result[property] = value;
+    }
+
+    return messages::createSuccessResponse(seq_id, "camera.get_properties", result);
 }
 
 bool TCPServer::validateMessage(const json& msg, std::string& error) {

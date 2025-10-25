@@ -26,9 +26,12 @@ public:
     // Capture image (shutter release)
     virtual bool capture() = 0;
 
+    // Camera property control
+    // Supported properties: shutter_speed, aperture, iso, white_balance, focus_mode, file_format
+    virtual bool setProperty(const std::string& property, const std::string& value) = 0;
+    virtual std::string getProperty(const std::string& property) const = 0;
+
     // Phase 2: Additional methods for camera control
-    // virtual bool setProperty(const std::string& property, const std::string& value) = 0;
-    // virtual std::string getProperty(const std::string& property) const = 0;
     // virtual bool startRecording() = 0;
     // virtual bool stopRecording() = 0;
 };

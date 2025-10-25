@@ -309,6 +309,93 @@ private:
         return 999; // Placeholder
     }
 
+    bool setProperty(const std::string& property, const std::string& value) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!isConnectedLocked()) {
+            Logger::error("Cannot set property: camera not connected");
+            return false;
+        }
+
+        Logger::info("Setting property: " + property + " = " + value);
+
+        SDK::CrDeviceProperty prop;
+
+        // Map property name to SDK property code and data type
+        if (property == "aperture") {
+            // F-number: stored as uint16 * 100 (e.g., 280 = f/2.8)
+            // For now, accept raw SDK value as string
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
+            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
+        else if (property == "shutter_speed") {
+            // Shutter speed: uint32 with high word = numerator, low word = denominator
+            // For now, accept raw SDK value as string
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
+            prop.SetCurrentValue(static_cast<uint32_t>(std::stoul(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+        }
+        else if (property == "iso") {
+            // ISO: uint32 with mode in upper 8 bits, value in lower 24 bits
+            // For now, accept raw SDK value as string
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
+            prop.SetCurrentValue(static_cast<uint32_t>(std::stoul(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+        }
+        else if (property == "white_balance") {
+            // White balance: uint16 enumerated value
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_WhiteBalance);
+            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
+        else if (property == "focus_mode") {
+            // Focus mode: uint16 enumerated value
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode);
+            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
+        else if (property == "file_format") {
+            // File type: enumerated value (need to determine data type)
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FileType);
+            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
+        else {
+            Logger::error("Unknown or unsupported property: " + property);
+            Logger::error("Supported properties: aperture, shutter_speed, iso, white_balance, focus_mode, file_format");
+            return false;
+        }
+
+        // Send property to camera
+        auto status = SDK::SetDeviceProperty(device_handle_, &prop);
+
+        if (CR_FAILED(status)) {
+            Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
+            return false;
+        }
+
+        Logger::info("Property set successfully");
+        return true;
+    }
+
+    std::string getProperty(const std::string& property) const override {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!isConnectedLocked()) {
+            Logger::error("Cannot get property: camera not connected");
+            return "";
+        }
+
+        Logger::info("Getting property: " + property);
+
+        // For now, return empty string - full implementation requires
+        // querying camera property list via SDK::GetDeviceProperty()
+        // This will be implemented in the next iteration
+        Logger::warning("getProperty not yet fully implemented");
+        return "";
+    }
+
 private:
     mutable std::mutex mutex_;
     bool sdk_initialized_;
