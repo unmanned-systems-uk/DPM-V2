@@ -3,23 +3,50 @@
   "title": "DPM Camera Properties",
   "description": "Sony camera property definitions with validation and implementation tracking",
   "version": "1.0.0",
-  
   "protocol_design": {
     "value_format": "human_readable",
     "rationale": "Protocol uses human-readable string values (e.g., '1/8000') not Sony SDK raw values (e.g., 0x00010001). Air-side handles conversion to Sony SDK format. This keeps the protocol camera-agnostic, debuggable, and testable.",
     "see_also": "docs/protocol/PROTOCOL_VALUE_MAPPING.md"
   },
-
   "property_categories": {
-    "exposure": ["shutter_speed", "aperture", "iso", "exposure_compensation", "metering_mode"],
-    "focus": ["focus_mode", "focus_area", "manual_focus_position"],
-    "white_balance": ["white_balance", "white_balance_temperature", "tint"],
-    "file_format": ["file_format", "image_quality", "aspect_ratio"],
-    "video": ["video_resolution", "video_framerate", "video_format"],
-    "drive_mode": ["drive_mode", "burst_count", "self_timer"],
-    "advanced": ["picture_profile", "color_mode", "dynamic_range"]
+    "exposure": [
+      "shutter_speed",
+      "aperture",
+      "iso",
+      "exposure_compensation",
+      "metering_mode"
+    ],
+    "focus": [
+      "focus_mode",
+      "focus_area",
+      "manual_focus_position"
+    ],
+    "white_balance": [
+      "white_balance",
+      "white_balance_temperature",
+      "tint"
+    ],
+    "file_format": [
+      "file_format",
+      "image_quality",
+      "aspect_ratio"
+    ],
+    "video": [
+      "video_resolution",
+      "video_framerate",
+      "video_format"
+    ],
+    "drive_mode": [
+      "drive_mode",
+      "burst_count",
+      "self_timer"
+    ],
+    "advanced": [
+      "picture_profile",
+      "color_mode",
+      "dynamic_range"
+    ]
   },
-
   "properties": {
     "shutter_speed": {
       "display_name": "Shutter Speed",
@@ -28,7 +55,28 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["auto", "1/8000", "1/4000", "1/2000", "1/1000", "1/500", "1/250", "1/125", "1/60", "1/30", "1/15", "1/8", "1/4", "1/2", "1", "2", "4", "8", "15", "30"],
+        "values": [
+          "auto",
+          "1/8000",
+          "1/4000",
+          "1/2000",
+          "1/1000",
+          "1/500",
+          "1/250",
+          "1/125",
+          "1/60",
+          "1/30",
+          "1/15",
+          "1/8",
+          "1/4",
+          "1/2",
+          "1",
+          "2",
+          "4",
+          "8",
+          "15",
+          "30"
+        ],
         "default": "auto"
       },
       "sony_sdk": {
@@ -49,13 +97,12 @@
         "priority": "high"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.1.0",
         "notes": ""
       }
     },
-
     "aperture": {
       "display_name": "Aperture",
       "category": "exposure",
@@ -63,7 +110,18 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["auto", "f/1.4", "f/2", "f/2.8", "f/4", "f/5.6", "f/8", "f/11", "f/16", "f/22"],
+        "values": [
+          "auto",
+          "f/1.4",
+          "f/2",
+          "f/2.8",
+          "f/4",
+          "f/5.6",
+          "f/8",
+          "f/11",
+          "f/16",
+          "f/22"
+        ],
         "default": "auto",
         "notes": "Values depend on attached lens"
       },
@@ -80,13 +138,12 @@
         "priority": "high"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.1.0",
         "notes": ""
       }
     },
-
     "iso": {
       "display_name": "ISO",
       "category": "exposure",
@@ -96,7 +153,20 @@
         "type": "range",
         "min": 100,
         "max": 409600,
-        "values": ["auto", 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400],
+        "values": [
+          "auto",
+          100,
+          200,
+          400,
+          800,
+          1600,
+          3200,
+          6400,
+          12800,
+          25600,
+          51200,
+          102400
+        ],
         "default": "auto",
         "notes": "Extended ISO may require specific camera mode"
       },
@@ -113,13 +183,12 @@
         "priority": "high"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.1.0",
         "notes": ""
       }
     },
-
     "white_balance": {
       "display_name": "White Balance",
       "category": "white_balance",
@@ -127,7 +196,21 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["auto", "daylight", "shade", "cloudy", "tungsten", "fluorescent_warm", "fluorescent_cool", "fluorescent_day", "fluorescent_daylight", "flash", "underwater", "custom", "temperature"],
+        "values": [
+          "auto",
+          "daylight",
+          "shade",
+          "cloudy",
+          "tungsten",
+          "fluorescent_warm",
+          "fluorescent_cool",
+          "fluorescent_day",
+          "fluorescent_daylight",
+          "flash",
+          "underwater",
+          "custom",
+          "temperature"
+        ],
         "default": "auto"
       },
       "sony_sdk": {
@@ -143,13 +226,12 @@
         "priority": "medium"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.0.0",
         "notes": "Phase 1 requirement"
       }
     },
-
     "white_balance_temperature": {
       "display_name": "White Balance Temperature",
       "category": "white_balance",
@@ -177,13 +259,12 @@
         "enabled_when": "white_balance == 'temperature'"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.0.0",
         "notes": "Phase 1 requirement"
       }
     },
-
     "focus_mode": {
       "display_name": "Focus Mode",
       "category": "focus",
@@ -191,7 +272,13 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["af_s", "af_c", "af_a", "dmf", "manual"],
+        "values": [
+          "af_s",
+          "af_c",
+          "af_a",
+          "dmf",
+          "manual"
+        ],
         "default": "af_s",
         "notes": "af_s=Single, af_c=Continuous, af_a=Auto, dmf=Direct Manual"
       },
@@ -208,13 +295,12 @@
         "priority": "high"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.0.0",
         "notes": "Phase 1 requirement"
       }
     },
-
     "file_format": {
       "display_name": "File Format",
       "category": "file_format",
@@ -222,7 +308,11 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["jpeg", "raw", "jpeg_raw"],
+        "values": [
+          "jpeg",
+          "raw",
+          "jpeg_raw"
+        ],
         "default": "jpeg",
         "notes": "RAW format depends on camera model"
       },
@@ -239,13 +329,12 @@
         "priority": "medium"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.0.0",
         "notes": "Phase 1 requirement"
       }
     },
-
     "drive_mode": {
       "display_name": "Drive Mode",
       "category": "drive_mode",
@@ -253,7 +342,14 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["single", "continuous_lo", "continuous_hi", "self_timer_10s", "self_timer_2s", "bracket"],
+        "values": [
+          "single",
+          "continuous_lo",
+          "continuous_hi",
+          "self_timer_10s",
+          "self_timer_2s",
+          "bracket"
+        ],
         "default": "single"
       },
       "sony_sdk": {
@@ -269,13 +365,12 @@
         "priority": "medium"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.0.0",
         "notes": "Phase 1 requirement"
       }
     },
-
     "picture_profile": {
       "display_name": "Picture Profile",
       "category": "advanced",
@@ -283,7 +378,19 @@
       "type": "string",
       "validation": {
         "type": "enum",
-        "values": ["off", "pp1", "pp2", "pp3", "pp4", "pp5", "pp6", "pp7", "pp8", "pp9", "pp10"],
+        "values": [
+          "off",
+          "pp1",
+          "pp2",
+          "pp3",
+          "pp4",
+          "pp5",
+          "pp6",
+          "pp7",
+          "pp8",
+          "pp9",
+          "pp10"
+        ],
         "default": "off",
         "notes": "Only available on certain camera models (e.g., A7 series)"
       },
@@ -298,7 +405,9 @@
         "control_type": "dropdown",
         "group": "Advanced",
         "priority": "low",
-        "requires_camera_features": ["picture_profiles"]
+        "requires_camera_features": [
+          "picture_profiles"
+        ]
       },
       "implemented": {
         "air_side": false,
@@ -307,7 +416,6 @@
         "notes": "Deferred to Phase 3 per project plan"
       }
     },
-
     "exposure_compensation": {
       "display_name": "Exposure Compensation",
       "category": "exposure",
@@ -341,7 +449,6 @@
       }
     }
   },
-
   "property_dependencies": {
     "white_balance_temperature": {
       "requires": {
@@ -351,35 +458,71 @@
     },
     "burst_count": {
       "requires": {
-        "drive_mode": ["continuous_lo", "continuous_hi", "bracket"]
+        "drive_mode": [
+          "continuous_lo",
+          "continuous_hi",
+          "bracket"
+        ]
       },
       "description": "Burst count only relevant in continuous modes"
     }
   },
-
   "camera_mode_restrictions": {
     "manual_mode": {
-      "allowed": ["shutter_speed", "aperture", "iso", "white_balance", "focus_mode", "file_format"],
-      "disabled": ["exposure_compensation"],
+      "allowed": [
+        "shutter_speed",
+        "aperture",
+        "iso",
+        "white_balance",
+        "focus_mode",
+        "file_format"
+      ],
+      "disabled": [
+        "exposure_compensation"
+      ],
       "notes": "Full manual control, no auto exposure compensation"
     },
     "aperture_priority": {
-      "allowed": ["aperture", "iso", "exposure_compensation", "white_balance", "focus_mode"],
-      "auto": ["shutter_speed"],
+      "allowed": [
+        "aperture",
+        "iso",
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode"
+      ],
+      "auto": [
+        "shutter_speed"
+      ],
       "notes": "Camera controls shutter speed automatically"
     },
     "shutter_priority": {
-      "allowed": ["shutter_speed", "iso", "exposure_compensation", "white_balance", "focus_mode"],
-      "auto": ["aperture"],
+      "allowed": [
+        "shutter_speed",
+        "iso",
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode"
+      ],
+      "auto": [
+        "aperture"
+      ],
       "notes": "Camera controls aperture automatically"
     },
     "program_auto": {
-      "allowed": ["exposure_compensation", "white_balance", "focus_mode", "file_format"],
-      "auto": ["shutter_speed", "aperture", "iso"],
+      "allowed": [
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode",
+        "file_format"
+      ],
+      "auto": [
+        "shutter_speed",
+        "aperture",
+        "iso"
+      ],
       "notes": "Camera controls exposure triangle"
     }
   },
-
   "implementation_phases": {
     "phase_1": {
       "properties": [

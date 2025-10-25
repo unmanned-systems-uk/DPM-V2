@@ -27,7 +27,10 @@ public:
     virtual bool capture() = 0;
 
     // Camera property control
-    // Supported properties: shutter_speed, aperture, iso, white_balance, focus_mode, file_format
+    // Phase 1 supported properties (8 total):
+    //   - shutter_speed, aperture, iso
+    //   - white_balance, white_balance_temperature
+    //   - focus_mode, file_format, drive_mode
     virtual bool setProperty(const std::string& property, const std::string& value) = 0;
     virtual std::string getProperty(const std::string& property) const = 0;
 

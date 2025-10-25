@@ -8,6 +8,7 @@
 #include <mutex>
 #include <chrono>
 #include <thread>
+#include <unordered_map>
 
 // Sony SDK headers
 #include "CRSDK/CameraRemote_SDK.h"
@@ -321,49 +322,141 @@ private:
 
         SDK::CrDeviceProperty prop;
 
-        // Map property name to SDK property code and data type
-        if (property == "aperture") {
-            // F-number: stored as uint16 * 100 (e.g., 280 = f/2.8)
-            // For now, accept raw SDK value as string
-            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
-            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
-            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
-        }
-        else if (property == "shutter_speed") {
-            // Shutter speed: uint32 with high word = numerator, low word = denominator
-            // For now, accept raw SDK value as string
+        // Map property name to SDK property code and convert human-readable values
+        // Protocol uses human-readable values (e.g., "1/8000", "f/2.8")
+        // Air-side converts to Sony SDK format (e.g., 0x00010001, 0x01000280)
+
+        if (property == "shutter_speed") {
+            // Shutter speed: map human-readable strings to Sony SDK values
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
-            prop.SetCurrentValue(static_cast<uint32_t>(std::stoul(value)));
+            static const std::unordered_map<std::string, uint32_t> SHUTTER_MAP = {
+                {"auto",   0x00000000}, {"1/8000", 0x00010001}, {"1/4000", 0x00010002},
+                {"1/2000", 0x00010003}, {"1/1000", 0x00010004}, {"1/500",  0x00010005},
+                {"1/250",  0x00010006}, {"1/125",  0x00010007}, {"1/60",   0x00010008},
+                {"1/30",   0x00010009}, {"1/15",   0x0001000A}, {"1/8",    0x0001000B},
+                {"1/4",    0x0001000C}, {"1/2",    0x0001000D}, {"1",      0x0001000E},
+                {"2",      0x0001000F}, {"4",      0x00010010}, {"8",      0x00010011},
+                {"15",     0x00010012}, {"30",     0x00010013}
+            };
+            auto it = SHUTTER_MAP.find(value);
+            if (it == SHUTTER_MAP.end()) {
+                Logger::error("Invalid shutter speed value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
+        else if (property == "aperture") {
+            // Aperture: map f-stop strings to Sony SDK values
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
+            static const std::unordered_map<std::string, uint32_t> APERTURE_MAP = {
+                {"auto",  0x00000000}, {"f/1.4", 0x01000140}, {"f/2.0", 0x01000200},
+                {"f/2.8", 0x01000280}, {"f/4.0", 0x01000400}, {"f/5.6", 0x01000560},
+                {"f/8.0", 0x01000800}, {"f/11",  0x01001100}, {"f/16",  0x01001600},
+                {"f/22",  0x01002200}
+            };
+            auto it = APERTURE_MAP.find(value);
+            if (it == APERTURE_MAP.end()) {
+                Logger::error("Invalid aperture value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(static_cast<uint16_t>(it->second & 0xFFFF));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
         else if (property == "iso") {
-            // ISO: uint32 with mode in upper 8 bits, value in lower 24 bits
-            // For now, accept raw SDK value as string
+            // ISO: map ISO strings to Sony SDK values
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
-            prop.SetCurrentValue(static_cast<uint32_t>(std::stoul(value)));
+            static const std::unordered_map<std::string, uint32_t> ISO_MAP = {
+                {"auto",   0xFFFFFFFF}, {"100",    100},    {"200",    200},
+                {"400",    400},        {"800",    800},    {"1600",   1600},
+                {"3200",   3200},       {"6400",   6400},   {"12800",  12800},
+                {"25600",  25600},      {"51200",  51200},  {"102400", 102400}
+            };
+            auto it = ISO_MAP.find(value);
+            if (it == ISO_MAP.end()) {
+                Logger::error("Invalid ISO value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
         else if (property == "white_balance") {
-            // White balance: uint16 enumerated value
+            // White balance: map preset names to Sony SDK enums
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_WhiteBalance);
-            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            static const std::unordered_map<std::string, uint16_t> WB_MAP = {
+                {"auto", 0x0000}, {"daylight", 0x0011}, {"shade", 0x0012}, {"cloudy", 0x0013},
+                {"tungsten", 0x0014}, {"fluorescent_warm", 0x0021}, {"fluorescent_cool", 0x0022},
+                {"fluorescent_day", 0x0023}, {"fluorescent_daylight", 0x0024}, {"flash", 0x0030},
+                {"temperature", 0x0100}, {"custom", 0x0104}
+            };
+            auto it = WB_MAP.find(value);
+            if (it == WB_MAP.end()) {
+                Logger::error("Invalid white balance value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
         }
+        else if (property == "white_balance_temperature") {
+            // WB Temperature: direct Kelvin value (2500-9900)
+            // Note: white_balance must be set to "temperature" first
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_Colortemp);
+            int kelvin = std::stoi(value);
+            if (kelvin < 2500 || kelvin > 9900) {
+                Logger::error("White balance temperature out of range (2500-9900): " + value);
+                return false;
+            }
+            prop.SetCurrentValue(static_cast<uint32_t>(kelvin));
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+        }
         else if (property == "focus_mode") {
-            // Focus mode: uint16 enumerated value
+            // Focus mode: map mode names to Sony SDK enums
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode);
-            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            static const std::unordered_map<std::string, uint16_t> FOCUS_MAP = {
+                {"af_s", 0x0002}, {"af_c", 0x0003}, {"af_a", 0x0004},
+                {"dmf", 0x0006}, {"manual", 0x0001}
+            };
+            auto it = FOCUS_MAP.find(value);
+            if (it == FOCUS_MAP.end()) {
+                Logger::error("Invalid focus mode value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
         }
         else if (property == "file_format") {
-            // File type: enumerated value (need to determine data type)
+            // File format: map format names to Sony SDK enums
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FileType);
-            prop.SetCurrentValue(static_cast<uint16_t>(std::stoi(value)));
+            static const std::unordered_map<std::string, uint16_t> FORMAT_MAP = {
+                {"jpeg", 0x0001}, {"raw", 0x0002}, {"jpeg_raw", 0x0003}
+            };
+            auto it = FORMAT_MAP.find(value);
+            if (it == FORMAT_MAP.end()) {
+                Logger::error("Invalid file format value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+        }
+        else if (property == "drive_mode") {
+            // Drive mode: map mode names to Sony SDK enums
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_DriveMode);
+            static const std::unordered_map<std::string, uint32_t> DRIVE_MAP = {
+                {"single", 0x00000001}, {"continuous_lo", 0x00010004},
+                {"continuous_hi", 0x00010001}, {"self_timer_10s", 0x00030003},
+                {"self_timer_2s", 0x00030001}, {"bracket", 0x00040301}
+            };
+            auto it = DRIVE_MAP.find(value);
+            if (it == DRIVE_MAP.end()) {
+                Logger::error("Invalid drive mode value: " + value);
+                return false;
+            }
+            prop.SetCurrentValue(it->second);
+            prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
         else {
             Logger::error("Unknown or unsupported property: " + property);
-            Logger::error("Supported properties: aperture, shutter_speed, iso, white_balance, focus_mode, file_format");
+            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode");
             return false;
         }
 
