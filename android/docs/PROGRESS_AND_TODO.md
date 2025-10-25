@@ -17,73 +17,72 @@
 Documentation Review:  ████████████████████████████████ 100% Complete
 Project Setup:         ████████████████████████████████ 100% Complete
 Network Layer:         ████████████████████████████████ 100% Complete
-UI Implementation:     ██████████████████████░░░░░░░░░░  75% In Progress
+UI Implementation:     ████████████████████████████░░░░  85% In Progress
 Command Protocol:      ████████████░░░░░░░░░░░░░░░░░░░░  40% In Progress
+Video Streaming:       ████████████████████████████████ 100% Complete
 Testing:               ██████░░░░░░░░░░░░░░░░░░░░░░░░░░  20% Started
-Integration:           ████████████████░░░░░░░░░░░░░░░░  50% In Progress
+Integration:           ████████████████████░░░░░░░░░░░░  60% In Progress
 ```
 
-**Overall Completion:** 65% (Phase 1 MVP)
+**Overall Completion:** 70% (Phase 1 MVP)
 
-**Last Updated:** October 25, 2025 - Phase 1 Camera Properties Implementation
+**Last Updated:** October 25, 2025 - RTSP video streaming implementation complete
 
 ---
 
 ## RECENT UPDATES
 
-### 📸 Phase 1 Camera Properties Implementation (October 25, 2025) ✅
+### 📹 RTSP Video Streaming Implementation (October 25, 2025) ✅
 
 **Feature Complete:**
-- ✅ Implemented protocol conversion helpers in CameraViewModel.kt
-- ✅ All property setters now send camera.set_property commands to air-side
-- ✅ Protocol uses human-readable values per PROTOCOL_VALUE_MAPPING.md
-- ✅ Ground-side converts enums to protocol format:
-  * ShutterSpeed → "1/8000", "1/4000", etc.
-  * Aperture → "f/2.8", "f/4", etc.
-  * ISO → "800", "1600", etc. (as strings)
-  * WhiteBalance → "auto", "daylight", "cloudy", etc.
-  * FocusMode → "af_s", "af_c", "manual"
-  * FileFormat → "jpeg", "raw", "jpeg_raw"
-- ✅ Air-side handles conversion to Sony SDK raw values
-- ✅ Both sides now fully implemented (resolved merge conflicts)
-- ✅ Build successful, no compilation errors
+- ✅ Added ExoPlayer (Media3) dependencies for RTSP streaming
+- ✅ Created VideoStreamSettings data model with AspectRatioMode enum
+- ✅ Extended SettingsRepository with video settings persistence (DataStore)
+- ✅ Created VideoPlayerViewModel with ExoPlayer lifecycle management
+- ✅ Created FullScreenVideoPlayer composable with state overlays
+- ✅ Added video settings section to SettingsScreen:
+  * Enable/disable video toggle with Card UI
+  * RTSP URL text field (default: rtsp://192.168.1.10:8554/H264Video)
+  * Aspect ratio dropdown (AUTO, FILL, FIT)
+  * Save Video Settings button
+- ✅ Integrated full-screen video player into CameraControlScreen:
+  * Video displays as background layer
+  * All camera controls remain as semi-transparent overlay
+  * QGroundControl-style interface design
+- ✅ Low-latency configuration (500ms buffer for <1s latency)
+- ✅ Proper lifecycle management with LaunchedEffect and DisposableEffect
+- ✅ State overlays: Disconnected, Connecting, Connected, Error, Disabled
+- ✅ Build successful (29s) - all compilation verified
 
-**Phase 1 Properties - FULLY IMPLEMENTED:**
-1. ✅ shutter_speed (air_side: true, ground_side: true)
-2. ✅ aperture (air_side: true, ground_side: true)
-3. ✅ iso (air_side: true, ground_side: true)
-4. ✅ white_balance (air_side: true, ground_side: true)
-5. ✅ focus_mode (air_side: true, ground_side: true)
-6. ✅ file_format (air_side: true, ground_side: true)
+**Architecture:**
+- Separate `video` package for video-related code
+- VideoPlayerViewModel manages ExoPlayer instance
+- FullScreenVideoPlayer embeds ExoPlayer's PlayerView using AndroidView
+- Settings persist via existing DataStore pattern
+- Aspect ratio modes: AUTO (detect), FILL (full screen), FIT (maintain ratio)
 
-**Protocol Design:**
-- Human-readable values in protocol (e.g., "1/8000", "f/2.8")
-- Air-side converts to Sony SDK format (e.g., 0x00010001)
-- Ground-side sends what user sees (no conversion to hex)
-- Single source of truth: camera_properties.json
-
-**Impact:**
-- Camera controls are now fully functional end-to-end
-- Users can adjust exposure triangle (shutter/aperture/ISO)
-- White balance, focus, and file format controls operational
-- Protocol sync: ground-side now matches air-side for Phase 1 properties
+**Files Created:**
+- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
+- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
 
 **Files Modified:**
-- `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraViewModel.kt`
-  * Added protocol conversion helpers (6 new functions)
-  * Modified increment/decrement functions to send commands
-  * Added sendPropertyCommand() helper using NetworkManager
-  * Fixed captureImage() response handling
-- `docs/protocol/camera_properties.json`
-  * Resolved merge conflicts (both air_side and ground_side now true)
-  * Updated 6 Phase 1 properties to version 1.1.0
-  * Added notes about full implementation
+- `gradle/libs.versions.toml` (added media3 version 1.2.0)
+- `app/build.gradle.kts` (added media3 libraries)
+- `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt` (added VideoStreamSettings)
+- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsRepository.kt` (video persistence)
+- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsViewModel.kt` (video state)
+- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt` (video UI section)
+- `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraControlScreen.kt` (video background)
 
-**Technical Details:**
-- Uses NetworkManager.getClient()?.setCameraProperty(property, value)
-- Coroutine-based async commands (viewModelScope.launch)
-- Comprehensive logging for debugging
-- Error handling with Result<> pattern
+**Testing Status:**
+- ⏳ Ready for testing with public RTSP URL (Big Buck Bunny)
+- ⏳ Ready for testing with R16 hardware (rtsp://192.168.1.10:8554/H264Video)
+
+**Impact:**
+- Live FPV video display on Camera screen
+- Configurable RTSP streaming from R16 Air Unit
+- Professional drone ground station interface
+- Foundation for future recording/playback features
 
 ---
 
@@ -460,6 +459,43 @@ Integration:           ████████████████░░░
 
 ---
 
+### ✅ RTSP Video Streaming (COMPLETE)
+
+**Features:**
+- ✅ Full-screen RTSP video player
+  * ExoPlayer (Media3) with native RTSP support
+  * Low-latency configuration (500ms buffer)
+  * Proper lifecycle management
+  * State overlays (Disconnected, Connecting, Error, Connected, Disabled)
+- ✅ Video settings in Settings screen
+  * Enable/disable video streaming toggle
+  * RTSP URL configuration (default: rtsp://192.168.1.10:8554/H264Video)
+  * Aspect ratio mode selector (AUTO, FILL, FIT)
+  * Settings persistence via DataStore
+- ✅ Camera screen integration
+  * Full-screen video background
+  * Semi-transparent camera control overlay
+  * QGroundControl-style interface
+- ✅ Aspect ratio modes
+  * AUTO: Detect from stream
+  * FILL: Fill entire screen
+  * FIT: Maintain aspect ratio
+
+**Architecture:**
+- `uk.unmannedsystems.dpm_android.video` package
+- VideoPlayerViewModel for ExoPlayer lifecycle
+- FullScreenVideoPlayer composable with AndroidView interop
+- VideoStreamSettings data model with persistence
+- Proper resource cleanup on dispose
+
+**Files:**
+- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
+- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
+
+**Status:** 100% Complete - Ready for testing
+
+---
+
 ### ⏸️ Downloads Screen (PLANNED)
 
 **Planned Features:**
@@ -491,13 +527,12 @@ Integration:           ████████████████░░░
   * Ground-side: Implemented and integrated
   * Protocol sync: ✅ Complete
 
-- ✅ **camera.set_property** - Set camera property
+- ⏸️ **camera.set_property** - Set camera property
   * NetworkClient method: setCameraProperty(property, value)
-  * UI: Camera control sliders/selectors integrated
-  * Air-side: ✅ Implemented (Phase 1 properties)
-  * Ground-side: ✅ Implemented with protocol conversion
-  * Protocol sync: ✅ Complete (6 Phase 1 properties)
-  * Properties: shutter_speed, aperture, iso, white_balance, focus_mode, file_format
+  * UI: Camera control sliders/selectors
+  * Air-side: Not implemented (planned v1.1)
+  * Ground-side: Implemented, awaiting air-side
+  * Protocol sync: ⚠️ Waiting for air-side
 
 - ⏸️ **camera.get_properties** - Query camera properties
   * NetworkClient method: getCameraProperties(properties)
@@ -571,10 +606,11 @@ Integration:           ████████████████░░░
 - ✅ Stable StateFlow across app
 
 **UI Screens:**
-- ✅ Camera Control (full camera interface)
+- ✅ Camera Control (full camera interface with live video)
 - ✅ Settings (network configuration with persistence)
 - ✅ System Status (real-time monitoring)
 - ✅ Event Log (development diagnostics)
+- ✅ RTSP Video Streaming (full-screen background)
 - ✅ Navigation drawer menu
 - ✅ Material3 design
 
@@ -587,18 +623,21 @@ Integration:           ████████████████░░░
 - ✅ Reset to defaults
 - ✅ Real-time status updates
 - ✅ Error handling with user feedback
+- ✅ RTSP video streaming with ExoPlayer
+- ✅ Configurable aspect ratio modes
+- ✅ Low-latency video configuration
+- ✅ Video enable/disable toggle
 
 **Commands:**
 - ✅ Handshake
 - ✅ camera.capture
-- ✅ camera.set_property (Phase 1: 6 properties)
 - ✅ system.get_status
 
 ### ⏸️ What's Pending
 
 **Air-Side Dependencies:**
+- ⏸️ camera.set_property (waiting for air-side implementation)
 - ⏸️ camera.get_properties (waiting for air-side implementation)
-- ⏸️ camera.set_property Phase 2 properties (exposure_compensation, etc.)
 
 **Planned Features:**
 - ⏸️ Downloads screen (content management)
@@ -619,17 +658,18 @@ Integration:           ████████████████░░░
 
 ### Immediate Tasks
 1. ✅ ~~Implement system.get_status command~~ **COMPLETE**
-2. ✅ ~~Implement Phase 1 camera properties~~ **COMPLETE**
-3. ⏳ Test camera.set_property end-to-end with real Sony camera
-4. ⏳ Test system.get_status end-to-end with air-side
-5. ⏳ Test camera.capture end-to-end with air-side
-6. ⏳ Verify WiFi connectivity with dynamic IP
-7. ⏳ Test on physical H16 hardware (when available)
+2. ✅ ~~Implement RTSP video streaming~~ **COMPLETE**
+3. ⏳ Test RTSP video with public URL (Big Buck Bunny)
+4. ⏳ Test RTSP video with R16 hardware (rtsp://192.168.1.10:8554/H264Video)
+5. ⏳ Test system.get_status end-to-end with air-side
+6. ⏳ Test camera.capture end-to-end with air-side
+7. ⏳ Verify WiFi connectivity with dynamic IP
+8. ⏳ Test on physical H16 hardware (when available)
 
 ### Short Term (Next Session)
-1. End-to-end testing of Phase 1 camera properties with Sony camera
+1. Wait for air-side to implement camera.set_property
 2. Wait for air-side to implement camera.get_properties
-3. Wait for air-side to implement Phase 2 properties (exposure_compensation, etc.)
+3. Integrate property commands when air-side ready
 4. Add error handling for unsupported commands
 5. Performance testing and optimization
 
@@ -645,19 +685,25 @@ Integration:           ████████████████░░░
 
 ## BUILD STATUS
 
-**Last Build:** October 25, 2025
+**Last Build:** October 25, 2025 (RTSP Video Streaming)
 **Status:** ✅ SUCCESS
 **Command:** `./gradlew assembleDebug`
-**Build Time:** 41 seconds
-**Warnings:** 3 (deprecation warnings, non-critical)
+**Build Time:** 29 seconds
+**Warnings:** 1 (Icons.Filled.List deprecation, non-critical)
 **Errors:** 0
 **APK:** Generated successfully at `app/build/outputs/apk/debug/app-debug.apk`
+
+**New Dependencies Added:**
+- ✅ androidx.media3:media3-exoplayer:1.2.0
+- ✅ androidx.media3:media3-ui:1.2.0
+- ✅ androidx.media3:media3-exoplayer-rtsp:1.2.0
 
 **Dependencies Status:**
 - ✅ All dependencies resolved
 - ✅ Gradle sync successful
 - ✅ Kotlin compilation successful
 - ✅ No unresolved references
+- ✅ ExoPlayer libraries integrated
 
 ---
 
@@ -759,7 +805,7 @@ Integration:           ████████████████░░░
 - ✅ Handshake: Both sides implemented
 - ✅ camera.capture: Both sides implemented
 - ✅ system.get_status: Both sides implemented
-- ✅ camera.set_property: Both sides implemented (6 Phase 1 properties)
+- ⚠️ camera.set_property: Ground-side ready, waiting for air-side
 - ⚠️ camera.get_properties: Ground-side ready, waiting for air-side
 
 ### Workflow Notes
@@ -804,8 +850,11 @@ android/
 │   │       │   │   ├── SettingsViewModel.kt ✅
 │   │       │   │   └── SettingsRepository.kt ✅
 │   │       │   ├── system/
-│   │       │   │   ├── SystemStatusScreen.kt ✅ NEW!
-│   │       │   │   └── SystemStatusViewModel.kt ✅ NEW!
+│   │       │   │   ├── SystemStatusScreen.kt ✅
+│   │       │   │   └── SystemStatusViewModel.kt ✅
+│   │       │   ├── video/
+│   │       │   │   ├── VideoPlayerViewModel.kt ✅ 🆕
+│   │       │   │   └── VideoPlayerView.kt ✅ 🆕
 │   │       │   └── ui/theme/
 │   │       │       ├── Color.kt ✅
 │   │       │       ├── Theme.kt ✅

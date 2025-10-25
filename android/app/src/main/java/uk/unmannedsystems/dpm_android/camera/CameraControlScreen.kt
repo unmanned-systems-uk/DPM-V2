@@ -43,8 +43,11 @@ import uk.unmannedsystems.dpm_android.camera.components.ExposureCompensationCont
 import uk.unmannedsystems.dpm_android.camera.components.ExposureControl
 import uk.unmannedsystems.dpm_android.camera.components.ModeSelector
 import uk.unmannedsystems.dpm_android.camera.components.StatusIndicator
+import uk.unmannedsystems.dpm_android.settings.SettingsViewModel
 import uk.unmannedsystems.dpm_android.ui.theme.CameraTextSecondary
 import uk.unmannedsystems.dpm_android.ui.theme.DPMAndroidTheme
+import uk.unmannedsystems.dpm_android.video.FullScreenVideoPlayer
+import uk.unmannedsystems.dpm_android.video.VideoPlayerViewModel
 
 /**
  * Represents which setting is currently expanded
@@ -54,18 +57,23 @@ enum class ExpandedSetting {
 }
 
 /**
- * Main camera control screen
+ * Main camera control screen with full-screen video background
  */
 @Composable
 fun CameraControlScreen(
     viewModel: CameraViewModel = viewModel(),
+    videoPlayerViewModel: VideoPlayerViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val cameraState by viewModel.cameraState.collectAsState()
+    val videoSettings by settingsViewModel.videoSettings.collectAsState()
     var expandedSetting by rememberSaveable { mutableStateOf(ExpandedSetting.NONE) }
 
     CameraControlContent(
         cameraState = cameraState,
+        videoSettings = videoSettings,
+        videoPlayerViewModel = videoPlayerViewModel,
         expandedSetting = expandedSetting,
         onExpandSetting = { expandedSetting = it },
         onIncrementShutter = viewModel::incrementShutterSpeed,
@@ -104,6 +112,8 @@ fun CameraControlScreen(
 @Composable
 private fun CameraControlContent(
     cameraState: CameraState,
+    videoSettings: uk.unmannedsystems.dpm_android.network.VideoStreamSettings,
+    videoPlayerViewModel: VideoPlayerViewModel,
     expandedSetting: ExpandedSetting,
     onExpandSetting: (ExpandedSetting) -> Unit,
     onIncrementShutter: () -> Unit,
@@ -127,19 +137,12 @@ private fun CameraControlContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Camera preview area (placeholder)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF1A1A1A)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Camera Live View",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.Gray
-            )
-        }
+        // Full-screen video background
+        FullScreenVideoPlayer(
+            videoSettings = videoSettings,
+            videoPlayerViewModel = videoPlayerViewModel,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // Connection status indicator - top-left corner
         ConnectionStatusIndicator(

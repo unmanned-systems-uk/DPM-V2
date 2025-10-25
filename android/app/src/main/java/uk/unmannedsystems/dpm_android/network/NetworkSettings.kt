@@ -52,3 +52,22 @@ data class NetworkStatus(
     val targetIp: String? = null,
     val targetPort: Int? = null
 )
+
+/**
+ * Video stream settings for RTSP video display
+ */
+data class VideoStreamSettings(
+    val enabled: Boolean = true,
+    val rtspUrl: String = "rtsp://192.168.1.10:8554/H264Video",
+    val aspectRatioMode: AspectRatioMode = AspectRatioMode.FILL,
+    val bufferDurationMs: Long = 500  // Low latency: 500ms buffer
+)
+
+/**
+ * Aspect ratio mode for video display
+ */
+enum class AspectRatioMode {
+    AUTO,   // Detect from stream
+    FILL,   // Fill entire screen
+    FIT     // Fit to screen maintaining aspect ratio
+}

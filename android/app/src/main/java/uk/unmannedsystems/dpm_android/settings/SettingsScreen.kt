@@ -16,12 +16,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -38,11 +43,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import uk.unmannedsystems.dpm_android.network.AspectRatioMode
 import uk.unmannedsystems.dpm_android.network.ConnectionLogEntry
 import uk.unmannedsystems.dpm_android.network.ConnectionState
 import uk.unmannedsystems.dpm_android.network.LogLevel
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
 import uk.unmannedsystems.dpm_android.network.NetworkStatus
+import uk.unmannedsystems.dpm_android.network.VideoStreamSettings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,6 +61,7 @@ fun SettingsScreen(
 ) {
     val networkStatus by viewModel.networkStatus.collectAsState()
     val currentSettings by viewModel.networkSettings.collectAsState()
+    val videoSettings by viewModel.videoSettings.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -64,11 +72,21 @@ fun SettingsScreen(
         SettingsContent(
             networkStatus = networkStatus,
             currentSettings = currentSettings,
+            videoSettings = videoSettings,
             onSaveSettings = { newSettings ->
                 viewModel.updateSettings(newSettings)
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
                         message = "Settings saved: ${newSettings.targetIp}:${newSettings.commandPort}",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSaveVideoSettings = { newVideoSettings ->
+                viewModel.updateVideoSettings(newVideoSettings)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Video settings saved",
                         duration = SnackbarDuration.Short
                     )
                 }
@@ -89,11 +107,14 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsContent(
     networkStatus: NetworkStatus,
     currentSettings: NetworkSettings,
+    videoSettings: VideoStreamSettings,
     onSaveSettings: (NetworkSettings) -> Unit,
+    onSaveVideoSettings: (VideoStreamSettings) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onResetToDefaults: () -> Unit,
@@ -104,12 +125,25 @@ private fun SettingsContent(
     var statusPort by rememberSaveable { mutableStateOf(currentSettings.statusListenPort.toString()) }
     var heartbeatPort by rememberSaveable { mutableStateOf(currentSettings.heartbeatPort.toString()) }
 
+    // Video settings state
+    var videoEnabled by rememberSaveable { mutableStateOf(videoSettings.enabled) }
+    var rtspUrl by rememberSaveable { mutableStateOf(videoSettings.rtspUrl) }
+    var aspectRatioMode by rememberSaveable { mutableStateOf(videoSettings.aspectRatioMode) }
+    var aspectRatioExpanded by remember { mutableStateOf(false) }
+
     // Update text fields when currentSettings changes (e.g., when defaults are loaded)
     androidx.compose.runtime.LaunchedEffect(currentSettings) {
         targetIp = currentSettings.targetIp
         commandPort = currentSettings.commandPort.toString()
         statusPort = currentSettings.statusListenPort.toString()
         heartbeatPort = currentSettings.heartbeatPort.toString()
+    }
+
+    // Update video settings when they change
+    androidx.compose.runtime.LaunchedEffect(videoSettings) {
+        videoEnabled = videoSettings.enabled
+        rtspUrl = videoSettings.rtspUrl
+        aspectRatioMode = videoSettings.aspectRatioMode
     }
 
     Column(
@@ -329,6 +363,135 @@ private fun SettingsContent(
                     }
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Video Stream Settings Section
+        Text(
+            text = "Video Stream Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Enable video streaming toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (videoEnabled)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable Video Stream",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (videoEnabled) "Video will display on Camera screen" else "Video disabled",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = videoEnabled,
+                    onCheckedChange = { videoEnabled = it }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // RTSP URL
+        OutlinedTextField(
+            value = rtspUrl,
+            onValueChange = { rtspUrl = it },
+            label = { Text("RTSP URL") },
+            placeholder = { Text("rtsp://192.168.1.10:8554/H264Video") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = videoEnabled
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Aspect Ratio Mode Dropdown
+        ExposedDropdownMenuBox(
+            expanded = aspectRatioExpanded,
+            onExpandedChange = { aspectRatioExpanded = !aspectRatioExpanded }
+        ) {
+            OutlinedTextField(
+                value = aspectRatioMode.name,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Aspect Ratio Mode") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = aspectRatioExpanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                enabled = videoEnabled
+            )
+
+            ExposedDropdownMenu(
+                expanded = aspectRatioExpanded,
+                onDismissRequest = { aspectRatioExpanded = false }
+            ) {
+                AspectRatioMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(mode.name, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = when (mode) {
+                                        AspectRatioMode.AUTO -> "Detect from stream"
+                                        AspectRatioMode.FILL -> "Fill entire screen"
+                                        AspectRatioMode.FIT -> "Fit maintaining aspect ratio"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            aspectRatioMode = mode
+                            aspectRatioExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Save Video Settings Button
+        Button(
+            onClick = {
+                val newVideoSettings = VideoStreamSettings(
+                    enabled = videoEnabled,
+                    rtspUrl = rtspUrl,
+                    aspectRatioMode = aspectRatioMode,
+                    bufferDurationMs = videoSettings.bufferDurationMs  // Keep existing buffer setting
+                )
+                onSaveVideoSettings(newVideoSettings)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Save Video Settings")
         }
 
         Spacer(modifier = Modifier.height(16.dp))

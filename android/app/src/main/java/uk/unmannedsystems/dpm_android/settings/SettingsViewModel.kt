@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import uk.unmannedsystems.dpm_android.network.NetworkManager
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
 import uk.unmannedsystems.dpm_android.network.NetworkStatus
+import uk.unmannedsystems.dpm_android.network.VideoStreamSettings
 
 /**
  * ViewModel for managing network settings and connection
@@ -22,6 +23,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = NetworkSettings()
+        )
+
+    val videoSettings: StateFlow<VideoStreamSettings> = settingsRepository.videoSettingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = VideoStreamSettings()
         )
 
     // Use NetworkManager's stable StateFlow
@@ -74,5 +82,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun disconnect() {
         NetworkManager.disconnect()
+    }
+
+    /**
+     * Update video stream settings and persist them
+     */
+    fun updateVideoSettings(settings: VideoStreamSettings) {
+        viewModelScope.launch {
+            settingsRepository.saveVideoSettings(settings)
+        }
     }
 }
