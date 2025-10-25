@@ -27,6 +27,9 @@ object NetworkManager {
     private val _currentSettings = MutableStateFlow(NetworkSettings())
     val currentSettings: StateFlow<NetworkSettings> = _currentSettings.asStateFlow()
 
+    private val _systemStatus = MutableStateFlow<SystemStatus?>(null)
+    val systemStatus: StateFlow<SystemStatus?> = _systemStatus.asStateFlow()
+
     /**
      * Initialize or reinitialize network client with new settings
      */
@@ -47,6 +50,13 @@ object NetworkManager {
                 Log.d(TAG, "Connection status updated: ${status.state}")
             }
         }
+
+        // Forward system status to our stable StateFlow
+        scope.launch {
+            networkClient?.systemStatus?.collect { status ->
+                _systemStatus.value = status
+            }
+        }
     }
 
     /**
@@ -63,6 +73,18 @@ object NetworkManager {
     fun disconnect() {
         Log.d(TAG, "Disconnect requested")
         networkClient?.disconnect()
+    }
+
+    /**
+     * Request system status from Air-Side
+     */
+    suspend fun getSystemStatus(): Result<ResponsePayload> {
+        val client = networkClient
+        return if (client != null) {
+            client.getSystemStatus()
+        } else {
+            Result.failure(Exception("NetworkClient not initialized"))
+        }
     }
 
     /**

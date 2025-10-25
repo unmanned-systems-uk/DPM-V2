@@ -103,7 +103,7 @@
       },
       "implemented": {
         "air_side": true,
-        "ground_side": false,
+        "ground_side": true,
         "version": "1.0.0"
       }
     }

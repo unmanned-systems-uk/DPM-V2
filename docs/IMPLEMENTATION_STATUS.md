@@ -1,7 +1,7 @@
 # DPM Protocol Implementation Status
 
 **Version:** 1.0.0
-**Last Updated:** 2025-10-25
+**Last Updated:** 2025-10-25 (System Status screen added)
 **Phase:** 1 - Initial Connectivity (MVP)
 
 ---
@@ -84,12 +84,27 @@
 - ✅ **camera.capture** - Shutter button sends command
   - UI integration
   - Response handling
+- ✅ **system.get_status** - Query system status
+  - NetworkClient method implemented
+  - NetworkManager wrapper implemented
+  - Response handling
+  - UI integration via System Status screen
 
 #### UI Features
 - ✅ **Settings Screen**
   - Target IP configuration
   - Port configuration
   - Network settings persistence
+  - Connection logs display
+  - Reset to defaults button
+
+- ✅ **System Status Screen**
+  - Real-time system status display (uptime, CPU, memory, storage)
+  - Manual refresh button for on-demand queries
+  - Progress bars for CPU and memory usage
+  - Connection status indicator
+  - Connect/disconnect controls
+  - Auto-update from UDP broadcasts
 
 - ✅ **Connection Status Display**
   - Real-time connection state
@@ -156,7 +171,7 @@
 | Command | Air-Side | Ground-Side | Tested |
 |---------|----------|-------------|--------|
 | `handshake` | ✅ | ✅ | ✅ |
-| `system.get_status` | ✅ | ❌ | ⏸️ |
+| `system.get_status` | ✅ | ✅ | ⏳ |
 | `camera.capture` | ✅ | ✅ | ⏳ |
 | `camera.set_property` | ❌ | ✅ | ❌ |
 | `camera.get_properties` | ❌ | ✅ | ❌ |

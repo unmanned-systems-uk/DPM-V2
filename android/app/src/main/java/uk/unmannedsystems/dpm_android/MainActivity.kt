@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
@@ -42,6 +43,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import uk.unmannedsystems.dpm_android.camera.CameraControlScreen
 import uk.unmannedsystems.dpm_android.eventlog.EventLogScreen
 import uk.unmannedsystems.dpm_android.settings.SettingsScreen
+import uk.unmannedsystems.dpm_android.system.SystemStatusScreen
 import uk.unmannedsystems.dpm_android.ui.theme.DPMAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -118,6 +120,11 @@ fun DPMAndroidApp() {
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
+                AppDestinations.SYSTEM_STATUS -> {
+                    SystemStatusScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
                 AppDestinations.EVENT_LOG -> {
                     EventLogScreen(
                         modifier = Modifier.padding(innerPadding)
@@ -139,6 +146,7 @@ enum class AppDestinations(
 ) {
     CAMERA("Camera", Icons.Default.CameraAlt),
     DOWNLOADS("Downloads", Icons.Default.Download),
+    SYSTEM_STATUS("System Status", Icons.Default.Info),
     EVENT_LOG("Event Log", Icons.Default.List),
     SETTINGS("Settings", Icons.Default.Settings),
 }

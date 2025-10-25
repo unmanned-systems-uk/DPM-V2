@@ -225,6 +225,13 @@ class NetworkClient(
         )
     }
 
+    /**
+     * Get system status
+     */
+    suspend fun getSystemStatus(): Result<ResponsePayload> {
+        return sendCommand("system.get_status")
+    }
+
     private suspend fun connectTcp() {
         val address = InetAddress.getByName(settings.targetIp)
         tcpSocket = withContext(Dispatchers.IO) {
