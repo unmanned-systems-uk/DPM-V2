@@ -4,6 +4,38 @@
 
 ### Latest Changes ✅
 
+**10. Fixed Auto-Connect on App Launch** *(DPMApplication)*
+
+**Issue Fixed:**
+- Auto-connect only happened when entering Settings screen
+- If user stayed on Camera screen, no connection attempt made
+- NetworkManager initialized too late (when ViewModel created)
+
+**Solution - Custom Application Class:**
+- Created DPMApplication.kt:
+  * Extends Application class - runs before any Activity
+  * Loads saved settings using SettingsRepository
+  * Initializes NetworkManager on app startup
+  * Auto-connects immediately when app launches
+  * Uses applicationScope for coroutine lifecycle
+  * Comprehensive error handling and logging
+
+- Updated AndroidManifest.xml:
+  * Added android:name=".DPMApplication" to <application> tag
+  * App now uses custom Application class
+
+- Updated SettingsViewModel.kt:
+  * Removed auto-connect logic (now in Application)
+  * Still reinitializes NetworkManager when settings change
+  * Simplified initialization flow
+
+**Benefits:**
+✅ Auto-connect happens IMMEDIATELY on app startup
+✅ Works regardless of which screen is shown first
+✅ NetworkManager initialized before any UI
+✅ Connection attempt happens in background
+✅ User sees GREEN circle on Camera screen right away (if connected)
+
 **9. Fixed Connection Status Issues - NetworkManager Singleton** *(Critical Bug Fixes)*
 
 **Issues Fixed:**

@@ -27,20 +27,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // Use NetworkManager's stable StateFlow
     val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
 
-    private var autoConnectAttempted = false
-
     init {
-        // Load saved settings and initialize
+        // Monitor settings changes and reinitialize NetworkManager when settings change
+        // Note: Auto-connect happens in DPMApplication.onCreate(), not here
         viewModelScope.launch {
             settingsRepository.networkSettingsFlow.collect { savedSettings ->
-                // Initialize NetworkManager with loaded settings
+                // Reinitialize NetworkManager when settings change
+                // (This happens after user saves new settings)
                 NetworkManager.initialize(savedSettings)
-
-                // Auto-connect on first load only
-                if (!autoConnectAttempted) {
-                    autoConnectAttempted = true
-                    NetworkManager.connect()
-                }
             }
         }
     }
