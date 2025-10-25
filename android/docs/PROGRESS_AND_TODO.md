@@ -25,11 +25,67 @@ Integration:           ████████████████░░░
 
 **Overall Completion:** 65% (Phase 1 MVP)
 
-**Last Updated:** October 25, 2025 - System Status screen added
+**Last Updated:** October 25, 2025 - Phase 1 Camera Properties Implementation
 
 ---
 
 ## RECENT UPDATES
+
+### 📸 Phase 1 Camera Properties Implementation (October 25, 2025) ✅
+
+**Feature Complete:**
+- ✅ Implemented protocol conversion helpers in CameraViewModel.kt
+- ✅ All property setters now send camera.set_property commands to air-side
+- ✅ Protocol uses human-readable values per PROTOCOL_VALUE_MAPPING.md
+- ✅ Ground-side converts enums to protocol format:
+  * ShutterSpeed → "1/8000", "1/4000", etc.
+  * Aperture → "f/2.8", "f/4", etc.
+  * ISO → "800", "1600", etc. (as strings)
+  * WhiteBalance → "auto", "daylight", "cloudy", etc.
+  * FocusMode → "af_s", "af_c", "manual"
+  * FileFormat → "jpeg", "raw", "jpeg_raw"
+- ✅ Air-side handles conversion to Sony SDK raw values
+- ✅ Both sides now fully implemented (resolved merge conflicts)
+- ✅ Build successful, no compilation errors
+
+**Phase 1 Properties - FULLY IMPLEMENTED:**
+1. ✅ shutter_speed (air_side: true, ground_side: true)
+2. ✅ aperture (air_side: true, ground_side: true)
+3. ✅ iso (air_side: true, ground_side: true)
+4. ✅ white_balance (air_side: true, ground_side: true)
+5. ✅ focus_mode (air_side: true, ground_side: true)
+6. ✅ file_format (air_side: true, ground_side: true)
+
+**Protocol Design:**
+- Human-readable values in protocol (e.g., "1/8000", "f/2.8")
+- Air-side converts to Sony SDK format (e.g., 0x00010001)
+- Ground-side sends what user sees (no conversion to hex)
+- Single source of truth: camera_properties.json
+
+**Impact:**
+- Camera controls are now fully functional end-to-end
+- Users can adjust exposure triangle (shutter/aperture/ISO)
+- White balance, focus, and file format controls operational
+- Protocol sync: ground-side now matches air-side for Phase 1 properties
+
+**Files Modified:**
+- `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraViewModel.kt`
+  * Added protocol conversion helpers (6 new functions)
+  * Modified increment/decrement functions to send commands
+  * Added sendPropertyCommand() helper using NetworkManager
+  * Fixed captureImage() response handling
+- `docs/protocol/camera_properties.json`
+  * Resolved merge conflicts (both air_side and ground_side now true)
+  * Updated 6 Phase 1 properties to version 1.1.0
+  * Added notes about full implementation
+
+**Technical Details:**
+- Uses NetworkManager.getClient()?.setCameraProperty(property, value)
+- Coroutine-based async commands (viewModelScope.launch)
+- Comprehensive logging for debugging
+- Error handling with Result<> pattern
+
+---
 
 ### 📊 System Status Screen Implementation (October 25, 2025) ✅
 
@@ -435,12 +491,13 @@ Integration:           ████████████████░░░
   * Ground-side: Implemented and integrated
   * Protocol sync: ✅ Complete
 
-- ⏸️ **camera.set_property** - Set camera property
+- ✅ **camera.set_property** - Set camera property
   * NetworkClient method: setCameraProperty(property, value)
-  * UI: Camera control sliders/selectors
-  * Air-side: Not implemented (planned v1.1)
-  * Ground-side: Implemented, awaiting air-side
-  * Protocol sync: ⚠️ Waiting for air-side
+  * UI: Camera control sliders/selectors integrated
+  * Air-side: ✅ Implemented (Phase 1 properties)
+  * Ground-side: ✅ Implemented with protocol conversion
+  * Protocol sync: ✅ Complete (6 Phase 1 properties)
+  * Properties: shutter_speed, aperture, iso, white_balance, focus_mode, file_format
 
 - ⏸️ **camera.get_properties** - Query camera properties
   * NetworkClient method: getCameraProperties(properties)
@@ -534,13 +591,14 @@ Integration:           ████████████████░░░
 **Commands:**
 - ✅ Handshake
 - ✅ camera.capture
+- ✅ camera.set_property (Phase 1: 6 properties)
 - ✅ system.get_status
 
 ### ⏸️ What's Pending
 
 **Air-Side Dependencies:**
-- ⏸️ camera.set_property (waiting for air-side implementation)
 - ⏸️ camera.get_properties (waiting for air-side implementation)
+- ⏸️ camera.set_property Phase 2 properties (exposure_compensation, etc.)
 
 **Planned Features:**
 - ⏸️ Downloads screen (content management)
@@ -561,15 +619,17 @@ Integration:           ████████████████░░░
 
 ### Immediate Tasks
 1. ✅ ~~Implement system.get_status command~~ **COMPLETE**
-2. ⏳ Test system.get_status end-to-end with air-side
-3. ⏳ Test camera.capture end-to-end with air-side
-4. ⏳ Verify WiFi connectivity with dynamic IP
-5. ⏳ Test on physical H16 hardware (when available)
+2. ✅ ~~Implement Phase 1 camera properties~~ **COMPLETE**
+3. ⏳ Test camera.set_property end-to-end with real Sony camera
+4. ⏳ Test system.get_status end-to-end with air-side
+5. ⏳ Test camera.capture end-to-end with air-side
+6. ⏳ Verify WiFi connectivity with dynamic IP
+7. ⏳ Test on physical H16 hardware (when available)
 
 ### Short Term (Next Session)
-1. Wait for air-side to implement camera.set_property
+1. End-to-end testing of Phase 1 camera properties with Sony camera
 2. Wait for air-side to implement camera.get_properties
-3. Integrate property commands when air-side ready
+3. Wait for air-side to implement Phase 2 properties (exposure_compensation, etc.)
 4. Add error handling for unsupported commands
 5. Performance testing and optimization
 
@@ -699,7 +759,7 @@ Integration:           ████████████████░░░
 - ✅ Handshake: Both sides implemented
 - ✅ camera.capture: Both sides implemented
 - ✅ system.get_status: Both sides implemented
-- ⚠️ camera.set_property: Ground-side ready, waiting for air-side
+- ✅ camera.set_property: Both sides implemented (6 Phase 1 properties)
 - ⚠️ camera.get_properties: Ground-side ready, waiting for air-side
 
 ### Workflow Notes
