@@ -25,11 +25,30 @@ enum class ConnectionState {
 }
 
 /**
+ * Connection log entry for diagnostics
+ */
+data class ConnectionLogEntry(
+    val timestamp: Long = System.currentTimeMillis(),
+    val level: LogLevel,
+    val message: String
+)
+
+enum class LogLevel {
+    INFO,
+    SUCCESS,
+    WARNING,
+    ERROR
+}
+
+/**
  * Network connection status
  */
 data class NetworkStatus(
     val state: ConnectionState = ConnectionState.DISCONNECTED,
     val lastHeartbeatMs: Long = 0,
     val roundTripTimeMs: Long = 0,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val connectionLogs: List<ConnectionLogEntry> = emptyList(),
+    val targetIp: String? = null,
+    val targetPort: Int? = null
 )

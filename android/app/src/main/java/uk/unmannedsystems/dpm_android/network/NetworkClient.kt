@@ -6,6 +6,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import uk.unmannedsystems.dpm_android.eventlog.EventCategory
+import uk.unmannedsystems.dpm_android.eventlog.EventLevel
+import uk.unmannedsystems.dpm_android.eventlog.EventLogViewModel
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
@@ -61,36 +64,63 @@ class NetworkClient(
         if (_connectionStatus.value.state == ConnectionState.CONNECTED ||
             _connectionStatus.value.state == ConnectionState.CONNECTING) {
             Log.w(TAG, "Already connected or connecting")
+            addConnectionLog("Already connected or connecting", LogLevel.WARNING)
             return
         }
 
         connectJob = scope.launch {
-            updateConnectionState(ConnectionState.CONNECTING)
+            updateConnectionState(
+                ConnectionState.CONNECTING,
+                logMessage = "Attempting to connect to ${settings.targetIp}:${settings.commandPort}",
+                logLevel = LogLevel.INFO
+            )
+
+            // Store target IP and port for display
+            _connectionStatus.value = _connectionStatus.value.copy(
+                targetIp = settings.targetIp,
+                targetPort = settings.commandPort
+            )
 
             try {
                 // Connect TCP socket
+                addConnectionLog("Connecting TCP socket to ${settings.targetIp}:${settings.commandPort}...", LogLevel.INFO)
                 connectTcp()
+                addConnectionLog("TCP socket connected successfully", LogLevel.SUCCESS)
 
                 // Send handshake
+                addConnectionLog("Sending handshake...", LogLevel.INFO)
                 sendHandshake()
+                addConnectionLog("Handshake completed", LogLevel.SUCCESS)
 
                 // Start UDP status listener
+                addConnectionLog("Starting UDP status listener on port ${settings.statusListenPort}...", LogLevel.INFO)
                 startUdpStatusListener()
+                addConnectionLog("UDP status listener started", LogLevel.SUCCESS)
 
                 // Start heartbeat
+                addConnectionLog("Starting heartbeat on port ${settings.heartbeatPort}...", LogLevel.INFO)
                 startHeartbeat()
+                addConnectionLog("Heartbeat started", LogLevel.SUCCESS)
 
-                updateConnectionState(ConnectionState.CONNECTED)
+                updateConnectionState(
+                    ConnectionState.CONNECTED,
+                    logMessage = "Connected to ${settings.targetIp}:${settings.commandPort}",
+                    logLevel = LogLevel.SUCCESS
+                )
                 Log.i(TAG, "Connected to ${settings.targetIp}")
 
             } catch (e: Exception) {
                 Log.e(TAG, "Connection failed", e)
+                val errorMsg = "Connection failed: ${e.message}"
                 updateConnectionState(
                     ConnectionState.ERROR,
-                    "Connection failed: ${e.message}"
+                    errorMessage = errorMsg,
+                    logMessage = errorMsg,
+                    logLevel = LogLevel.ERROR
                 )
 
                 // Retry connection after delay
+                addConnectionLog("Retrying connection in 2 seconds...", LogLevel.WARNING)
                 delay(2000)
                 connect()
             }
@@ -102,15 +132,22 @@ class NetworkClient(
      */
     fun disconnect() {
         scope.launch {
+            addConnectionLog("Disconnecting from ${settings.targetIp}...", LogLevel.INFO)
             try {
                 // Send disconnect message
                 sendDisconnect()
+                addConnectionLog("Disconnect message sent", LogLevel.INFO)
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending disconnect", e)
+                addConnectionLog("Error sending disconnect: ${e.message}", LogLevel.WARNING)
             }
 
             cleanup()
-            updateConnectionState(ConnectionState.DISCONNECTED)
+            updateConnectionState(
+                ConnectionState.DISCONNECTED,
+                logMessage = "Disconnected from ${settings.targetIp}",
+                logLevel = LogLevel.INFO
+            )
         }
     }
 
@@ -328,11 +365,51 @@ class NetworkClient(
         heartbeatSocket = null
     }
 
-    private fun updateConnectionState(state: ConnectionState, errorMessage: String? = null) {
+    private fun updateConnectionState(
+        state: ConnectionState,
+        errorMessage: String? = null,
+        logMessage: String? = null,
+        logLevel: LogLevel = LogLevel.INFO
+    ) {
+        val currentLogs = _connectionStatus.value.connectionLogs
+        val newLogs = if (logMessage != null) {
+            val newEntry = ConnectionLogEntry(
+                timestamp = System.currentTimeMillis(),
+                level = logLevel,
+                message = logMessage
+            )
+            // Keep only last 50 log entries to prevent memory issues
+            (currentLogs + newEntry).takeLast(50)
+        } else {
+            currentLogs
+        }
+
         _connectionStatus.value = _connectionStatus.value.copy(
             state = state,
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
+            connectionLogs = newLogs
         )
+    }
+
+    private fun addConnectionLog(message: String, level: LogLevel = LogLevel.INFO) {
+        val currentLogs = _connectionStatus.value.connectionLogs
+        val newEntry = ConnectionLogEntry(
+            timestamp = System.currentTimeMillis(),
+            level = level,
+            message = message
+        )
+        _connectionStatus.value = _connectionStatus.value.copy(
+            connectionLogs = (currentLogs + newEntry).takeLast(50)
+        )
+
+        // Also log to the global event log
+        val eventLevel = when (level) {
+            LogLevel.INFO -> EventLevel.INFO
+            LogLevel.SUCCESS -> EventLevel.INFO
+            LogLevel.WARNING -> EventLevel.WARNING
+            LogLevel.ERROR -> EventLevel.ERROR
+        }
+        EventLogViewModel.logEvent(EventCategory.NETWORK, eventLevel, message)
     }
 
     fun close() {

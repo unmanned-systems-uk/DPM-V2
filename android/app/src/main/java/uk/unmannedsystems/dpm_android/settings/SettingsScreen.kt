@@ -1,11 +1,13 @@
 package uk.unmannedsystems.dpm_android.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -14,20 +16,34 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import uk.unmannedsystems.dpm_android.network.ConnectionLogEntry
 import uk.unmannedsystems.dpm_android.network.ConnectionState
+import uk.unmannedsystems.dpm_android.network.LogLevel
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
+import uk.unmannedsystems.dpm_android.network.NetworkStatus
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -36,20 +52,35 @@ fun SettingsScreen(
 ) {
     val networkStatus by viewModel.networkStatus.collectAsState()
     val currentSettings by viewModel.networkSettings.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
-    SettingsContent(
-        networkStatus = networkStatus.state,
-        currentSettings = currentSettings,
-        onSaveSettings = viewModel::updateSettings,
-        onConnect = viewModel::connect,
-        onDisconnect = viewModel::disconnect,
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
-    )
+    ) { padding ->
+        SettingsContent(
+            networkStatus = networkStatus,
+            currentSettings = currentSettings,
+            onSaveSettings = { newSettings ->
+                viewModel.updateSettings(newSettings)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Settings saved: ${newSettings.targetIp}:${newSettings.commandPort}",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onConnect = viewModel::connect,
+            onDisconnect = viewModel::disconnect,
+            modifier = Modifier.padding(padding)
+        )
+    }
 }
 
 @Composable
 private fun SettingsContent(
-    networkStatus: ConnectionState,
+    networkStatus: NetworkStatus,
     currentSettings: NetworkSettings,
     onSaveSettings: (NetworkSettings) -> Unit,
     onConnect: () -> Unit,
@@ -79,7 +110,7 @@ private fun SettingsContent(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = when (networkStatus) {
+                containerColor = when (networkStatus.state) {
                     ConnectionState.CONNECTED, ConnectionState.OPERATIONAL -> MaterialTheme.colorScheme.primaryContainer
                     ConnectionState.CONNECTING -> MaterialTheme.colorScheme.secondaryContainer
                     ConnectionState.ERROR -> MaterialTheme.colorScheme.errorContainer
@@ -94,17 +125,50 @@ private fun SettingsContent(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = networkStatus.name,
-                    style = MaterialTheme.typography.bodyLarge
-                )
+
+                Row {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = networkStatus.state.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        networkStatus.targetIp?.let { ip ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Target: $ip:${networkStatus.targetPort ?: currentSettings.commandPort}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        networkStatus.errorMessage?.let { error ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Error: $error",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    // Connection Logs on the right side
+                    if (networkStatus.connectionLogs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        ConnectionLogsList(
+                            logs = networkStatus.connectionLogs.takeLast(5),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Connection Controls
-        if (networkStatus == ConnectionState.DISCONNECTED || networkStatus == ConnectionState.ERROR) {
+        if (networkStatus.state == ConnectionState.DISCONNECTED || networkStatus.state == ConnectionState.ERROR) {
             Button(
                 onClick = onConnect,
                 modifier = Modifier.fillMaxWidth()
@@ -236,5 +300,40 @@ private fun SettingsContent(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ConnectionLogsList(
+    logs: List<ConnectionLogEntry>,
+    modifier: Modifier = Modifier
+) {
+    val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+
+    Column(modifier = modifier) {
+        Text(
+            text = "Connection Log",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        logs.forEach { log ->
+            val logColor = when (log.level) {
+                LogLevel.INFO -> MaterialTheme.colorScheme.primary
+                LogLevel.SUCCESS -> MaterialTheme.colorScheme.tertiary
+                LogLevel.WARNING -> MaterialTheme.colorScheme.secondary
+                LogLevel.ERROR -> MaterialTheme.colorScheme.error
+            }
+
+            Text(
+                text = "${timeFormat.format(Date(log.timestamp))} ${log.message}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                color = logColor,
+                modifier = Modifier.padding(vertical = 1.dp)
+            )
+        }
     }
 }

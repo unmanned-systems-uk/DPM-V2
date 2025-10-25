@@ -1,21 +1,89 @@
 # DPM Android App - Progress & TODO
 
-## Current Status (2025-10-25)
+## RECENT UPDATES (October 25, 2025)
+
+### Implemented Features ✅
+
+**1. Connection Status Diagnostics** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt)*
+- Added `ConnectionLogEntry` data class with timestamp, level, and message
+- Added `LogLevel` enum (INFO, SUCCESS, WARNING, ERROR)
+- Enhanced `NetworkStatus` with:
+  - `connectionLogs: List<ConnectionLogEntry>` - keeps last 50 connection events
+  - `targetIp: String?` - shows target IP being connected to
+  - `targetPort: Int?` - shows target port being connected to
+
+**2. Enhanced NetworkClient Logging** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt)*
+- Added `addConnectionLog()` function to log connection events
+- Connection process now logs every step:
+  - "Attempting to connect to IP:PORT"
+  - "Connecting TCP socket..."
+  - "TCP socket connected successfully"
+  - "Sending handshake..."
+  - "Starting UDP listeners..."
+  - Error messages with details
+- Logs are color-coded by level and displayed in real-time
+- Integration with global EventLog for cross-app diagnostics
+
+**3. Connection Status UI Enhancements** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
+- Connection status card now shows:
+  - Current state (DISCONNECTED, CONNECTING, CONNECTED, etc.)
+  - Target IP and port being connected to
+  - Real-time connection logs on the right side (last 5 entries)
+  - Logs are color-coded: INFO (blue), SUCCESS (green), WARNING (yellow), ERROR (red)
+  - Timestamps in HH:mm:ss format
+- Added `ConnectionLogsList` composable for displaying logs
+
+**4. Settings Save Confirmation** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
+- Added Snackbar notification when network settings are saved
+- Shows: "Settings saved: IP:PORT"
+- Provides immediate user feedback
+- Uses Material3 Scaffold with SnackbarHost
+
+**5. Event Log Screen for Development Diagnostics** *(NEW FILES)*
+- Created `EventLogViewModel.kt`:
+  - Singleton ViewModel for app-wide event logging
+  - Stores last 1000 events
+  - Event categories: NETWORK, CAMERA, UI, SYSTEM, ERROR
+  - Event levels: DEBUG, INFO, WARNING, ERROR
+  - Convenience methods: `logDebug()`, `logInfo()`, `logWarning()`, `logError()`
+  - Filter by category and level
+- Created `EventLogScreen.kt`:
+  - Full-screen event log viewer
+  - Auto-scrolls to newest events
+  - Filter buttons (All, Network, Errors)
+  - Clear log button
+  - Color-coded event cards by level
+  - Shows timestamp, category, level, message, and optional details
+- Added "Event Log" menu item to navigation drawer
+
+**6. MainActivity Navigation Update** *(app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt)*
+- Added EVENT_LOG destination to navigation menu
+- Icon: Icons.Default.List
+- Accessible from navigation drawer
+
+### Current Status (2025-10-25)
 
 ### Working Features ✓
 - Basic UI layout with Camera Control and Settings screens
 - Network settings configuration (IP, ports)
-- Connection state management
+- Connection state management with detailed logging
 - Protocol message structures defined
-- TCP/UDP client implementation
+- TCP/UDP client implementation with step-by-step diagnostics
+- Real-time connection status display with logs
+- Settings save confirmation feedback
+- Development event log for diagnostics
 
-### Issues Identified ❌
-1. **No connection diagnostics** - Connection failures show only "ERROR" state
-2. **No settings save confirmation** - User doesn't know if settings were saved
-3. **Poor error visibility** - No indication of what step failed during connection
-4. **No network permission verification** - App may fail silently if permissions denied
-5. **No pre-flight checks** - No validation before attempting connection
-6. **Target IP not shown in status** - User can't verify which IP is being used
+### Issues Resolved ✅
+1. ~~**No connection diagnostics**~~ - **FIXED**: Now shows detailed connection logs with timestamps
+2. ~~**No settings save confirmation**~~ - **FIXED**: Snackbar shows confirmation message
+3. ~~**Poor error visibility**~~ - **FIXED**: Connection logs show each step and errors in detail
+4. **No network permission verification** - Permissions added to manifest (previous fix)
+5. **No pre-flight checks** - TODO: Add network connectivity validation
+6. ~~**Target IP not shown in status**~~ - **FIXED**: Target IP and port now displayed
+
+### Remaining Issues ❌
+1. **No pre-flight checks** - No validation before attempting connection
+2. **Network permission runtime check** - Should verify permissions at startup
 
 ---
 
