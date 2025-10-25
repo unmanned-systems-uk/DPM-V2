@@ -96,6 +96,7 @@ int main(int argc, char* argv[]) {
         // Create TCP server
         Logger::info("Creating TCP server on port " + std::to_string(config::TCP_PORT) + "...");
         g_tcp_server = std::make_unique<TCPServer>(config::TCP_PORT);
+        g_tcp_server->setCamera(g_camera);
 
         // Create UDP broadcaster
         std::string ground_ip = config::getGroundStationIP();

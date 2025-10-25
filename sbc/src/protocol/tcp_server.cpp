@@ -3,8 +3,10 @@
 #include "protocol/messages.h"
 #include "utils/logger.h"
 #include "utils/system_info.h"
+#include "camera/camera_interface.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
@@ -39,6 +41,11 @@ void TCPServer::start() {
     int opt = 1;
     if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         Logger::warning("Failed to set SO_REUSEADDR: " + std::string(strerror(errno)));
+    }
+
+    // Also set SO_REUSEPORT for better reconnection handling
+    if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
+        Logger::warning("Failed to set SO_REUSEPORT: " + std::string(strerror(errno)));
     }
 
     // Bind to address
@@ -116,6 +123,18 @@ void TCPServer::acceptLoop() {
         std::string client_ip = inet_ntoa(client_addr.sin_addr);
         Logger::info("Accepted connection from " + client_ip);
 
+        // Set client socket options for better handling
+        int opt = 1;
+        // Disable Nagle's algorithm for lower latency
+        if (setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
+            Logger::warning("Failed to set TCP_NODELAY: " + std::string(strerror(errno)));
+        }
+
+        // Enable keepalive to detect dead connections
+        if (setsockopt(client_socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) < 0) {
+            Logger::warning("Failed to set SO_KEEPALIVE: " + std::string(strerror(errno)));
+        }
+
         // Spawn thread to handle client
         client_threads_.emplace_back(&TCPServer::handleClient, this, client_socket, client_ip);
         client_threads_.back().detach();  // Detach so it cleans up automatically
@@ -188,6 +207,13 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
         }
     }
 
+    // Graceful shutdown: stop sending, allow receiving for a moment
+    shutdown(client_socket, SHUT_WR);
+
+    // Brief delay to allow final data to be read
+    char discard_buffer[256];
+    recv(client_socket, discard_buffer, sizeof(discard_buffer), MSG_DONTWAIT);
+
     close(client_socket);
     Logger::debug("Closed connection to " + client_ip);
 }
@@ -206,8 +232,16 @@ json TCPServer::processCommand(const json& command) {
         }
 
         int seq_id = command["sequence_id"];
-        std::string cmd = command["payload"]["command"];
+        std::string message_type = command["message_type"].get<std::string>();
 
+        // Handle handshake separately (doesn't use "command" field)
+        if (message_type == "handshake") {
+            Logger::info("Processing handshake");
+            return handleHandshake(command["payload"], seq_id);
+        }
+
+        // For other messages, get command from payload
+        std::string cmd = command["payload"]["command"];
         Logger::info("Processing command: " + cmd);
 
         // Route to appropriate handler
@@ -215,6 +249,8 @@ json TCPServer::processCommand(const json& command) {
             return handleHandshake(command["payload"], seq_id);
         } else if (cmd == "system.get_status") {
             return handleSystemGetStatus(command["payload"], seq_id);
+        } else if (cmd == "camera.capture") {
+            return handleCameraCapture(command["payload"], seq_id);
         } else {
             // Check if it's a Phase 2 command
             if (cmd.find("camera.") == 0 || cmd.find("gimbal.") == 0) {
@@ -242,8 +278,11 @@ json TCPServer::processCommand(const json& command) {
 }
 
 json TCPServer::handleHandshake(const json& payload, int seq_id) {
-    std::string client_id = payload.value("parameters", json::object()).value("client_id", "unknown");
-    std::string client_version = payload.value("parameters", json::object()).value("client_version", "unknown");
+    // Handle both old format (with "parameters") and new format (direct fields)
+    std::string client_id = payload.value("client_id",
+                            payload.value("parameters", json::object()).value("client_id", "unknown"));
+    std::string client_version = payload.value("client_version",
+                                 payload.value("parameters", json::object()).value("client_version", "unknown"));
 
     Logger::info("Handshake from client: " + client_id + " v" + client_version);
 
@@ -266,6 +305,48 @@ json TCPServer::handleSystemGetStatus(const json& payload, int seq_id) {
     messages::SystemStatus system = SystemInfo::getStatus();
 
     return messages::createSuccessResponse(seq_id, "system.get_status", system.toJson());
+}
+
+json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
+    (void)payload; // Suppress unused parameter warning
+
+    // Check if camera is available
+    if (!camera_) {
+        return messages::createErrorResponse(
+            seq_id, "camera.capture",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Camera interface not initialized"
+        );
+    }
+
+    // Check if camera is connected
+    if (!camera_->isConnected()) {
+        return messages::createErrorResponse(
+            seq_id, "camera.capture",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected"
+        );
+    }
+
+    // Trigger capture
+    Logger::info("Executing camera.capture command");
+    bool success = camera_->capture();
+
+    if (!success) {
+        return messages::createErrorResponse(
+            seq_id, "camera.capture",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Failed to trigger camera shutter"
+        );
+    }
+
+    // Return success response
+    json result = {
+        {"status", "captured"},
+        {"message", "Shutter released successfully"}
+    };
+
+    return messages::createSuccessResponse(seq_id, "camera.capture", result);
 }
 
 bool TCPServer::validateMessage(const json& msg, std::string& error) {
@@ -294,7 +375,9 @@ bool TCPServer::validateMessage(const json& msg, std::string& error) {
         return false;
     }
 
-    if (!msg["payload"].contains("command")) {
+    // Special case: handshake messages don't need "command" field
+    std::string message_type = msg["message_type"].get<std::string>();
+    if (message_type != "handshake" && !msg["payload"].contains("command")) {
         error = "Missing command in payload";
         return false;
     }

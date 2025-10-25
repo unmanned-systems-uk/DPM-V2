@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Command Definitions",
+  "description": "Detailed command specifications for DPM Protocol v1.0",
+  "version": "1.0.0",
+
+  "commands": {
+    "camera.capture": {
+      "description": "Trigger camera shutter release",
+      "parameters": {
+        "mode": {
+          "type": "string",
+          "enum": ["single", "burst"],
+          "default": "single",
+          "required": false
+        },
+        "burst_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999,
+          "required": false,
+          "description": "Number of images in burst mode"
+        }
+      },
+      "response": {
+        "success": {
+          "status": "captured",
+          "message": "Shutter released successfully",
+          "image_id": "string (optional)",
+          "timestamp": "integer (optional)"
+        },
+        "errors": [1000, 1006]
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.0.0"
+      }
+    },
+
+    "camera.set_property": {
+      "description": "Set camera property value",
+      "parameters": {
+        "property": {
+          "type": "string",
+          "enum": ["shutter_speed", "aperture", "iso", "white_balance", "focus_mode", "file_format"],
+          "required": true
+        },
+        "value": {
+          "type": "any",
+          "required": true,
+          "description": "Property-specific value"
+        }
+      },
+      "response": {
+        "success": {
+          "property": "string",
+          "value": "any",
+          "confirmed": "boolean"
+        },
+        "errors": [1000, 1002, 1005]
+      },
+      "implemented": {
+        "air_side": false,
+        "ground_side": true,
+        "version": "planned-v1.1"
+      }
+    },
+
+    "camera.get_properties": {
+      "description": "Get current camera property values",
+      "parameters": {
+        "properties": {
+          "type": "array",
+          "items": "string",
+          "required": true
+        }
+      },
+      "response": {
+        "success": {
+          "properties": "object"
+        },
+        "errors": [1000]
+      },
+      "implemented": {
+        "air_side": false,
+        "ground_side": true,
+        "version": "planned-v1.1"
+      }
+    },
+
+    "system.get_status": {
+      "description": "Get system status information",
+      "parameters": {},
+      "response": {
+        "success": {
+          "uptime_seconds": "integer",
+          "cpu_usage_percent": "float",
+          "memory_usage_percent": "float",
+          "storage_free_gb": "float"
+        },
+        "errors": [5004]
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.0.0"
+      }
+    }
+  }
+}

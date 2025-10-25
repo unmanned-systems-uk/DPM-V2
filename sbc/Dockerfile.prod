@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Sony SDK from build context
-COPY SonySDK/CrSDK_v2.00.00_20250805a_Linux64ARMv8 /app/sdk
+COPY CrSDK_v2.00.00_20250805a_Linux64ARMv8 /app/sdk
 
 # Copy SBC source code
-COPY DPM/sbc /app/sbc
+COPY DPM-V2/sbc /app/sbc
 
 # Build payload_manager (skip test_camera for production)
 RUN cd /app/sbc && \

@@ -26,7 +26,14 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
 - ✅ **ALWAYS** read `CC_READ_THIS_FIRST.md` first (this file)
 - This is your source of truth for workflow rules
 
-### 2. Check Current Status
+### 2. Check Protocol Synchronization
+- ✅ **MANDATORY** - Check `docs/protocol/commands.json` for new commands
+- ✅ Look for commented-out methods in `NetworkClient.kt`
+- ✅ Check if air-side has implemented commands you can now enable
+- ✅ **ASK USER** about any new commented commands before implementing
+- ⚠️ **CRITICAL** - Protocol sync MUST happen every session
+
+### 3. Check Current Status
 - ✅ Read `PROGRESS_AND_TODO.md` to understand:
   - What phase we're in
   - What's been completed
@@ -50,6 +57,180 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
 ---
 
 ## 🔄 MANDATORY WORKFLOW RULES
+
+### Rule #0: Protocol Synchronization (MOST IMPORTANT!)
+
+**🔴 CRITICAL: Check protocol files EVERY SESSION before doing ANY work! 🔴**
+
+#### Session Start Protocol Check
+
+**ALWAYS do this at the start of EVERY session:**
+
+```bash
+# 1. Check for new commands in protocol definition
+cat ../docs/protocol/commands.json | jq -r 'to_entries[] |
+  select(.value.implemented.ground_side == false) | .key'
+
+# This will list commands NOT YET implemented on ground-side
+```
+
+```bash
+# 2. Check for commands air-side has but you don't
+cat ../docs/protocol/commands.json | jq -r 'to_entries[] |
+  select(.value.implemented.air_side == true and
+         .value.implemented.ground_side == false) | .key'
+
+# These commands are READY to use - air-side can handle them!
+```
+
+**If you see ANY commands listed:**
+1. **STOP** and read the command definition in `commands.json`
+2. **ASK THE USER:**
+   - "I see new command(s) in the protocol: [list them]"
+   - "What UI should these commands have?"
+   - "Should I implement them now, or are they planned for later?"
+3. **WAIT** for user response before proceeding
+4. **DO NOT** assume you know what to implement
+
+#### Commented-Out Commands Workflow
+
+**The user will add commands to NetworkClient.kt as COMMENTED-OUT methods:**
+
+```kotlin
+class NetworkClient {
+    // Implemented commands
+    fun captureImage() { ... }
+
+    // Planned commands (commented out until ready)
+    // fun setCameraProperty(property: String, value: Any) {
+    //     val command = Command(
+    //         command = "camera.set_property",
+    //         parameters = mapOf("property" to property, "value" to value)
+    //     )
+    //     sendCommand(command)
+    // }
+
+    // fun focusCamera(direction: String, speed: Int = 3) {
+    //     val command = Command(
+    //         command = "camera.focus",
+    //         parameters = mapOf("action" to direction, "speed" to speed)
+    //     )
+    //     sendCommand(command)
+    // }
+}
+```
+
+**Your job:**
+1. **At session start**, search for commented `// fun` in `NetworkClient.kt`
+2. **Ask user**: "I see X commented-out commands. Should I implement any of them?"
+3. **Check** if air-side has implemented the corresponding handler
+4. **If air-side ready + user approves**:
+   - Uncomment the method
+   - Add UI elements to call it
+   - Test end-to-end
+   - Update `commands.json` to `"ground_side": true`
+5. **If air-side NOT ready**: Ask user if you should wait or implement anyway (for testing)
+
+#### Adding New Commands (Ground-Side)
+
+**When implementing a new command:**
+
+```
+1. User adds command definition to docs/protocol/commands.json
+   └─ Sets "ground_side": false, "air_side": false (or true if ready)
+
+2. User adds COMMENTED-OUT method to NetworkClient.kt
+   └─ This serves as a TODO and prevents forgetting
+
+3. CC detects commented method at session start
+   └─ Asks user what it does and if UI is needed
+
+4. CC implements:
+   ├─ Uncomment method in NetworkClient.kt
+   ├─ Add ViewModel method to call it
+   ├─ Add UI button/control
+   ├─ Add error handling
+   └─ Test with air-side (if available)
+
+5. CC updates commands.json
+   └─ Set "ground_side": true
+
+6. CC updates docs/IMPLEMENTATION_STATUS.md
+   └─ Mark command as complete in coverage table
+
+7. CC commits with clear message
+   └─ [PROTOCOL] Implemented [command.name] command
+```
+
+#### Protocol Sync Rules
+
+✅ **DO:**
+- Check protocol files at START of every session
+- Check for commented-out methods in `NetworkClient.kt` every session
+- Ask user about new commands before implementing
+- Verify air-side has implemented handler before enabling command
+- Update `commands.json` immediately after implementing
+- Keep `commands.json` as single source of truth
+- Add UI for every command (even if simple test button)
+
+❌ **DON'T:**
+- Uncomment methods without checking if air-side is ready
+- Implement commands not in `commands.json`
+- Assume what UI a command needs without asking
+- Mark `"ground_side": true` until fully implemented and tested
+- Add commands without updating protocol documentation
+- Skip protocol check at session start
+- Send commands the air-side can't handle (check `commands.json`!)
+
+#### Example Session Start
+
+```
+CC: Starting session, checking protocol sync...
+
+[runs: cat docs/protocol/commands.json | jq ...]
+
+CC: Protocol check results:
+
+Commands air-side has but I don't:
+1. camera.capture - ✅ Ready to use
+2. system.get_status - ✅ Ready to use
+
+Commented-out methods in NetworkClient.kt:
+1. setCameraProperty() - line 245
+2. focusCamera() - line 257
+3. getCameraProperties() - line 269
+
+Checking air-side status:
+- camera.set_property: air_side = false (NOT READY)
+- camera.focus: air_side = false (NOT READY)
+- camera.get_properties: air_side = false (NOT READY)
+
+Questions:
+1. Should I uncomment and implement camera.capture (air-side ready)?
+2. The other commands aren't ready on air-side yet. Should I:
+   a) Wait for air-side to implement them first?
+   b) Implement UI anyway for testing purposes?
+3. What UI should the capture button look like?
+
+[WAITS for user response before proceeding]
+```
+
+#### Handling Multiple New Commands
+
+**If user adds many commented-out methods at once:**
+
+```kotlin
+// User adds 10 new methods all commented out
+
+// CC's approach:
+// 1. List all commented methods
+// 2. Ask which to prioritize
+// 3. Implement ONE at a time
+// 4. Test each before moving to next
+// 5. Uncomment ONLY after tested
+```
+
+**DO NOT uncomment all at once - implement incrementally!**
 
 ### Rule #1: Update PROGRESS_AND_TODO.md After Every Significant Change
 

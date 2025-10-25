@@ -34,7 +34,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Sony SDK exists
-SONY_SDK_PATH="/home/dpm/SonySDK/CrSDK_v2.00.00_20250805a_Linux64ARMv8"
+SONY_SDK_PATH="/home/dpm/CrSDK_v2.00.00_20250805a_Linux64ARMv8"
 if [ ! -d "$SONY_SDK_PATH" ]; then
     echo -e "${RED}Error: Sony SDK not found at $SONY_SDK_PATH${NC}"
     echo "Please ensure Sony SDK is installed at the expected location"
@@ -67,11 +67,11 @@ echo ""
 
 # Build the container (from parent directory to access Sony SDK)
 echo -e "${GREEN}Building Docker image for C++ payload_manager...${NC}"
-echo "Build context: /home/dpm/DPM/"
-echo "Dockerfile: sbc/Dockerfile.prod"
+echo "Build context: /home/dpm/"
+echo "Dockerfile: DPM-V2/sbc/Dockerfile.prod"
 echo ""
-cd /home/dpm/DPM
-docker build -f sbc/Dockerfile.prod -t payload-manager:latest .
+cd /home/dpm
+docker build -f DPM-V2/sbc/Dockerfile.prod -t payload-manager:latest .
 
 if [ $? -eq 0 ]; then
     echo ""

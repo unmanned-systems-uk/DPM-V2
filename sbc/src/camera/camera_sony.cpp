@@ -230,6 +230,33 @@ public:
         return status;
     }
 
+    bool capture() override {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!isConnectedLocked()) {
+            Logger::error("Cannot capture: camera not connected");
+            return false;
+        }
+
+        Logger::info("Triggering shutter release...");
+
+        // Send release command (half-press down then full release)
+        auto status = SDK::SendCommand(
+            device_handle_,
+            SDK::CrCommandId_Release,
+            SDK::CrCommandParam_Down
+        );
+
+        if (CR_FAILED(status)) {
+            Logger::error("Failed to send shutter release command. Status: 0x" +
+                         std::to_string(status));
+            return false;
+        }
+
+        Logger::info("Shutter release command sent successfully");
+        return true;
+    }
+
 private:
     void initializeSDK() {
         Logger::info("Initializing Sony SDK...");

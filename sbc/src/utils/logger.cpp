@@ -91,9 +91,11 @@ void Logger::log(Level level, const std::string& message) {
         log_file_.flush();
     }
 
-    // Also write to console for errors
-    if (level == Level::ERROR) {
+    // Also write to console (stdout for all levels)
+    if (level == Level::ERROR || level == Level::WARNING) {
         std::cerr << oss.str() << std::endl;
+    } else {
+        std::cout << oss.str() << std::endl;
     }
 }
 

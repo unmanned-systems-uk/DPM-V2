@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Protocol v1.0",
+  "description": "Shared protocol definitions for DPM Payload Manager",
+  "version": "1.0.0",
+
+  "constants": {
+    "protocol_version": "1.0",
+    "ports": {
+      "tcp_command": 5000,
+      "udp_status": 5001,
+      "udp_heartbeat": 5002
+    },
+    "timing": {
+      "status_interval_ms": 200,
+      "heartbeat_interval_ms": 1000,
+      "heartbeat_timeout_sec": 10,
+      "command_timeout_sec": 5
+    },
+    "network": {
+      "air_ip_ethernet": "192.168.144.20",
+      "ground_ip_ethernet": "192.168.144.11",
+      "max_tcp_message_size": 65536,
+      "max_udp_message_size": 1472
+    }
+  },
+
+  "message_types": [
+    "handshake",
+    "command",
+    "response",
+    "status",
+    "heartbeat",
+    "disconnect"
+  ],
+
+  "commands": {
+    "system": [
+      "system.get_status",
+      "system.reboot",
+      "system.set_config"
+    ],
+    "camera": [
+      "camera.capture",
+      "camera.set_property",
+      "camera.get_properties",
+      "camera.focus",
+      "camera.set_focus_area",
+      "camera.record"
+    ],
+    "gimbal": [
+      "gimbal.set_angle",
+      "gimbal.set_rate",
+      "gimbal.set_mode",
+      "gimbal.home",
+      "gimbal.set_parameters"
+    ],
+    "content": [
+      "content.list",
+      "content.download",
+      "content.delete"
+    ]
+  },
+
+  "error_codes": {
+    "protocol_errors": {
+      "range": [5000, 5999],
+      "codes": {
+        "5000": "INVALID_JSON",
+        "5001": "INVALID_PROTOCOL_VERSION",
+        "5002": "COMMAND_NOT_IMPLEMENTED",
+        "5003": "UNKNOWN_COMMAND",
+        "5004": "INTERNAL_ERROR",
+        "5005": "COMMAND_FAILED",
+        "5006": "MISSING_REQUIRED_FIELD",
+        "5007": "INVALID_PARAMETER"
+      }
+    },
+    "camera_errors": {
+      "range": [1000, 1999],
+      "codes": {
+        "1000": "CAMERA_NOT_CONNECTED",
+        "1001": "CAMERA_BUSY",
+        "1002": "INVALID_CAMERA_PROPERTY",
+        "1003": "CAMERA_ERROR",
+        "1004": "UNSUPPORTED_OPERATION",
+        "1005": "INVALID_PROPERTY_VALUE",
+        "1006": "CAPTURE_FAILED",
+        "1007": "RECORDING_FAILED"
+      }
+    },
+    "gimbal_errors": {
+      "range": [2000, 2999],
+      "codes": {
+        "2000": "GIMBAL_NOT_CONNECTED",
+        "2001": "GIMBAL_COMMUNICATION_ERROR",
+        "2002": "INVALID_GIMBAL_COMMAND",
+        "2003": "GIMBAL_AT_LIMIT",
+        "2004": "GIMBAL_ERROR"
+      }
+    },
+    "network_errors": {
+      "range": [3000, 3999],
+      "codes": {
+        "3000": "NETWORK_TIMEOUT",
+        "3001": "MESSAGE_TOO_LARGE",
+        "3002": "CONNECTION_LOST"
+      }
+    },
+    "system_errors": {
+      "range": [4000, 4999],
+      "codes": {
+        "4000": "INSUFFICIENT_STORAGE",
+        "4001": "FILE_NOT_FOUND",
+        "4002": "PERMISSION_DENIED",
+        "4003": "SYSTEM_OVERLOAD"
+      }
+    }
+  },
+
+  "camera_properties": [
+    "shutter_speed",
+    "aperture",
+    "iso",
+    "white_balance",
+    "focus_mode",
+    "file_format",
+    "exposure_compensation",
+    "metering_mode",
+    "drive_mode"
+  ],
+
+  "response_status": [
+    "success",
+    "error",
+    "in_progress"
+  ]
+}

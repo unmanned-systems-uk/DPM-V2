@@ -13,6 +13,7 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.Socket
+import java.net.SocketException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -101,7 +102,8 @@ class NetworkClient(
      * Disconnect from the Raspberry Pi
      */
     fun disconnect() {
-        scope.launch {
+        // Use runBlocking to ensure disconnect completes before returning
+        runBlocking {
             try {
                 // Send disconnect message
                 sendDisconnect()
@@ -111,6 +113,9 @@ class NetworkClient(
 
             cleanup()
             updateConnectionState(ConnectionState.DISCONNECTED)
+
+            // Give sockets time to fully close
+            delay(100)
         }
     }
 
@@ -311,16 +316,51 @@ class NetworkClient(
     }
 
     private fun cleanup() {
+        // Cancel jobs first
         connectJob?.cancel()
         statusListenerJob?.cancel()
         heartbeatJob?.cancel()
 
-        tcpWriter?.close()
-        tcpReader?.close()
-        tcpSocket?.close()
-        udpSocket?.close()
-        heartbeatSocket?.close()
+        // Close all I/O streams and sockets in proper order
+        try {
+            tcpWriter?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing TCP writer", e)
+        }
 
+        try {
+            tcpReader?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing TCP reader", e)
+        }
+
+        try {
+            // Shutdown socket gracefully before closing
+            tcpSocket?.shutdownInput()
+            tcpSocket?.shutdownOutput()
+        } catch (e: Exception) {
+            // Ignore - socket may already be closed
+        }
+
+        try {
+            tcpSocket?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing TCP socket", e)
+        }
+
+        try {
+            udpSocket?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing UDP socket", e)
+        }
+
+        try {
+            heartbeatSocket?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing heartbeat socket", e)
+        }
+
+        // Null out references
         tcpSocket = null
         tcpWriter = null
         tcpReader = null

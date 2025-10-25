@@ -16,7 +16,8 @@ enum class ErrorCode {
     INVALID_PROTOCOL_VERSION = 5001,
     COMMAND_NOT_IMPLEMENTED = 5002,
     UNKNOWN_COMMAND = 5003,
-    INTERNAL_ERROR = 5004
+    INTERNAL_ERROR = 5004,
+    COMMAND_FAILED = 5005
 };
 
 inline std::string errorCodeToString(ErrorCode code) {
@@ -31,6 +32,8 @@ inline std::string errorCodeToString(ErrorCode code) {
             return "Unknown command";
         case ErrorCode::INTERNAL_ERROR:
             return "Internal server error";
+        case ErrorCode::COMMAND_FAILED:
+            return "Command execution failed";
         default:
             return "Unknown error";
     }

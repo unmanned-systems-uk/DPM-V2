@@ -26,7 +26,14 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
 - ✅ **ALWAYS** read `CC_READ_THIS_FIRST.md` first (this file)
 - This is your source of truth for workflow rules
 
-### 2. Check Current Status
+### 2. Check Protocol Synchronization
+- ✅ **MANDATORY** - Check `docs/protocol/commands.json` for new commands
+- ✅ Look for commands with `"air_side": false`
+- ✅ Check if ground-side has added commands you need to implement
+- ✅ **ASK USER** about any new commands before implementing
+- ⚠️ **CRITICAL** - Protocol sync MUST happen every session
+
+### 3. Check Current Status
 - ✅ Read `PROGRESS_AND_TODO.md` to understand:
   - What phase we're in
   - What's been completed
@@ -49,6 +56,110 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
 ---
 
 ## 🔄 MANDATORY WORKFLOW RULES
+
+### Rule #0: Protocol Synchronization (MOST IMPORTANT!)
+
+**🔴 CRITICAL: Check protocol files EVERY SESSION before doing ANY work! 🔴**
+
+#### Session Start Protocol Check
+
+**ALWAYS do this at the start of EVERY session:**
+
+```bash
+# 1. Check for new commands in protocol definition
+cat docs/protocol/commands.json | jq -r 'to_entries[] |
+  select(.value.implemented.air_side == false) | .key'
+
+# This will list commands NOT YET implemented on air-side
+```
+
+**If you see ANY commands listed:**
+1. **STOP** and read the command definition in `commands.json`
+2. **ASK THE USER:**
+   - "I see new command(s) in the protocol: [list them]"
+   - "What should these commands do?"
+   - "Should I implement them now, or are they planned for later?"
+3. **WAIT** for user response before proceeding
+4. **DO NOT** assume you know what to implement
+
+#### Adding New Commands (Air-Side)
+
+**When implementing a new command:**
+
+```
+1. User adds command to docs/protocol/commands.json
+   └─ Sets "air_side": false, "ground_side": true (if Android already has it)
+
+2. CC detects new command at session start
+   └─ Asks user what it does and if it should be implemented
+
+3. CC implements the command handler in tcp_server.cpp
+   ├─ Add handler function (e.g., handleCameraFocus)
+   ├─ Add route in processCommand()
+   ├─ Add any new error codes to messages.h
+   └─ Test implementation
+
+4. CC updates commands.json
+   └─ Set "air_side": true
+
+5. CC updates docs/IMPLEMENTATION_STATUS.md
+   └─ Mark command as complete in coverage table
+
+6. CC commits with clear message
+   └─ [PROTOCOL] Implemented [command.name] command
+```
+
+#### Checking What Ground-Side Has
+
+**Check what Android app has implemented:**
+
+```bash
+cat docs/protocol/commands.json | jq -r 'to_entries[] |
+  select(.value.implemented.ground_side == true and
+         .value.implemented.air_side == false) | .key'
+```
+
+**These are commands the Android app can SEND but you can't HANDLE yet!**
+
+#### Protocol Sync Rules
+
+✅ **DO:**
+- Check protocol files at START of every session
+- Ask user about new commands before implementing
+- Update `commands.json` immediately after implementing
+- Keep `commands.json` as single source of truth
+- Verify error codes match between `protocol_v1.0.json` and `messages.h`
+- Update `IMPLEMENTATION_STATUS.md` when completing commands
+
+❌ **DON'T:**
+- Implement commands not in `commands.json`
+- Assume what a command should do without asking
+- Mark `"air_side": true` until fully implemented and tested
+- Add commands without updating protocol documentation
+- Skip protocol check at session start
+
+#### Example Session Start
+
+```
+CC: Starting session, checking protocol sync...
+
+[runs: cat docs/protocol/commands.json | jq ...]
+
+CC: I found 2 commands not yet implemented on air-side:
+1. camera.focus - No description in protocol
+2. camera.get_properties - Marked as planned-v1.1
+
+I see camera.focus has "ground_side": true, meaning the
+Android app can already send this command but I can't
+handle it yet.
+
+Questions:
+1. What should camera.focus do? (parameters, behavior)
+2. Should I implement it now or is it scheduled for later?
+3. Are there any Sony SDK calls I should use for this?
+
+[WAITS for user response before proceeding]
+```
 
 ### Rule #1: Update PROGRESS_AND_TODO.md After Every Significant Change
 
