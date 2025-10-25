@@ -2,7 +2,7 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025  
-**Version:** 2.0 (Combined Air-Side + Ground-Side)  
+**Version:** 3.0 (Added Architecture Milestone Updates)  
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -14,10 +14,12 @@
 - 🔹 **Air-Side (C++ SBC)?** → Working in `sbc/` directory
   - Read Common Rules below, then jump to [Air-Side Specifics](#-air-side-specifics-c-sbc)
   - Check `sbc/docs/PROGRESS_AND_TODO.md` for current status
+  - 🆕 Architecture reference: `sbc/docs/SBC_ARCHITECTURE.md`
 
 - 🔹 **Ground-Side (Android)?** → Working in `android/` directory  
   - Read Common Rules below, then jump to [Ground-Side Specifics](#-ground-side-specifics-android-app)
   - Check `android/docs/PROGRESS_AND_TODO.md` for current status
+  - 🆕 Architecture reference: `android/docs/ANDROID_ARCHITECTURE.md`
 
 - 🔹 **Protocol/Documentation?** → Working in `docs/` directory
   - Read Common Rules below
@@ -89,10 +91,14 @@ cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
 **Air-Side Docs:**
 - `sbc/docs/BUILD_AND_IMPLEMENTATION_PLAN.md` - When implementing new components
 - `sbc/docs/DOCKER_SETUP.md` - When working with Docker or Sony SDK
+- `sbc/docs/SBC_ARCHITECTURE.md` - Architecture reference
+- 🆕 `sbc/docs/Architecture guide.md` - **When updating architecture documentation**
 - Protocol specs - When implementing protocol features
 - Sony SDK docs - When working on camera integration
 
 **Ground-Side Docs:**
+- `android/docs/ANDROID_ARCHITECTURE.md` - Architecture reference
+- 🆕 `android/docs/Architecture guide.md` - **When updating architecture documentation**
 - `docs/Command_Protocol_Specification_v1.0.md` - When implementing protocol features
 - `docs/Protocol_Implementation_Quick_Start.md` - Protocol implementation guide
 - `docs/Phase1_Requirements_Update.md` - Feature requirements
@@ -103,6 +109,199 @@ cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
 - ✅ Run `git status` to check for uncommitted changes
 - ✅ Identify what needs to be committed
 - ✅ Check current branch (should be `main`)
+
+---
+
+## 🏗️ ARCHITECTURE MILESTONE DOCUMENTATION (NEW REQUIREMENT V3)
+
+### What is Architecture Documentation?
+
+Each platform maintains a living architecture document that captures the **design decisions, component structure, and system patterns** of that platform's codebase:
+
+- **Air-Side:** `sbc/docs/SBC_ARCHITECTURE.md`
+- **Ground-Side:** `android/docs/ANDROID_ARCHITECTURE.md`
+
+These documents are the **architectural blueprint** of each platform and must be kept current as the codebase evolves.
+
+### Architecture Guide Documents
+
+Each platform has an **Architecture guide.md** file that explains **HOW** to maintain the architecture documentation:
+
+- **Air-Side Guide:** `sbc/docs/Architecture guide.md`
+- **Ground-Side Guide:** `android/docs/Architecture guide.md`
+
+🔴 **CRITICAL: When you need to update architecture documentation, you MUST read the appropriate Architecture guide.md first to understand the format, structure, and level of detail required.**
+
+### When to Update Architecture Documentation
+
+**🔴 MANDATORY: Update architecture documentation when you reach sensible milestones, including:**
+
+1. **Phase Completion Milestones**
+   - Completing Phase 1: Core Infrastructure
+   - Completing Phase 2: Camera Integration
+   - Completing Phase 3: Advanced Features
+   - Any other phase defined in PROGRESS_AND_TODO.md
+
+2. **Major Component Completion**
+   - Completed implementation of a major subsystem
+   - Example: TCP/UDP networking fully operational
+   - Example: Sony SDK wrapper complete and tested
+   - Example: All camera property controls implemented (ground-side)
+   - Example: Complete MVVM structure for camera control (ground-side)
+
+3. **Architectural Changes**
+   - Refactoring that changes component structure
+   - Changing threading model or concurrency approach
+   - Introducing new design patterns
+   - Significant changes to data flow
+
+4. **Integration Milestones**
+   - Successfully connecting ground and air sides
+   - First end-to-end command working
+   - Bidirectional communication established
+   - Error handling fully implemented
+
+5. **At User Request**
+   - When user says "update the architecture documentation"
+   - When user says "document this milestone"
+
+### Architecture Update Workflow
+
+**When you reach a milestone:**
+
+```
+Step 1: Identify the Milestone
+└─ Example: "Phase 1 Complete" or "TCP Server Implementation Complete"
+
+Step 2: Read the Architecture Guide
+├─ Air-side: Read sbc/docs/Architecture guide.md
+└─ Ground-side: Read android/docs/Architecture guide.md
+
+Step 3: Read Current Architecture Document
+├─ Air-side: Read sbc/docs/SBC_ARCHITECTURE.md
+└─ Ground-side: Read android/docs/ANDROID_ARCHITECTURE.md
+
+Step 4: Identify What Needs Updating
+├─ New components added since last update
+├─ Changed components
+├─ New design patterns introduced
+├─ Architectural decisions made
+└─ Data flow changes
+
+Step 5: Update Architecture Document
+├─ Follow structure defined in Architecture guide.md
+├─ Document new components
+├─ Add/update architectural decision records (ADRs)
+├─ Update diagrams if needed
+├─ Add milestone completion notes
+└─ Update "Last Updated" timestamp
+
+Step 6: Update PROGRESS_AND_TODO.md
+└─ Mark milestone as complete
+
+Step 7: Commit Together
+└─ Code changes + PROGRESS_AND_TODO.md + ARCHITECTURE.md
+```
+
+### What to Document in Architecture Updates
+
+**Based on your platform's Architecture guide.md, typical sections include:**
+
+**For Air-Side (SBC_ARCHITECTURE.md):**
+- Component structure and relationships
+- Sony SDK integration approach
+- Threading model and synchronization
+- Memory management patterns (smart pointers, RAII)
+- Network protocol implementation
+- Error handling strategy
+- Docker architecture (if applicable)
+- Architectural Decision Records (ADRs)
+
+**For Ground-Side (ANDROID_ARCHITECTURE.md):**
+- MVVM pattern implementation
+- Fragment and ViewModel structure
+- NetworkClient architecture
+- UI component organization
+- State management approach
+- Coroutine usage patterns
+- Navigation architecture
+- Architectural Decision Records (ADRs)
+
+### Architecture Update Example Workflow
+
+**Example: Completing Phase 1 on Air-Side**
+
+```bash
+# 1. Recognize milestone reached
+# User says: "Phase 1 is complete!" or you notice all Phase 1 tasks done
+
+# 2. Read the architecture guide
+cat sbc/docs/Architecture\ guide.md
+# Understand what sections exist and what detail is needed
+
+# 3. Read current architecture
+cat sbc/docs/SBC_ARCHITECTURE.md
+# See what's already documented
+
+# 4. Identify what changed in Phase 1
+# - Added TCP server (tcp_server.cpp)
+# - Added UDP broadcaster (udp_broadcaster.cpp)
+# - Added message handler (message_handler.cpp)
+# - Added heartbeat mechanism
+# - Decided on threading model (ADR needed)
+
+# 5. Update SBC_ARCHITECTURE.md following the guide
+# Add/update sections:
+# - Component Structure (new components)
+# - Threading Model (document decisions)
+# - Network Protocol Implementation (how it works)
+# - ADR-001: Threading model decision
+# - Milestone: Phase 1 completion notes
+
+# 6. Update sbc/docs/PROGRESS_AND_TODO.md
+# Mark Phase 1 complete
+
+# 7. Commit
+git add sbc/docs/SBC_ARCHITECTURE.md sbc/docs/PROGRESS_AND_TODO.md
+git commit -m "[ARCHITECTURE] Phase 1 milestone documentation
+
+- Updated SBC_ARCHITECTURE.md with Phase 1 components
+- Documented TCP server, UDP broadcaster, message handler
+- Added ADR-001: Threading model decision
+- Added Phase 1 completion notes
+- Marked Phase 1 complete in PROGRESS_AND_TODO.md"
+```
+
+### Architecture Update Commit Format
+
+```bash
+[ARCHITECTURE] Milestone: Brief description
+
+Architecture updates:
+- Updated [PLATFORM]_ARCHITECTURE.md: [sections updated]
+- Added ADR-XXX: [decision title]
+- Documented [component names]
+- Added milestone completion notes for [milestone name]
+
+Progress updates:
+- Marked [milestone] complete in PROGRESS_AND_TODO.md
+```
+
+### Quick Architecture Update Checklist
+
+**Before committing a milestone, verify:**
+
+- [ ] Read appropriate `Architecture guide.md` file
+- [ ] Read current `[PLATFORM]_ARCHITECTURE.md` file
+- [ ] Identified all new/changed components since last update
+- [ ] Updated Component Structure section
+- [ ] Added ADRs for any significant decisions
+- [ ] Updated data flow diagrams if changed
+- [ ] Added milestone completion notes
+- [ ] Updated "Last Updated" timestamp
+- [ ] Marked milestone complete in PROGRESS_AND_TODO.md
+- [ ] Build still succeeds
+- [ ] Committed with [ARCHITECTURE] prefix
 
 ---
 
@@ -179,6 +378,8 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 6. CC commits with clear message
    └─ [PROTOCOL] Implemented [command.name] command
+
+Note: Architecture updates happen at milestones, not per-command
 ```
 
 **Ground-Side Flow:**
@@ -203,6 +404,8 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 6. CC commits with clear message
    └─ [PROTOCOL] Implemented [command.name] UI
+
+Note: Architecture updates happen at milestones, not per-command
 ```
 
 #### Camera Properties Workflow
@@ -250,6 +453,8 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    - Implement validation
    - Test end-to-end
    - Mark "ground_side": true
+   
+   Note: Architecture doc updated when ALL Phase 1 properties complete (milestone)
    ```
 
 #### Protocol Sync Rules
@@ -280,6 +485,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 - ✅ After creating new files
 - ✅ After significant debugging sessions
 - ✅ When switching from one phase/component to another
+- ✅ 🆕 When reaching a milestone (also update architecture docs)
 - ✅ **AT MINIMUM: At end of every work session**
 
 **What to update:**
@@ -309,6 +515,54 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 **Last Updated:** October 25, 2025 15:30 - After implementing shutter_speed property
 ```
 
+### Rule #1.5: 🆕 Update Architecture Documentation at Milestones
+
+**NEW REQUIREMENT: Architecture documents must be updated at sensible milestones.**
+
+**Milestone-based updates (not per-feature):**
+
+When you complete a **milestone**, follow this workflow:
+
+```
+1. Identify milestone completion
+   └─ Phase complete, major subsystem done, integration point reached
+
+2. Read appropriate Architecture guide.md
+   ├─ Air-side: sbc/docs/Architecture guide.md
+   └─ Ground-side: android/docs/Architecture guide.md
+
+3. Update appropriate ARCHITECTURE.md
+   ├─ Air-side: sbc/docs/SBC_ARCHITECTURE.md
+   └─ Ground-side: android/docs/ANDROID_ARCHITECTURE.md
+   
+4. Follow structure from Architecture guide.md
+   ├─ Document new components added in milestone
+   ├─ Add ADRs for architectural decisions made
+   ├─ Update data flow if changed
+   ├─ Add milestone completion notes
+   └─ Update "Last Updated" timestamp
+
+5. Update PROGRESS_AND_TODO.md
+   └─ Mark milestone complete
+
+6. Commit together
+   └─ [ARCHITECTURE] Milestone: [name]
+```
+
+**What constitutes a "sensible milestone":**
+- ✅ Phase completion (Phase 1, Phase 2, etc.)
+- ✅ Major subsystem complete (networking done, camera integration done)
+- ✅ Multiple related components complete (all exposure controls working)
+- ✅ Integration achievement (ground-air communication working end-to-end)
+- ✅ User request to document milestone
+
+**What is NOT a milestone (don't update architecture for these):**
+- ❌ Individual command implementation
+- ❌ Single property implementation
+- ❌ Minor bug fixes
+- ❌ Small refactoring
+- ❌ Documentation-only changes
+
 ### Rule #2: Commit to Git Regularly
 
 **Commit frequency rules:**
@@ -318,6 +572,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    - ✅ Bug fixed and verified
    - ✅ New component created
    - ✅ Documentation updated significantly
+   - ✅ 🆕 Milestone reached and architecture docs updated
 
 2. **Time-based minimum:**
    - ✅ Commit at least every 30-60 minutes of active work
@@ -345,6 +600,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 - `[FIX]` - Bug fix
 - `[PROTOCOL]` - Protocol implementation
 - `[DOCS]` - Documentation update
+- 🆕 `[ARCHITECTURE]` - Architecture documentation or milestone update
 - `[REFACTOR]` - Code restructuring
 - `[TEST]` - Testing additions
 - `[BUILD]` - Build system changes
@@ -358,6 +614,15 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 - Ground-side: Dropdown UI with standard shutter speeds
 - Validation: Enum values from camera_properties.json
 - Testing: Verified with Sony A1 camera
+
+[ARCHITECTURE] Milestone: Phase 1 core infrastructure complete
+
+- Updated SBC_ARCHITECTURE.md with Phase 1 components
+- Documented TCP server, UDP broadcaster, message handler architecture
+- Added ADR-001: Threading model decision (thread-per-connection)
+- Added ADR-002: JSON parsing library choice (nlohmann-json)
+- Documented heartbeat implementation and connection resilience
+- Marked Phase 1 complete in PROGRESS_AND_TODO.md
 
 [FIX] Docker: Resolved CrAdapter dynamic loading issue
 
@@ -397,13 +662,28 @@ Fixed bug
 **After making code changes:**
 - ✅ Update relevant technical documentation
 - ✅ Update appropriate PROGRESS_AND_TODO.md
+- ✅ 🆕 Update appropriate [PLATFORM]_ARCHITECTURE.md **at milestones**
 - ✅ Update protocol JSON files if implementing commands/properties
 - ✅ Update BUILD_AND_IMPLEMENTATION_PLAN.md if architecture changed (air-side)
 - ✅ Update DOCKER_SETUP.md if Docker/build process changed (air-side)
 
+**🆕 Documentation hierarchy:**
+```
+Code Changes (incremental)
+    ↓
+1. PROGRESS_AND_TODO.md (updated frequently)
+    ↓
+2. Protocol JSON files (when implementing protocol features)
+    ↓
+3. [PLATFORM]_ARCHITECTURE.md (updated at milestones) ← NEW
+    ↓
+4. Specialized docs (BUILD_AND_IMPLEMENTATION_PLAN.md, DOCKER_SETUP.md, etc.)
+```
+
 **Documentation to code ratio:**
 - For every 100 lines of code, expect ~20-30 lines of documentation updates
 - If you wrote code but didn't update any docs, something is wrong!
+- 🆕 Architecture docs updated when you reach milestones, not per-feature
 
 ### Rule #4: Build Verification Before Committing
 
@@ -443,11 +723,17 @@ cd android
 - ✅ Don't accumulate untested code
 - ✅ Fix issues before moving on
 
+**🆕 Documentation at milestones:**
+- ✅ Update PROGRESS_AND_TODO.md incrementally
+- ✅ Update architecture docs when reaching milestones
+- ✅ Don't let architecture docs lag behind major changes
+
 **Benefits:**
 - Easier to debug (smaller changes)
 - Clearer git history
 - Less overwhelming
 - Higher quality
+- 🆕 Documentation stays current at appropriate granularity
 
 ---
 
@@ -457,19 +743,28 @@ cd android
 
 **Additional checks for C++ development:**
 
-1. **Check Docker Status** (if using Docker):
+1. 🆕 **Check Architecture Documentation:**
+   ```bash
+   # Check when it was last updated
+   head -20 sbc/docs/SBC_ARCHITECTURE.md | grep "Last Updated"
+   
+   # If working on milestone, read Architecture guide
+   cat sbc/docs/Architecture\ guide.md
+   ```
+
+2. **Check Docker Status** (if using Docker):
    ```bash
    docker ps | grep dpm
    # Should show running container if applicable
    ```
 
-2. **Verify Sony SDK:**
+3. **Verify Sony SDK:**
    ```bash
    ls ~/sony_sdk/lib/
    # Should see libCr_Core.so and CrAdapter/ directory
    ```
 
-3. **Check Build Directory:**
+4. **Check Build Directory:**
    ```bash
    ls sbc/build/
    # Should exist and contain CMake files
@@ -587,6 +882,41 @@ if (ret != CrError_None) {
 }
 ```
 
+### 🆕 Air-Side Architecture Milestones
+
+**Typical Air-Side Milestones that require architecture documentation:**
+
+1. **Phase 1: Core Infrastructure Complete**
+   - TCP command server operational
+   - UDP status broadcaster working
+   - Heartbeat mechanism established
+   - JSON message parsing implemented
+   - **Action:** Update SBC_ARCHITECTURE.md with all Phase 1 components
+
+2. **Sony SDK Integration Complete**
+   - Camera connection established
+   - Property get/set working
+   - Callback handling implemented
+   - Error handling complete
+   - **Action:** Document Sony SDK wrapper architecture and ADRs
+
+3. **Full Camera Control Implementation**
+   - All Phase 1 properties implemented
+   - Capture modes working
+   - Focus control operational
+   - **Action:** Document camera manager architecture
+
+4. **Gimbal Integration Complete**
+   - Gremsy or SimpleBGC SDK integrated
+   - Gimbal control commands working
+   - **Action:** Document gimbal interface architecture
+
+5. **End-to-End Integration**
+   - Ground-air communication validated
+   - All commands working
+   - Error recovery tested
+   - **Action:** Update data flow diagrams and system overview
+
 ### C++ Best Practices (Mandatory)
 
 **C++17 Features:**
@@ -665,7 +995,9 @@ sbc/
 └── docs/
     ├── PROGRESS_AND_TODO.md
     ├── BUILD_AND_IMPLEMENTATION_PLAN.md
-    └── DOCKER_SETUP.md
+    ├── DOCKER_SETUP.md
+    ├── 🆕 SBC_ARCHITECTURE.md          # Architecture reference
+    └── 🆕 Architecture guide.md         # HOW to update architecture docs
 ```
 
 ### Air-Side Troubleshooting
@@ -725,19 +1057,28 @@ cat /etc/udev/rules.d/99-sony-camera.rules
 
 **Additional checks for Android development:**
 
-1. **Check Gradle Status:**
+1. 🆕 **Check Architecture Documentation:**
+   ```bash
+   # Check when it was last updated
+   head -20 android/docs/ANDROID_ARCHITECTURE.md | grep "Last Updated"
+   
+   # If working on milestone, read Architecture guide
+   cat android/docs/Architecture\ guide.md
+   ```
+
+2. **Check Gradle Status:**
    ```bash
    cd android
    ./gradlew --status
    ```
 
-2. **Check Device Connection:**
+3. **Check Device Connection:**
    ```bash
    adb devices
    # Should show connected device or emulator
    ```
 
-3. **Check for Wireless ADB (H16):**
+4. **Check for Wireless ADB (H16):**
    ```bash
    adb connect 192.168.144.11:5555
    ```
@@ -899,6 +1240,41 @@ class CameraViewModel(private val networkClient: NetworkClient) : ViewModel() {
 }
 ```
 
+### 🆕 Ground-Side Architecture Milestones
+
+**Typical Ground-Side Milestones that require architecture documentation:**
+
+1. **Phase 1: Core Infrastructure Complete**
+   - NetworkClient implemented
+   - TCP/UDP connectivity established
+   - Basic ViewModel structure
+   - **Action:** Update ANDROID_ARCHITECTURE.md with Phase 1 components
+
+2. **Camera Control UI Complete**
+   - CameraControlFragment implemented
+   - CameraViewModel complete
+   - All exposure controls (shutter, aperture, ISO)
+   - White balance controls
+   - **Action:** Document MVVM implementation and UI patterns
+
+3. **Full Protocol Implementation**
+   - All Phase 1 commands implemented
+   - Error handling complete
+   - Status display working
+   - **Action:** Document NetworkClient architecture and error handling
+
+4. **Navigation Structure Complete**
+   - All fragments implemented
+   - Navigation graph complete
+   - State preservation working
+   - **Action:** Document navigation architecture
+
+5. **End-to-End Integration**
+   - Air-ground communication validated
+   - All UI controls working
+   - Testing complete on H16
+   - **Action:** Update system overview and data flow
+
 ### Kotlin Best Practices (Mandatory)
 
 **Coroutines:**
@@ -968,7 +1344,9 @@ android/
 ├── build.gradle
 ├── settings.gradle
 └── docs/
-    └── PROGRESS_AND_TODO.md
+    ├── PROGRESS_AND_TODO.md
+    ├── 🆕 ANDROID_ARCHITECTURE.md     # Architecture reference
+    └── 🆕 Architecture guide.md        # HOW to update architecture docs
 ```
 
 ### Ground-Side Troubleshooting
@@ -1102,11 +1480,12 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 3. 🔴 **ALWAYS check protocol synchronization (commands.json + camera_properties.json)**
 4. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
 5. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-6. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-7. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
-8. 🔴 **ALWAYS verify build succeeds before committing**
-9. 🔴 **ALWAYS commit before ending session**
-10. 🔴 **ALWAYS work incrementally (one thing at a time)**
+6. 🆕 **ALWAYS update [PLATFORM]_ARCHITECTURE.md at milestones (refer to Architecture guide.md)**
+7. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+8. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
+9. 🔴 **ALWAYS verify build succeeds before committing**
+10. 🔴 **ALWAYS commit before ending session**
+11. 🔴 **ALWAYS work incrementally (one thing at a time)**
 
 ### Platform-Specific Rules
 
@@ -1115,12 +1494,14 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 - 🟡 Use smart pointers, avoid raw new/delete
 - 🟡 Check Sony SDK return values
 - 🟡 Test with Docker if applicable
+- 🆕 Update sbc/docs/SBC_ARCHITECTURE.md at milestones (refer to Architecture guide.md)
 
 **Ground-Side (Android):**
 - 🟡 Follow MVVM architecture pattern
 - 🟡 Use Coroutines for async operations
 - 🟡 Check commented-out methods in NetworkClient.kt
 - 🟡 Test on device/emulator before committing
+- 🆕 Update android/docs/ANDROID_ARCHITECTURE.md at milestones (refer to Architecture guide.md)
 
 ---
 
@@ -1131,11 +1512,12 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 1. ✅ Read this file (CC_READ_THIS_FIRST.md) - you're doing it!
 2. ✅ Identify platform (air-side or ground-side)
 3. ✅ Read appropriate PROGRESS_AND_TODO.md thoroughly
-4. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
-5. ✅ Read protocol documentation (commands.json, camera_properties.json)
-6. ✅ Check `git log --oneline -20` (understand recent history)
-7. ✅ Identify current phase and next task
-8. ✅ Start working!
+4. ✅ 🆕 Skim appropriate [PLATFORM]_ARCHITECTURE.md (understand current structure)
+5. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
+6. ✅ Read protocol documentation (commands.json, camera_properties.json)
+7. ✅ Check `git log --oneline -20` (understand recent history)
+8. ✅ Identify current phase and next task
+9. ✅ Start working!
 
 ### Subsequent Sessions:
 
@@ -1145,6 +1527,15 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 4. ✅ Read appropriate PROGRESS_AND_TODO.md
 5. ✅ Check `git status` and `git log --oneline -5`
 6. ✅ Continue work
+
+### When You Reach a Milestone:
+
+1. ✅ Recognize milestone completion
+2. ✅ 🆕 Read appropriate Architecture guide.md
+3. ✅ 🆕 Update appropriate [PLATFORM]_ARCHITECTURE.md
+4. ✅ Update PROGRESS_AND_TODO.md
+5. ✅ Commit with [ARCHITECTURE] prefix
+6. ✅ Celebrate! 🎉
 
 ---
 
@@ -1159,6 +1550,7 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 - [ ] "Last Updated" timestamp is current
 - [ ] Issue Tracker reflects current bugs/blockers
 - [ ] Protocol JSON files updated if implemented commands/properties
+- [ ] 🆕 **If milestone reached: [PLATFORM]_ARCHITECTURE.md updated (following Architecture guide.md)**
 - [ ] All code changes are committed
 - [ ] All commits have descriptive messages with [TYPE] prefix
 - [ ] All commits pushed to origin/main
@@ -1172,10 +1564,11 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 
 ---
 
-**Document Status:** ✅ Active - Combined Air-Side & Ground-Side  
-**Version:** 2.0  
+**Document Status:** ✅ Active - Combined Air-Side & Ground-Side with Architecture Milestones  
+**Version:** 3.0  
 **Last Updated:** October 25, 2025  
-**Location:** Project root (DPM-V2/CC_READ_THIS_FIRST.md)  
+**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)  
 **Maintained By:** Human oversight, enforced by Claude Code
 
 **🔴 REMEMBER: Read this document at the start of EVERY session! 🔴**
+**🆕 NEW IN V3: Architecture documentation updates at milestones - refer to Architecture guide.md files! 🆕**
