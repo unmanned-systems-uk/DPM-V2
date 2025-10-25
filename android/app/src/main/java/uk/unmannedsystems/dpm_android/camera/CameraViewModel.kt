@@ -8,8 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uk.unmannedsystems.dpm_android.network.ConnectionState
-import uk.unmannedsystems.dpm_android.network.NetworkClient
-import uk.unmannedsystems.dpm_android.network.NetworkSettings
+import uk.unmannedsystems.dpm_android.network.NetworkManager
 
 /**
  * ViewModel for managing camera state and controls
@@ -18,13 +17,10 @@ class CameraViewModel : ViewModel() {
     private val _cameraState = MutableStateFlow(CameraState())
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
 
-    // Network client for monitoring connection status
-    private val networkClient = NetworkClient(NetworkSettings())
-
     init {
-        // Monitor network connection status
+        // Monitor network connection status from shared NetworkManager
         viewModelScope.launch {
-            networkClient.connectionStatus.collect { networkStatus ->
+            NetworkManager.connectionStatus.collect { networkStatus ->
                 _cameraState.update { state ->
                     state.copy(
                         isConnected = networkStatus.state == ConnectionState.CONNECTED ||
@@ -144,14 +140,14 @@ class CameraViewModel : ViewModel() {
      * Connect to Air-Side
      */
     fun connect() {
-        networkClient.connect()
+        NetworkManager.connect()
     }
 
     /**
      * Disconnect from Air-Side
      */
     fun disconnect() {
-        networkClient.disconnect()
+        NetworkManager.disconnect()
     }
 
     /**
@@ -166,10 +162,5 @@ class CameraViewModel : ViewModel() {
      */
     fun setFocusMode(mode: FocusMode) {
         _cameraState.update { it.copy(focusMode = mode) }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        networkClient.close()
     }
 }

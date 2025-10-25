@@ -3,11 +3,11 @@ package uk.unmannedsystems.dpm_android.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import uk.unmannedsystems.dpm_android.network.NetworkClient
+import uk.unmannedsystems.dpm_android.network.NetworkManager
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
 import uk.unmannedsystems.dpm_android.network.NetworkStatus
 
@@ -17,28 +17,29 @@ import uk.unmannedsystems.dpm_android.network.NetworkStatus
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepository = SettingsRepository(application)
 
-    private val _networkSettings = MutableStateFlow(NetworkSettings())
-    val networkSettings: StateFlow<NetworkSettings> = _networkSettings.asStateFlow()
+    val networkSettings: StateFlow<NetworkSettings> = settingsRepository.networkSettingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = NetworkSettings()
+        )
 
-    private var networkClient: NetworkClient? = null
+    // Use NetworkManager's stable StateFlow
+    val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
+
     private var autoConnectAttempted = false
-
-    val networkStatus: StateFlow<NetworkStatus>
-        get() = networkClient?.connectionStatus ?: MutableStateFlow(NetworkStatus()).asStateFlow()
 
     init {
         // Load saved settings and initialize
         viewModelScope.launch {
             settingsRepository.networkSettingsFlow.collect { savedSettings ->
-                _networkSettings.value = savedSettings
-
-                // Reinitialize network client with loaded settings
-                initializeNetworkClient(savedSettings)
+                // Initialize NetworkManager with loaded settings
+                NetworkManager.initialize(savedSettings)
 
                 // Auto-connect on first load only
                 if (!autoConnectAttempted) {
                     autoConnectAttempted = true
-                    connect()
+                    NetworkManager.connect()
                 }
             }
         }
@@ -49,17 +50,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun updateSettings(settings: NetworkSettings) {
         viewModelScope.launch {
-            // Save settings to DataStore
-            settingsRepository.saveNetworkSettings(settings)
-
-            // Update state (will be updated by the flow, but set immediately for UI responsiveness)
-            _networkSettings.value = settings
-
             // Disconnect if currently connected
-            networkClient?.disconnect()
+            NetworkManager.disconnect()
 
-            // Reinitialize with new settings
-            initializeNetworkClient(settings)
+            // Save settings to DataStore (will trigger flow and reinitialize)
+            settingsRepository.saveNetworkSettings(settings)
         }
     }
 
@@ -69,7 +64,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun resetToDefaults() {
         viewModelScope.launch {
             settingsRepository.resetToDefaults()
-            // Settings will be updated via the flow
+            // Settings will be updated via the flow which will reinitialize NetworkManager
         }
     }
 
@@ -77,28 +72,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Connect to Raspberry Pi
      */
     fun connect() {
-        networkClient?.connect()
+        NetworkManager.connect()
     }
 
     /**
      * Disconnect from Raspberry Pi
      */
     fun disconnect() {
-        networkClient?.disconnect()
-    }
-
-    /**
-     * Get the current network client instance
-     */
-    fun getNetworkClient(): NetworkClient? = networkClient
-
-    private fun initializeNetworkClient(settings: NetworkSettings) {
-        networkClient?.close()
-        networkClient = NetworkClient(settings)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        networkClient?.close()
+        NetworkManager.disconnect()
     }
 }

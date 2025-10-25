@@ -4,6 +4,43 @@
 
 ### Latest Changes ✅
 
+**9. Fixed Connection Status Issues - NetworkManager Singleton** *(Critical Bug Fixes)*
+
+**Issues Fixed:**
+1. **Settings screen status not updating on first connect** - FIXED
+2. **Camera screen not showing connection status** - FIXED
+
+**Root Cause:**
+- Each ViewModel was creating its own NetworkClient instance
+- SettingsViewModel and CameraViewModel had separate connections
+- StateFlow references were recreated when settings changed
+- Camera was trying to connect to default IP, not saved IP
+
+**Solution - NetworkManager Singleton:**
+- Created NetworkManager.kt:
+  * Singleton pattern ensures single NetworkClient instance
+  * Stable StateFlow that survives client recreation
+  * Manages all connection operations centrally
+  * Forwards connection status from NetworkClient to stable flow
+  * Proper logging for debugging
+- Updated SettingsViewModel.kt:
+  * Uses NetworkManager instead of local NetworkClient
+  * Subscribes to NetworkManager.connectionStatus (stable reference)
+  * All connect/disconnect calls go through NetworkManager
+- Updated CameraViewModel.kt:
+  * Removed local NetworkClient instance
+  * Subscribes to shared NetworkManager.connectionStatus
+  * Both screens now see the same connection state
+  * Removed onCleared cleanup (NetworkManager handles it)
+
+**Benefits:**
+✅ Single connection instance across entire app
+✅ Connection status updates immediately in all screens
+✅ Settings and Camera always show same status
+✅ No duplicate connection attempts
+✅ Saved settings shared across app
+✅ Connection survives screen navigation
+
 **8. Persistent Settings & Auto-Connect** *(Multiple files)*
 - **Settings are now saved and remembered across app restarts**
 - **Auto-connect on app startup** using saved settings
