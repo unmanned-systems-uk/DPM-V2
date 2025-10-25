@@ -17,6 +17,8 @@ std::unique_ptr<UDPBroadcaster> g_udp_broadcaster;
 std::unique_ptr<Heartbeat> g_heartbeat;
 std::shared_ptr<CameraInterface> g_camera;
 std::atomic<bool> g_shutdown_requested(false);
+std::atomic<bool> g_health_check_running(false);
+std::thread g_health_check_thread;
 
 // Factory function from camera_sony.cpp
 extern "C" CameraInterface* createCamera();
@@ -46,6 +48,73 @@ void printBanner() {
     std::cout << "Protocol: " << config::PROTOCOL_VERSION << "\n";
     std::cout << "Phase: 1 (Initial Connectivity)\n";
     std::cout << "========================================\n\n";
+}
+
+// Camera health check thread - monitors connection and auto-reconnects
+void cameraHealthCheckThread() {
+    Logger::info("Camera health check thread started (30s interval)");
+
+    bool was_connected = g_camera->isConnected();
+    const int CHECK_INTERVAL_SEC = 30;
+
+    while (g_health_check_running) {
+        // Sleep in small chunks so we can respond quickly to shutdown
+        for (int i = 0; i < CHECK_INTERVAL_SEC && g_health_check_running; ++i) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        if (!g_health_check_running) break;
+
+        bool is_connected = g_camera->isConnected();
+
+        // Detect connection state changes
+        if (was_connected && !is_connected) {
+            Logger::warning("Camera disconnected - attempting reconnection");
+
+            // Send notification via TCP
+            if (g_tcp_server) {
+                g_tcp_server->sendNotification(
+                    messages::NotificationLevel::WARNING,
+                    messages::NotificationCategory::CAMERA,
+                    "Camera Disconnected",
+                    "Camera connection lost - attempting automatic reconnection",
+                    "reconnecting",
+                    false  // Not dismissible while reconnecting
+                );
+            }
+
+            was_connected = false;
+        }
+
+        // Attempt reconnection if disconnected
+        if (!is_connected) {
+            Logger::info("Attempting camera reconnection...");
+            bool reconnected = g_camera->connect();
+
+            if (reconnected) {
+                Logger::info("Camera reconnected successfully!");
+
+                // Send success notification
+                if (g_tcp_server) {
+                    g_tcp_server->sendNotification(
+                        messages::NotificationLevel::INFO,
+                        messages::NotificationCategory::CAMERA,
+                        "Camera Connected",
+                        "Camera successfully reconnected and ready",
+                        "",
+                        true  // Dismissible
+                    );
+                }
+
+                was_connected = true;
+            } else {
+                Logger::debug("Camera reconnection attempt failed - will retry in " +
+                            std::to_string(CHECK_INTERVAL_SEC) + " seconds");
+            }
+        }
+    }
+
+    Logger::info("Camera health check thread stopped");
 }
 
 int main(int argc, char* argv[]) {
@@ -123,6 +192,10 @@ int main(int argc, char* argv[]) {
         g_udp_broadcaster->start();
         g_heartbeat->start();
 
+        // Start camera health check thread
+        g_health_check_running = true;
+        g_health_check_thread = std::thread(cameraHealthCheckThread);
+
         Logger::info("========================================");
         Logger::info("Payload Manager Service Running");
         Logger::info("========================================");
@@ -166,6 +239,15 @@ int main(int argc, char* argv[]) {
 
         std::cout << "\nShutting down...\n";
 
+        // Stop health check thread first
+        if (g_health_check_running) {
+            Logger::info("Stopping camera health check...");
+            g_health_check_running = false;
+            if (g_health_check_thread.joinable()) {
+                g_health_check_thread.join();
+            }
+        }
+
         if (g_heartbeat) {
             Logger::info("Stopping heartbeat handler...");
             g_heartbeat->stop();
@@ -201,6 +283,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "FATAL ERROR: " << e.what() << std::endl;
 
         // Cleanup on error
+        if (g_health_check_running) {
+            g_health_check_running = false;
+            if (g_health_check_thread.joinable()) {
+                g_health_check_thread.join();
+            }
+        }
         if (g_heartbeat) g_heartbeat->stop();
         if (g_udp_broadcaster) g_udp_broadcaster->stop();
         if (g_tcp_server) g_tcp_server->stop();

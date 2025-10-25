@@ -31,7 +31,8 @@
     "response",
     "status",
     "heartbeat",
-    "disconnect"
+    "disconnect",
+    "notification"
   ],
 
   "commands": {
@@ -134,5 +135,37 @@
     "success",
     "error",
     "in_progress"
-  ]
+  ],
+
+  "notification_spec": {
+    "description": "Unsolicited messages from air-side to ground-side for events and status updates",
+    "transport": "TCP (via existing command connection)",
+    "levels": ["info", "warning", "error"],
+    "categories": ["camera", "gimbal", "system", "network"],
+    "payload_structure": {
+      "level": "string (info|warning|error)",
+      "category": "string (camera|gimbal|system|network)",
+      "title": "string (brief title for UI)",
+      "message": "string (detailed human-readable message)",
+      "action": "string (optional - current action being taken)",
+      "dismissible": "boolean (optional - whether user can dismiss notification)"
+    },
+    "examples": {
+      "camera_disconnected": {
+        "level": "warning",
+        "category": "camera",
+        "title": "Camera Disconnected",
+        "message": "Camera connection lost - attempting automatic reconnection",
+        "action": "reconnecting",
+        "dismissible": false
+      },
+      "camera_reconnected": {
+        "level": "info",
+        "category": "camera",
+        "title": "Camera Connected",
+        "message": "Camera successfully reconnected and ready",
+        "dismissible": true
+      }
+    }
+  }
 }

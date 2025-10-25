@@ -6,7 +6,9 @@
 #include <vector>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <nlohmann/json.hpp>
+#include "protocol/messages.h"
 
 using json = nlohmann::json;
 
@@ -29,6 +31,14 @@ public:
 
     // Set camera interface
     void setCamera(std::shared_ptr<CameraInterface> camera) { camera_ = camera; }
+
+    // Send notification to all connected clients
+    void sendNotification(messages::NotificationLevel level,
+                         messages::NotificationCategory category,
+                         const std::string& title,
+                         const std::string& message,
+                         const std::string& action = "",
+                         bool dismissible = true);
 
 private:
     // Accept connections in a loop
@@ -56,6 +66,11 @@ private:
     std::thread accept_thread_;
     std::vector<std::thread> client_threads_;
     std::shared_ptr<CameraInterface> camera_;
+
+    // Client tracking for notifications
+    std::mutex clients_mutex_;
+    std::vector<int> active_clients_;
+    std::atomic<int> notification_seq_id_{0};
 };
 
 #endif // TCP_SERVER_H
