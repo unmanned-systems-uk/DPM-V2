@@ -1972,25 +1972,637 @@ FullScreenVideoPlayer(
 
 ---
 
+## 8. State Management
+
+### 8.1 State Flow Architecture
+
+The application uses **Kotlin StateFlow** for reactive state management, following these principles:
+
+**Key Principles:**
+1. **Single Source of Truth**: Each piece of state has exactly one owner
+2. **Unidirectional Data Flow**: Events up, state down
+3. **Immutable State**: State objects are immutable `data class` instances
+4. **Reactive Updates**: UI automatically recomposes when state changes
+5. **Lifecycle Aware**: StateFlow respects lifecycle, preventing leaks
+
+**State Flow Pattern:**
+```
+User Action (UI Event)
+    ↓
+Composable calls ViewModel function
+    ↓
+ViewModel updates MutableStateFlow
+    ↓
+    _state.update { current -> current.copy(field = newValue) }
+    ↓
+StateFlow emits new value
+    ↓
+Composable observes via collectAsState()
+    ↓
+Compose runtime detects change
+    ↓
+Recomposition triggered
+    ↓
+UI displays updated state
+```
+
+**StateFlow vs LiveData:**
+- **StateFlow**: Kotlin Coroutines-based, better with Compose, type-safe, always has a value
+- **LiveData**: Android-specific, lifecycle-aware but older technology
+- **Decision**: StateFlow chosen for modern Kotlin-first approach with Jetpack Compose
+
+**Implementation Pattern:**
+```kotlin
+class ExampleViewModel : ViewModel() {
+    // Private mutable state (internal)
+    private val _state = MutableStateFlow(InitialState())
+
+    // Public immutable state (exposed to UI)
+    val state: StateFlow<InitialState> = _state.asStateFlow()
+
+    // Update state immutably
+    fun updateValue(newValue: String) {
+        _state.update { current ->
+            current.copy(value = newValue)
+        }
+    }
+}
+```
+
+### 8.2 ViewModels Documentation
+
+The application uses 5 primary ViewModels for state management.
+
+#### 8.2.1 CameraViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraViewModel.kt`
+
+**Purpose**: Manages all camera state and controls, coordinates with NetworkManager for sending commands to R16 Air Unit.
+
+**State Objects:**
+```kotlin
+private val _cameraState = MutableStateFlow(CameraState())
+val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
+```
+
+**Initialization:**
+```kotlin
+init {
+    // Monitor network connection status from shared NetworkManager
+    viewModelScope.launch {
+        NetworkManager.connectionStatus.collect { networkStatus ->
+            _cameraState.update { state ->
+                state.copy(
+                    isConnected = networkStatus.state == ConnectionState.CONNECTED ||
+                                 networkStatus.state == ConnectionState.OPERATIONAL
+                )
+            }
+        }
+    }
+}
+```
+
+**Public API (18 functions):**
+
+**Shutter Speed Control:**
+```kotlin
+fun incrementShutterSpeed() {
+    _cameraState.update { state ->
+        val currentOrdinal = state.shutterSpeed.ordinal
+        val newOrdinal = (currentOrdinal - 1).coerceAtLeast(0)
+        val newShutterSpeed = ShutterSpeed.fromOrdinal(newOrdinal)
+
+        // Send command to air-side
+        sendPropertyCommand("shutter_speed", shutterSpeedToProtocol(newShutterSpeed))
+
+        state.copy(shutterSpeed = newShutterSpeed)
+    }
+}
+
+fun decrementShutterSpeed()  // Similar pattern, increment ordinal
+```
+
+**Aperture Control:**
+```kotlin
+fun incrementAperture()     // Wider aperture (smaller f-number)
+fun decrementAperture()     // Narrower aperture (larger f-number)
+```
+
+**ISO Control:**
+```kotlin
+fun incrementISO()          // More sensitive
+fun decrementISO()          // Less sensitive
+```
+
+**Exposure Compensation:**
+```kotlin
+fun adjustExposureCompensation(delta: Float) {
+    _cameraState.update { state ->
+        val newValue = (state.exposureCompensation + delta).coerceIn(-3.0f, 3.0f)
+        state.copy(exposureCompensation = newValue)
+    }
+}
+```
+
+**Mode and Settings:**
+```kotlin
+fun setMode(mode: CameraMode)                      // Manual, Auto, Av, Tv, P
+fun setWhiteBalance(whiteBalance: WhiteBalance)    // Auto, Daylight, Cloudy, etc.
+fun setFileFormat(format: FileFormat)              // JPEG, RAW, JPEG+RAW
+fun setFocusMode(mode: FocusMode)                  // Auto, Manual, Continuous
+fun toggleRecording()                               // Toggle video recording
+```
+
+**Camera Commands:**
+```kotlin
+fun captureImage() {
+    viewModelScope.launch {
+        try {
+            Log.d(TAG, "Triggering camera capture...")
+            val result = NetworkManager.getClient()?.captureImage()
+            result?.fold(
+                onSuccess = { response ->
+                    Log.d(TAG, "Capture successful: ${response.status}")
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Capture failed", error)
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending capture command", e)
+        }
+    }
+}
+```
+
+**Connection Control:**
+```kotlin
+fun connect()               // Delegate to NetworkManager
+fun disconnect()            // Delegate to NetworkManager
+```
+
+**Protocol Conversion Helpers (Private):**
+```kotlin
+private fun shutterSpeedToProtocol(shutter: ShutterSpeed): String
+    // Converts ShutterSpeed.Speed_1_125 → "1/125"
+
+private fun apertureToProtocol(aperture: Aperture): String
+    // Converts Aperture.F4_0 → "f/4.0"
+
+private fun isoToProtocol(iso: ISO): String
+    // Converts ISO.ISO_800 → "800"
+
+private fun whiteBalanceToProtocol(wb: WhiteBalance): String
+    // Converts WhiteBalance.DAYLIGHT → "daylight"
+
+private fun focusModeToProtocol(mode: FocusMode): String
+    // Converts FocusMode.AUTO → "af_s"
+
+private fun fileFormatToProtocol(format: FileFormat): String
+    // Converts FileFormat.JPEG → "jpeg"
+```
+
+**Property Command Sending:**
+```kotlin
+private fun sendPropertyCommand(property: String, value: String) {
+    viewModelScope.launch {
+        try {
+            Log.d(TAG, "Setting camera property: $property = $value")
+            val result = NetworkManager.getClient()?.setCameraProperty(property, value)
+            result?.fold(
+                onSuccess = { response ->
+                    Log.d(TAG, "Property set successfully: $property = $value")
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to set property: $property = $value", error)
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending property command", e)
+        }
+    }
+}
+```
+
+**State Management Pattern:**
+- **Optimistic Updates**: UI updates immediately, then sends command to air-side
+- **Fire-and-Forget**: Property commands don't wait for confirmation (status broadcasts provide feedback)
+- **Error Logging**: All failures logged but don't revert state (air-side status will correct)
+
+**Dependencies:**
+- `NetworkManager`: Send commands, observe connection status
+- `viewModelScope`: Coroutine scope for network operations
+
+**Lifecycle:**
+- **Initialization**: Starts observing NetworkManager.connectionStatus
+- **Cleanup**: viewModelScope automatically cancelled in onCleared()
+
+**Threading:**
+- All network operations run in `viewModelScope.launch` (background threads)
+- State updates safe from any thread (StateFlow is thread-safe)
+- UI observation happens on main thread via `collectAsState()`
+
+**Error Handling:**
+- Network errors: Logged, no state revert
+- Connection failures: Handled by NetworkManager
+- Invalid values: Prevented by `coerceIn()` and `coerceAtLeast()`/`coerceAtMost()`
+
+#### 8.2.2 SettingsViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsViewModel.kt`
+
+**Purpose**: Manages network and video settings, persists configuration via SettingsRepository.
+
+**State Objects:**
+```kotlin
+val networkSettings: StateFlow<NetworkSettings> = settingsRepository.networkSettingsFlow
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = NetworkSettings()
+    )
+
+val videoSettings: StateFlow<VideoStreamSettings> = settingsRepository.videoSettingsFlow
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = VideoStreamSettings()
+    )
+
+val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
+```
+
+**Public API:**
+```kotlin
+fun updateSettings(settings: NetworkSettings) {
+    viewModelScope.launch {
+        // Disconnect if currently connected
+        NetworkManager.disconnect()
+
+        // Save settings to DataStore (will trigger flow and reinitialize)
+        settingsRepository.saveNetworkSettings(settings)
+    }
+}
+
+fun updateVideoSettings(settings: VideoStreamSettings) {
+    viewModelScope.launch {
+        settingsRepository.saveVideoSettings(settings)
+    }
+}
+
+fun resetToDefaults() {
+    viewModelScope.launch {
+        settingsRepository.resetToDefaults()
+        // Settings will be updated via the flow which will reinitialize NetworkManager
+    }
+}
+
+fun connect() {
+    NetworkManager.connect()
+}
+
+fun disconnect() {
+    NetworkManager.disconnect()
+}
+```
+
+**Initialization:**
+```kotlin
+init {
+    // Monitor settings changes and reinitialize NetworkManager when settings change
+    viewModelScope.launch {
+        settingsRepository.networkSettingsFlow.collect { savedSettings ->
+            // Reinitialize NetworkManager when settings change
+            NetworkManager.initialize(savedSettings)
+        }
+    }
+}
+```
+
+**Pattern: Settings Flow**
+- Settings flow from repository (backed by DataStore)
+- UI observes settings via StateFlow
+- Save operation triggers DataStore update
+- DataStore update triggers Flow emission
+- Flow emission triggers NetworkManager re-initialization
+- Automatic propagation throughout app
+
+**Dependencies:**
+- `SettingsRepository`: Read/write settings
+- `NetworkManager`: Re-initialize on settings change
+
+#### 8.2.3 SystemStatusViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/system/SystemStatusViewModel.kt`
+
+**Purpose**: Displays real-time system telemetry from R16 Air Unit, supports manual refresh.
+
+**State Objects:**
+```kotlin
+private val _uiState = MutableStateFlow(SystemStatusUiState())
+val uiState: StateFlow<SystemStatusUiState> = _uiState.asStateFlow()
+
+data class SystemStatusUiState(
+    val isConnected: Boolean = false,
+    val systemStatus: SystemStatus? = null,
+    val isRefreshing: Boolean = false,
+    val lastRefreshTime: Long? = null,
+    val errorMessage: String? = null
+)
+```
+
+**Public API:**
+```kotlin
+fun refreshSystemStatus() {
+    viewModelScope.launch {
+        _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+
+        val result = NetworkManager.getSystemStatus()
+
+        result.fold(
+            onSuccess = { response ->
+                _uiState.update { state ->
+                    state.copy(
+                        isRefreshing = false,
+                        lastRefreshTime = System.currentTimeMillis()
+                    )
+                }
+            },
+            onFailure = { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        isRefreshing = false,
+                        errorMessage = "Failed to refresh: ${error.message}"
+                    )
+                }
+            }
+        )
+    }
+}
+
+fun connect()              // Delegate to NetworkManager
+fun disconnect()           // Delegate to NetworkManager
+fun clearError()           // Clear error message from UI state
+```
+
+**Initialization:**
+```kotlin
+init {
+    // Monitor network connection status
+    viewModelScope.launch {
+        NetworkManager.connectionStatus.collect { networkStatus ->
+            _uiState.update { state ->
+                state.copy(
+                    isConnected = networkStatus.state == ConnectionState.CONNECTED ||
+                                 networkStatus.state == ConnectionState.OPERATIONAL
+                )
+            }
+        }
+    }
+
+    // Monitor system status updates from UDP broadcasts (5 Hz)
+    viewModelScope.launch {
+        NetworkManager.systemStatus.collect { systemStatus ->
+            _uiState.update { state ->
+                state.copy(systemStatus = systemStatus)
+            }
+        }
+    }
+}
+```
+
+**Pattern: Dual Data Source**
+- **Automatic Updates**: UDP broadcasts at 5 Hz (passive observation)
+- **Manual Refresh**: User-triggered TCP command (active request)
+- **Error Handling**: Shows error in UI, doesn't block automatic updates
+
+#### 8.2.4 EventLogViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/eventlog/EventLogViewModel.kt`
+
+**Purpose**: Application-wide event logging for development diagnostics.
+
+**Pattern: Singleton ViewModel**
+```kotlin
+object EventLogViewModel : ViewModel() {
+    // Singleton pattern allows logging from anywhere in the app
+}
+```
+
+**State Objects:**
+```kotlin
+private val _events = MutableStateFlow<List<EventLogEntry>>(emptyList())
+val events: StateFlow<List<EventLogEntry>> = _events.asStateFlow()
+
+private val maxEvents = 1000 // Keep last 1000 events
+
+data class EventLogEntry(
+    val timestamp: Long = System.currentTimeMillis(),
+    val category: EventCategory,
+    val level: EventLevel,
+    val message: String,
+    val details: String? = null
+)
+
+enum class EventCategory {
+    NETWORK, CAMERA, UI, SYSTEM, ERROR
+}
+
+enum class EventLevel {
+    DEBUG, INFO, WARNING, ERROR
+}
+```
+
+**Public API:**
+```kotlin
+fun logEvent(
+    category: EventCategory,
+    level: EventLevel,
+    message: String,
+    details: String? = null
+) {
+    val event = EventLogEntry(
+        timestamp = System.currentTimeMillis(),
+        category = category,
+        level = level,
+        message = message,
+        details = details
+    )
+
+    _events.value = (_events.value + event).takeLast(maxEvents)
+}
+
+fun clearLog()
+
+fun getEventsByCategory(category: EventCategory): List<EventLogEntry>
+fun getEventsByLevel(level: EventLevel): List<EventLogEntry>
+
+// Convenience functions
+fun logDebug(category: EventCategory, message: String, details: String? = null)
+fun logInfo(category: EventCategory, message: String, details: String? = null)
+fun logWarning(category: EventCategory, message: String, details: String? = null)
+fun logError(category: EventCategory, message: String, details: String? = null)
+```
+
+**Usage From Anywhere:**
+```kotlin
+// From any class in the app
+EventLogViewModel.logInfo(EventCategory.NETWORK, "Connection established")
+EventLogViewModel.logError(EventCategory.CAMERA, "Capture failed", "Timeout after 5s")
+```
+
+**Pattern: Circular Buffer**
+- Keeps last 1000 events
+- Automatic truncation with `.takeLast(maxEvents)`
+- Memory-efficient for long-running app
+
+#### 8.2.5 VideoPlayerViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
+
+**Purpose**: Manages ExoPlayer lifecycle for RTSP video streaming.
+
+**State Objects:**
+```kotlin
+private val _videoState = MutableStateFlow<VideoState>(VideoState.Disconnected)
+val videoState: StateFlow<VideoState> = _videoState.asStateFlow()
+
+sealed class VideoState {
+    object Disconnected : VideoState()
+    object Connecting : VideoState()
+    data class Connected(val resolution: String = "Unknown") : VideoState()
+    data class Error(val message: String) : VideoState()
+}
+```
+
+**Public API:**
+```kotlin
+fun initializePlayer(context: Context, rtspUrl: String, bufferDurationMs: Long = 500)
+fun releasePlayer()
+fun reconnect(context: Context, rtspUrl: String, bufferDurationMs: Long = 500)
+fun getPlayer(): ExoPlayer?
+```
+
+**Lifecycle Management:**
+```kotlin
+override fun onCleared() {
+    super.onCleared()
+    Log.d(TAG, "ViewModel cleared, releasing player")
+    releasePlayer()
+}
+```
+
+**Pattern: Resource Management**
+- Creates/manages ExoPlayer instance
+- Handles RTSP connection
+- Cleans up on ViewModel clear
+- State updates via Player.Listener callbacks
+
+*See Section 9 for detailed video streaming documentation.*
+
+### 8.3 State Objects Reference
+
+Complete list of all state data classes used in ViewModels:
+
+#### CameraState
+**Location**: `camera/CameraState.kt`
+**Fields**: 12 fields (mode, shutterSpeed, aperture, iso, exposureCompensation, whiteBalance, focusMode, fileFormat, isRecording, batteryLevel, remainingShots, isConnected)
+**Usage**: Primary state in CameraViewModel
+**Mutability**: Immutable, updated with `.copy()`
+
+#### NetworkSettings
+**Location**: `network/NetworkSettings.kt`
+**Fields**: 7 fields (targetIp, commandPort, statusListenPort, heartbeatPort, connectionTimeoutMs, heartbeatIntervalMs, statusUpdateIntervalMs)
+**Usage**: Configuration state in SettingsViewModel
+**Persistence**: DataStore via SettingsRepository
+
+#### VideoStreamSettings
+**Location**: `network/NetworkSettings.kt`
+**Fields**: 4 fields (enabled, rtspUrl, aspectRatioMode, bufferDurationMs)
+**Usage**: Video configuration in SettingsViewModel
+**Persistence**: DataStore via SettingsRepository
+
+#### SystemStatusUiState
+**Location**: `system/SystemStatusViewModel.kt`
+**Fields**: 5 fields (isConnected, systemStatus, isRefreshing, lastRefreshTime, errorMessage)
+**Usage**: UI state in SystemStatusViewModel
+**Pattern**: Wrapper around SystemStatus from NetworkManager
+
+#### EventLogEntry
+**Location**: `eventlog/EventLogViewModel.kt`
+**Fields**: 5 fields (timestamp, category, level, message, details)
+**Usage**: Log entries in EventLogViewModel
+**Pattern**: Immutable log records
+
+#### VideoState (Sealed Class)
+**Location**: `video/VideoPlayerViewModel.kt`
+**Variants**: Disconnected, Connecting, Connected(resolution), Error(message)
+**Usage**: Video player state in VideoPlayerViewModel
+**Pattern**: Type-safe state machine
+
+### 8.4 State Update Patterns
+
+**Pattern 1: Direct Update**
+```kotlin
+fun updateValue(newValue: String) {
+    _state.update { it.copy(value = newValue) }
+}
+```
+
+**Pattern 2: Computed Update**
+```kotlin
+fun increment() {
+    _state.update { current ->
+        val newValue = current.value + 1
+        current.copy(value = newValue)
+    }
+}
+```
+
+**Pattern 3: Update with Side Effect**
+```kotlin
+fun updateAndSync(newValue: String) {
+    _state.update { it.copy(value = newValue) }
+
+    viewModelScope.launch {
+        sendToAirSide(newValue)
+    }
+}
+```
+
+**Pattern 4: Observing Other StateFlows**
+```kotlin
+init {
+    viewModelScope.launch {
+        otherViewModel.state.collect { otherState ->
+            _state.update { it.copy(relatedValue = otherState.value) }
+        }
+    }
+}
+```
+
+---
+
 ## 📋 Document Generation Status
 
 | Phase | Sections | Status |
 |-------|----------|--------|
 | **Phase 1** | 1-3: Executive Summary, Project Structure, Architecture Overview | ✅ Complete |
-| **Phase 2** | 4-7: Core Components, Data Layer, Network Layer, UI Layer | ✅ **COMPLETE** |
-| **Phase 3** | 8-11: State Management, Video Streaming, Navigation, Dependencies | ⏳ Pending |
+| **Phase 2** | 4-7: Core Components, Data Layer, Network Layer, UI Layer | ✅ Complete |
+| **Phase 3** | 8: State Management | ✅ **COMPLETE** |
+| **Phase 3** | 9-11: Video Streaming, Navigation, Dependencies | ⏳ Pending |
 | **Phase 4** | 12-18: Configuration, Testing, Build, Conventions, Deployment | ⏳ Pending |
 
-**Next Action**: Run Phase 3 to continue documentation
+**Next Action**: Continue Phase 3 with Sections 9-11
 
 ---
 
 **Document Metadata**
 
 **Generated**: October 25, 2025
-**Phase**: 2 of 4 (Core Implementation)
-**Sections Complete**: 1-7
-**Sections Remaining**: 11
+**Phase**: 3 of 4 (In Progress - Section 8 Complete)
+**Sections Complete**: 1-8
+**Sections Remaining**: 10
 **Est. Completion**: After Phase 4
 
 ---
