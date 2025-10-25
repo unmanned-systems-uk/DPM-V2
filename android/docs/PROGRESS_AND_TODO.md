@@ -4,6 +4,40 @@
 
 ### Latest Changes ✅
 
+**8. Persistent Settings & Auto-Connect** *(Multiple files)*
+- **Settings are now saved and remembered across app restarts**
+- **Auto-connect on app startup** using saved settings
+- **Reset to Defaults button** - quick restore of default configuration
+
+Implementation Details:
+- Created SettingsRepository.kt:
+  - Uses DataStore Preferences for persistent storage
+  - Saves all network settings (IP, ports, timeouts, intervals)
+  - Provides Flow-based reactive settings updates
+  - `resetToDefaults()` function for quick reset
+- Updated SettingsViewModel.kt:
+  - Changed to AndroidViewModel to access Application context
+  - Loads saved settings on initialization
+  - Auto-connects on first load (after settings are loaded)
+  - `updateSettings()` now persists to DataStore
+  - Added `resetToDefaults()` function
+  - Flag to prevent multiple auto-connect attempts
+- Updated SettingsScreen.kt:
+  - Converted default settings info card to interactive card with button
+  - Added "Reset to Defaults" button
+  - Text fields update automatically when defaults are loaded
+  - Snackbar confirmation when resetting to defaults
+  - LaunchedEffect to sync UI with settings changes
+- Updated build.gradle.kts & libs.versions.toml:
+  - Added DataStore Preferences dependency (v1.0.0)
+
+User Experience:
+- App remembers your last network configuration
+- No need to re-enter IP and ports after restart
+- Automatic connection on startup (uses saved settings)
+- One-click reset to default configuration
+- Confirmation messages for all settings changes
+
 **7. Live Connection Status on Camera Screen** *(app/src/main/java/uk/unmannedsystems/dpm_android/camera/)*
 - Added real-time connection status indicator to main camera screen
 - **RED circle** = Air-Side disconnected (no heartbeats received)

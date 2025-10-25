@@ -1,5 +1,6 @@
 package uk.unmannedsystems.dpm_android.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -73,6 +75,15 @@ fun SettingsScreen(
             },
             onConnect = viewModel::connect,
             onDisconnect = viewModel::disconnect,
+            onResetToDefaults = {
+                viewModel.resetToDefaults()
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Reset to default settings",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
             modifier = Modifier.padding(padding)
         )
     }
@@ -85,12 +96,21 @@ private fun SettingsContent(
     onSaveSettings: (NetworkSettings) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var targetIp by rememberSaveable { mutableStateOf(currentSettings.targetIp) }
     var commandPort by rememberSaveable { mutableStateOf(currentSettings.commandPort.toString()) }
     var statusPort by rememberSaveable { mutableStateOf(currentSettings.statusListenPort.toString()) }
     var heartbeatPort by rememberSaveable { mutableStateOf(currentSettings.heartbeatPort.toString()) }
+
+    // Update text fields when currentSettings changes (e.g., when defaults are loaded)
+    androidx.compose.runtime.LaunchedEffect(currentSettings) {
+        targetIp = currentSettings.targetIp
+        commandPort = currentSettings.commandPort.toString()
+        statusPort = currentSettings.statusListenPort.toString()
+        heartbeatPort = currentSettings.heartbeatPort.toString()
+    }
 
     Column(
         modifier = modifier
@@ -272,7 +292,7 @@ private fun SettingsContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Info Card
+        // Default Settings Button
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -280,22 +300,34 @@ private fun SettingsContent(
             )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Default Configuration",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = """
-                        • Target: 192.168.144.20:5000
-                        • Status Listen Port: 5001
-                        • Heartbeat Port: 5002
-
-                        These settings match the protocol specification for communication with the Raspberry Pi payload manager.
-                    """.trimIndent(),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Default Configuration",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = """
+                                • Target: 192.168.144.20:5000
+                                • Status Listen Port: 5001
+                                • Heartbeat Port: 5002
+                            """.trimIndent(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Button(
+                        onClick = onResetToDefaults
+                    ) {
+                        Text("Reset to Defaults")
+                    }
+                }
             }
         }
 
