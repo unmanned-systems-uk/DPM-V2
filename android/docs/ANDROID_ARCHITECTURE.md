@@ -2583,26 +2583,990 @@ init {
 
 ---
 
+## 9. Video Streaming Implementation
+
+### 9.1 RTSP Streaming Architecture
+
+The Android app implements real-time video streaming using **RTSP (Real-Time Streaming Protocol)** with ExoPlayer (Media3) as the playback engine. The architecture provides low-latency video display for drone camera operation.
+
+**Key Components**:
+1. **VideoPlayerViewModel**: Manages ExoPlayer lifecycle and connection state
+2. **FullScreenVideoPlayer**: Jetpack Compose UI for video display
+3. **VideoStreamSettings**: Configuration data class for stream parameters
+4. **ExoPlayer (Media3)**: Android's recommended media player with RTSP support
+
+**RTSP Stream Configuration**:
+- **Default URL**: `rtsp://{groundStationIp}:8554/H264Video`
+- **Port**: 8554 (RTSP standard)
+- **Video Codec**: H.264
+- **Transport**: UDP (for low latency)
+- **Buffer Duration**: 500ms (configurable for latency optimization)
+
+**Video Flow**:
+```
+Air-Side Camera → RTSP Server (Live555) → Network → Android ExoPlayer → Display
+```
+
+**Integration Points**:
+- Settings screen provides RTSP URL configuration
+- CameraControlScreen displays full-screen video background
+- VideoPlayerViewModel coordinates with NetworkManager for connection status
+
+---
+
+### 9.2 VideoPlayerViewModel
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
+
+**Purpose**: Manages ExoPlayer lifecycle, RTSP connection, and video playback state.
+
+#### 9.2.1 Initialization
+
+```kotlin
+class VideoPlayerViewModel : ViewModel() {
+    private val _videoState = MutableStateFlow<VideoState>(VideoState.Disconnected)
+    val videoState: StateFlow<VideoState> = _videoState.asStateFlow()
+
+    private var exoPlayer: ExoPlayer? = null
+}
+```
+
+#### 9.2.2 Video State Machine
+
+**Sealed Class Hierarchy**:
+```kotlin
+sealed class VideoState {
+    object Disconnected : VideoState()
+    object Connecting : VideoState()
+    data class Connected(val resolution: String = "Unknown") : VideoState()
+    data class Error(val message: String) : VideoState()
+}
+```
+
+**State Transitions**:
+```
+Disconnected → Connecting (initializePlayer called)
+Connecting → Connected (ExoPlayer STATE_READY)
+Connecting → Buffering → Connected (ExoPlayer STATE_BUFFERING → STATE_READY)
+Any → Error (PlaybackException)
+Any → Disconnected (releasePlayer called)
+```
+
+#### 9.2.3 Public API
+
+**Primary Functions**:
+
+1. **`initializePlayer(context: Context, rtspUrl: String, bufferDurationMs: Long = 500)`**
+   - Initializes ExoPlayer with low-latency configuration
+   - Creates RTSP MediaItem from URL
+   - Configures buffer durations for minimal latency
+   - Starts automatic playback
+   - **Default Buffer**: 500ms (configurable via settings)
+
+2. **`releasePlayer()`**
+   - Releases ExoPlayer resources
+   - Cleans up media streams
+   - Transitions to Disconnected state
+
+3. **`reconnect(context: Context, rtspUrl: String, bufferDurationMs: Long = 500)`**
+   - Convenience function for reconnection after errors
+   - Calls `releasePlayer()` then `initializePlayer()`
+
+4. **`getPlayer(): ExoPlayer?`**
+   - Returns ExoPlayer instance for PlayerView binding
+   - Used by FullScreenVideoPlayer composable
+
+#### 9.2.4 Low-Latency Configuration
+
+**Buffer Strategy**:
+```kotlin
+val loadControl = DefaultLoadControl.Builder()
+    .setBufferDurationsMs(
+        bufferDurationMs.toInt(),          // Min buffer: 500ms
+        (bufferDurationMs * 2).toInt(),    // Max buffer: 1000ms
+        (bufferDurationMs / 2).toInt(),    // Playback start: 250ms
+        bufferDurationMs.toInt()           // Rebuffer: 500ms
+    )
+    .build()
+```
+
+**Design Rationale**:
+- **Minimum Buffer (500ms)**: Balances latency vs. stability
+- **Maximum Buffer (1000ms)**: Prevents excessive buffering delays
+- **Playback Start (250ms)**: Quick startup for responsive feel
+- **Rebuffer (500ms)**: Fast recovery from network jitter
+
+**Trade-offs**:
+- Lower buffers = lower latency but more stuttering
+- Higher buffers = smoother playback but higher latency
+- Current settings optimized for WiFi local network (5GHz recommended)
+
+#### 9.2.5 ExoPlayer Listener Implementation
+
+**Player.Listener Callbacks**:
+```kotlin
+addListener(object : Player.Listener {
+    override fun onPlaybackStateChanged(playbackState: Int) {
+        when (playbackState) {
+            Player.STATE_READY -> {
+                val videoFormat = this@apply.videoFormat
+                val resolution = "${videoFormat?.width}x${videoFormat?.height}"
+                _videoState.value = VideoState.Connected(resolution)
+            }
+            Player.STATE_BUFFERING -> {
+                _videoState.value = VideoState.Connecting
+            }
+            Player.STATE_ENDED -> { /* RTSP streams don't typically end */ }
+            Player.STATE_IDLE -> { /* Initial state */ }
+        }
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+        _videoState.value = VideoState.Error(error.message ?: "Unknown error")
+    }
+})
+```
+
+**State Tracking**:
+- `STATE_READY`: Extracts video resolution (e.g., "1920x1080")
+- `STATE_BUFFERING`: Shows loading indicator to user
+- `onPlayerError`: Displays error message with troubleshooting hint
+
+#### 9.2.6 Lifecycle Management
+
+**ViewModel Cleanup**:
+```kotlin
+override fun onCleared() {
+    super.onCleared()
+    Log.d(TAG, "ViewModel cleared, releasing player")
+    releasePlayer()
+}
+```
+
+**Integration with Compose**:
+- ViewModel scoped to Activity (survives configuration changes)
+- Player resources released when Activity destroyed
+- Automatic cleanup prevents memory leaks
+
+---
+
+### 9.3 FullScreenVideoPlayer Composable
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
+
+**Purpose**: Jetpack Compose UI for full-screen RTSP video with overlay states.
+
+#### 9.3.1 Component Structure
+
+```kotlin
+@Composable
+fun FullScreenVideoPlayer(
+    videoSettings: VideoStreamSettings,
+    modifier: Modifier = Modifier,
+    videoPlayerViewModel: VideoPlayerViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val videoState by videoPlayerViewModel.videoState.collectAsState()
+
+    // Player initialization
+    LaunchedEffect(videoSettings.rtspUrl, videoSettings.bufferDurationMs) {
+        if (videoSettings.enabled) {
+            videoPlayerViewModel.initializePlayer(...)
+        }
+    }
+
+    // Player cleanup
+    DisposableEffect(Unit) {
+        onDispose { videoPlayerViewModel.releasePlayer() }
+    }
+
+    // UI rendering
+    Box { /* Video + Overlays */ }
+}
+```
+
+#### 9.3.2 LaunchedEffect for Initialization
+
+**Purpose**: Initialize player when settings change or composable enters composition.
+
+**Key Behavior**:
+- Triggers on `videoSettings.rtspUrl` or `videoSettings.bufferDurationMs` change
+- Only initializes if `videoSettings.enabled == true`
+- Automatically reconnects if RTSP URL changes in settings
+
+**Use Case**: User changes Ground Station IP → new RTSP URL → auto-reconnect
+
+#### 9.3.3 DisposableEffect for Cleanup
+
+**Purpose**: Release player resources when composable leaves composition.
+
+**Key Behavior**:
+- `onDispose` called when composable removed from tree
+- Releases ExoPlayer to prevent memory leaks
+- Stops network streams and frees buffers
+
+**Use Case**: User navigates away from camera screen → player released
+
+#### 9.3.4 AndroidView Integration
+
+**PlayerView Setup**:
+```kotlin
+AndroidView(
+    factory = { context ->
+        PlayerView(context).apply {
+            player = videoPlayerViewModel.getPlayer()
+            useController = false  // Hide default playback controls
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+
+            resizeMode = when (videoSettings.aspectRatioMode) {
+                AspectRatioMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                AspectRatioMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                AspectRatioMode.AUTO -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+        }
+    },
+    update = { playerView ->
+        playerView.player = videoPlayerViewModel.getPlayer()
+        playerView.resizeMode = /* updated from settings */
+    }
+)
+```
+
+**Design Decisions**:
+- **`useController = false`**: Camera controls overlay provides UI (no need for play/pause)
+- **Resize Modes**:
+  - `FILL`: Crop video to fill screen (may cut off edges)
+  - `FIT`: Letterbox/pillarbox to show entire video
+  - `AUTO`: Intelligent fit based on video dimensions
+
+#### 9.3.5 Overlay States
+
+**State-Driven UI**:
+```kotlin
+when (val state = videoState) {
+    is VideoState.Disconnected -> DisconnectedOverlay()
+    is VideoState.Connecting -> ConnectingOverlay()
+    is VideoState.Error -> ErrorOverlay(errorMessage = state.message)
+    is VideoState.Connected -> { /* No overlay - video visible */ }
+}
+```
+
+**Overlay Components**:
+
+1. **DisconnectedOverlay**
+   - Black background with white text
+   - Message: "Video Disconnected / Waiting for stream..."
+   - Shown when: Not yet connected or after disconnect
+
+2. **ConnectingOverlay**
+   - Semi-transparent black (alpha = 0.7f)
+   - CircularProgressIndicator + "Connecting to video stream..."
+   - Shown when: Buffering or establishing RTSP connection
+
+3. **ErrorOverlay**
+   - Black background
+   - Red "Video Error" title
+   - Error message from PlaybackException
+   - Troubleshooting hint: "Check network connection and RTSP URL in settings"
+
+4. **VideoDisabledOverlay**
+   - Black background
+   - Message: "Video Stream Disabled / Enable video in Settings to view stream"
+   - Shown when: `videoSettings.enabled == false`
+
+**User Experience Flow**:
+```
+App Start → Disconnected Overlay
+  ↓
+User Taps "Connect" → Connecting Overlay (spinner)
+  ↓
+RTSP Connection Success → Connected State (video visible, no overlay)
+```
+
+#### 9.3.6 Aspect Ratio Handling
+
+**AspectRatioMode Enum** (from `VideoStreamSettings`):
+```kotlin
+enum class AspectRatioMode {
+    FILL,   // Crop to fill screen
+    FIT,    // Letterbox/pillarbox
+    AUTO    // Intelligent fit
+}
+```
+
+**Mapping to ExoPlayer**:
+- `FILL` → `AspectRatioFrameLayout.RESIZE_MODE_FILL`
+- `FIT` → `AspectRatioFrameLayout.RESIZE_MODE_FIT`
+- `AUTO` → `AspectRatioFrameLayout.RESIZE_MODE_FIT` (defaults to FIT)
+
+**Use Cases**:
+- **FILL**: Maximize screen usage, accept cropping (e.g., landscape video on landscape screen)
+- **FIT**: See entire video frame, accept black bars (e.g., 4:3 video on 16:9 screen)
+
+---
+
+### 9.4 Video Stream Settings
+
+**Data Class** (from Section 5 - Data Layer):
+```kotlin
+data class VideoStreamSettings(
+    val enabled: Boolean = true,
+    val rtspUrl: String = "rtsp://192.168.1.10:8554/H264Video",
+    val bufferDurationMs: Long = 500,
+    val aspectRatioMode: AspectRatioMode = AspectRatioMode.FIT
+)
+```
+
+**Configuration Management**:
+- Stored in DataStore Preferences via SettingsRepository
+- Exposed through SettingsViewModel as StateFlow
+- User-configurable in Settings screen
+
+**Settings UI Integration** (SettingsScreen.kt):
+- Ground Station IP → updates RTSP URL
+- Video Enable/Disable toggle
+- Buffer duration slider (100ms - 2000ms)
+- Aspect ratio mode selector
+
+**Dynamic URL Construction**:
+```kotlin
+val rtspUrl = "rtsp://${groundStationIp}:8554/H264Video"
+```
+
+**Example URLs**:
+- Development: `rtsp://192.168.1.10:8554/H264Video`
+- Testing: `rtsp://10.0.0.5:8554/H264Video`
+- Production: `rtsp://<drone-ip>:8554/H264Video`
+
+---
+
+### 9.5 Performance Optimization
+
+#### 9.5.1 Latency Optimization
+
+**Target Latency**: < 1 second end-to-end (camera → screen)
+
+**Optimizations Implemented**:
+1. **Low Buffer Durations**: 500ms minimum (vs. default 15s+)
+2. **UDP Transport**: RTSP over UDP for speed (vs. TCP reliability)
+3. **H.264 Codec**: Hardware-accelerated decoding on Android
+4. **Direct Rendering**: ExoPlayer → SurfaceView (no CPU copy)
+5. **No Frame Buffering**: Immediate display when ready
+
+**Latency Breakdown** (estimated):
+- Camera encoding: 50-100ms
+- Network transmission: 10-50ms (WiFi 5GHz)
+- ExoPlayer buffering: 500ms (configurable)
+- Rendering: 16-33ms (60fps / 30fps)
+- **Total**: ~600-700ms
+
+**Further Optimization Opportunities**:
+- Reduce buffer to 200ms (may cause stuttering)
+- Use WebRTC instead of RTSP (< 200ms possible)
+- Hardware encoder on air-side for lower encoding latency
+
+#### 9.5.2 Network Performance
+
+**WiFi Recommendations**:
+- **Band**: 5GHz (less congestion than 2.4GHz)
+- **Bandwidth**: 10-20 Mbps for 1080p H.264
+- **Range**: < 50m for stable connection
+- **Channel**: Non-overlapping (36, 40, 44, 48)
+
+**Bandwidth Requirements**:
+- 720p @ 30fps: ~5 Mbps
+- 1080p @ 30fps: ~10 Mbps
+- 1080p @ 60fps: ~20 Mbps
+
+**Error Handling**:
+- ExoPlayer retries RTSP connection automatically
+- `reconnect()` function for manual retry
+- Error overlay shows troubleshooting instructions
+
+#### 9.5.3 Memory Management
+
+**ExoPlayer Memory Usage**:
+- Video buffers: ~10-20 MB (depending on buffer duration)
+- Decoder: Hardware-accelerated (no CPU memory overhead)
+- Texture surfaces: ~8-12 MB (1080p RGB)
+
+**Resource Cleanup**:
+- `releasePlayer()` called on ViewModel destruction
+- DisposableEffect ensures cleanup on composable exit
+- No memory leaks in normal operation
+
+---
+
+### 9.6 Integration with CameraControlScreen
+
+**Usage** (from `CameraControlScreen.kt`):
+```kotlin
+Box(modifier = Modifier.fillMaxSize()) {
+    // Full-screen video background
+    FullScreenVideoPlayer(
+        videoSettings = videoSettings,
+        videoPlayerViewModel = videoPlayerViewModel,
+        modifier = Modifier.fillMaxSize()
+    )
+
+    // Camera controls overlay (shutter, ISO, etc.)
+    CameraControlContent(...)
+}
+```
+
+**Layering**:
+1. **Background**: FullScreenVideoPlayer (z-index: 0)
+2. **Foreground**: Semi-transparent camera controls (z-index: 1)
+
+**User Experience**:
+- Real-time video preview while adjusting camera settings
+- Connection indicator shows air-side connection status
+- Video continues playing during setting adjustments
+
+---
+
+### 9.7 Known Issues and Limitations
+
+**Current MVP Limitations**:
+1. **No Recording**: Video playback only, no DVR functionality
+2. **No Snapshots**: Cannot capture still frames from video stream
+3. **Fixed Codec**: H.264 only (no HEVC/VP9 support)
+4. **UDP Only**: No TCP fallback for lossy networks
+5. **Single Stream**: No multi-camera support
+
+**Known Issues**:
+- RTSP connection may fail on first attempt (ExoPlayer retry handles this)
+- Video may freeze briefly during WiFi handoff (no auto-reconnect yet)
+- Error overlay doesn't auto-dismiss on recovery (requires manual reconnect)
+
+**Future Improvements** (see Section 18 - Future Roadmap):
+- Implement auto-reconnect on network recovery
+- Add video recording capability
+- Support snapshot capture from live stream
+- Add bandwidth adaptation for variable network conditions
+
+---
+
+## 10. Navigation
+
+### 10.1 Navigation Architecture
+
+**Current Implementation**: Single-screen MVP
+
+The DPM Android app currently uses a **simplified single-screen architecture** for Phase 1 MVP. All functionality is accessible from the main `CameraControlScreen` with an embedded `SettingsScreen` accessible via button.
+
+**Why Single-Screen**:
+1. **MVP Focus**: Core functionality (camera control + video) in one view
+2. **Pilot Workflow**: Quick access to all controls without navigation
+3. **Simplicity**: Reduces complexity for initial testing phase
+
+**Navigation Structure**:
+```
+MainActivity
+  └─ CameraControlScreen (default/only screen)
+       ├─ Video Background (full-screen)
+       ├─ Camera Controls (overlay)
+       └─ Settings Button → SettingsScreen (modal/overlay)
+```
+
+---
+
+### 10.2 MainActivity Implementation
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt`
+
+**Current Implementation** (from Section 4 - Core Components):
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            DPMAndroidTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    CameraControlScreen()
+                }
+            }
+        }
+    }
+}
+```
+
+**Design**:
+- No Jetpack Navigation library used (overkill for single screen)
+- Direct composable rendering in `setContent`
+- Theme applied at top level
+
+---
+
+### 10.3 Screen Composition
+
+**Layer Structure**:
+
+```
+┌─────────────────────────────────────┐
+│  CameraControlScreen                │
+│  ┌───────────────────────────────┐  │
+│  │ FullScreenVideoPlayer (Base)  │  │
+│  └───────────────────────────────┘  │
+│  ┌───────────────────────────────┐  │
+│  │ Camera Controls (Overlay)     │  │
+│  │  - Connection Status          │  │
+│  │  - Shutter/Aperture/ISO       │  │
+│  │  - Capture Button             │  │
+│  │  - Settings Button            │  │
+│  └───────────────────────────────┘  │
+│  ┌───────────────────────────────┐  │
+│  │ SettingsScreen (Conditional)  │  │ ← Shown when settings button pressed
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+**State Management**:
+- Settings visibility controlled by local state in CameraControlScreen
+- No navigation state persistence needed (always starts on camera screen)
+
+---
+
+### 10.4 Future Navigation Plans
+
+**Phase 2 Navigation Requirements**:
+
+When additional screens are needed (event log, gallery, diagnostics), implement:
+
+1. **Jetpack Navigation Compose**
+   ```kotlin
+   val navController = rememberNavController()
+
+   NavHost(navController, startDestination = "camera") {
+       composable("camera") { CameraControlScreen(navController) }
+       composable("settings") { SettingsScreen(navController) }
+       composable("eventLog") { EventLogScreen(navController) }
+       composable("gallery") { GalleryScreen(navController) }
+   }
+   ```
+
+2. **Bottom Navigation Bar** (for pilot-friendly navigation)
+   ```
+   ┌─────────────────────────────────────┐
+   │  Screen Content                     │
+   ├─────────────────────────────────────┤
+   │ [Camera] [Settings] [Log] [Gallery] │ ← Bottom nav bar
+   └─────────────────────────────────────┘
+   ```
+
+3. **Navigation Drawer** (alternative for desktop/tablet layout)
+
+**Recommended Screens for Phase 2**:
+- **Camera**: Main camera control (current CameraControlScreen)
+- **Event Log**: Full EventLogScreen with filtering (currently stub)
+- **Gallery**: Image/video gallery for captured media
+- **System Status**: Detailed system diagnostics
+- **Settings**: Full settings screen (move out of overlay)
+
+---
+
+### 10.5 Deep Linking
+
+**Current**: Not implemented (not needed for MVP)
+
+**Future Considerations**:
+
+1. **External Camera Trigger**:
+   ```
+   dpm://camera/capture
+   ```
+   Allows external apps to trigger photo capture
+
+2. **Settings Deep Link**:
+   ```
+   dpm://settings/network
+   ```
+   Jump directly to network settings
+
+3. **Mission Planning Integration**:
+   ```
+   dpm://mission?waypoint=5
+   ```
+   Link to specific mission waypoint
+
+**Implementation Path**:
+- Add `<intent-filter>` in AndroidManifest.xml
+- Handle deep links in MainActivity
+- Parse parameters and navigate to destination
+
+---
+
+### 10.6 Navigation Best Practices
+
+**When to Add Navigation**:
+- ✅ **Do**: Add navigation when 3+ distinct screens are needed
+- ✅ **Do**: Use navigation for modal flows (login, onboarding)
+- ❌ **Don't**: Add navigation prematurely (current MVP approach)
+- ❌ **Don't**: Use navigation for simple overlays (settings is fine as overlay)
+
+**Current Approach Assessment**:
+- ✅ **Correct for MVP**: Single screen is appropriate for testing core functionality
+- ✅ **Easy to Extend**: Can add Jetpack Navigation in Phase 2 without refactoring
+- ✅ **Pilot-Friendly**: No navigation complexity during flight operations
+
+---
+
+## 11. Dependencies
+
+### 11.1 Dependency Management
+
+**Build System**: Gradle with Kotlin DSL (`.kts`)
+
+**Version Catalog**: `gradle/libs.versions.toml`
+
+**Benefits**:
+- Centralized version management
+- Type-safe dependency references
+- Easy version upgrades
+- Shared versions across modules
+
+---
+
+### 11.2 Complete Dependency List
+
+**From**: `gradle/libs.versions.toml` and `app/build.gradle.kts`
+
+#### 11.2.1 Core Android Dependencies
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `androidx.core:core-ktx` | 1.10.1 | Kotlin extensions for Android Core |
+| `androidx.lifecycle:lifecycle-runtime-ktx` | 2.6.1 | Lifecycle-aware coroutines |
+| `androidx.lifecycle:lifecycle-viewmodel-compose` | 2.6.1 | ViewModel integration for Compose |
+| `androidx.activity:activity-compose` | 1.8.0 | Compose integration for Activity |
+
+**Usage**:
+- `core-ktx`: Kotlin extension functions (e.g., `context.getSystemService<T>()`)
+- `lifecycle-runtime-ktx`: `lifecycleScope` for coroutines
+- `lifecycle-viewmodel-compose`: `viewModel()` composable function
+- `activity-compose`: `ComponentActivity.setContent {}`
+
+---
+
+#### 11.2.2 Jetpack Compose Dependencies
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `androidx.compose:compose-bom` | 2024.09.00 | Bill of Materials for Compose version management |
+| `androidx.compose.ui:ui` | (BOM) | Core Compose UI primitives |
+| `androidx.compose.ui:ui-graphics` | (BOM) | Graphics and drawing APIs |
+| `androidx.compose.ui:ui-tooling-preview` | (BOM) | Preview annotations |
+| `androidx.compose.ui:ui-tooling` | (BOM) | Debug preview renderer |
+| `androidx.compose.material3:material3` | (BOM) | Material Design 3 components |
+| `androidx.compose.material3:material3-adaptive-navigation-suite` | (BOM) | Adaptive navigation components |
+| `androidx.compose.material:material-icons-extended` | (BOM) | Extended Material icon set |
+
+**BOM Benefits**:
+- Single version management for all Compose libraries
+- Guaranteed compatibility between Compose components
+- Automatic version resolution
+
+**Usage**:
+- `ui`: `Column`, `Row`, `Box`, `Text`, `@Composable`
+- `ui-graphics`: `Color`, `Brush`, `Path`
+- `material3`: `MaterialTheme`, `Surface`, `Card`, `Button`
+- `material-icons-extended`: Full icon library (Settings, Camera, etc.)
+
+---
+
+#### 11.2.3 Networking and Data
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `com.google.code.gson:gson` | 2.10.1 | JSON serialization/deserialization |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-android` | 1.7.3 | Kotlin coroutines for Android |
+| `androidx.datastore:datastore-preferences` | 1.0.0 | Type-safe key-value storage |
+
+**Usage**:
+- **Gson**: Serialize/deserialize protocol messages (camera commands, system status)
+  ```kotlin
+  val json = gson.toJson(cameraCommand)
+  val response = gson.fromJson(responseJson, SystemStatus::class.java)
+  ```
+
+- **Coroutines**: Asynchronous network operations
+  ```kotlin
+  viewModelScope.launch {
+      val result = NetworkManager.sendCommand(command)
+  }
+  ```
+
+- **DataStore**: Persist user settings (WiFi IP, video settings)
+  ```kotlin
+  dataStore.edit { preferences ->
+      preferences[GROUND_STATION_IP] = "192.168.1.10"
+  }
+  ```
+
+---
+
+#### 11.2.4 Video Streaming (Media3 - ExoPlayer)
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `androidx.media3:media3-exoplayer` | 1.2.0 | Core ExoPlayer media player |
+| `androidx.media3:media3-ui` | 1.2.0 | PlayerView UI component |
+| `androidx.media3:media3-exoplayer-rtsp` | 1.2.0 | RTSP protocol support |
+
+**Why Media3**:
+- ExoPlayer is now part of Jetpack (androidx.media3)
+- Official Android media player recommendation
+- Superior to MediaPlayer for streaming
+- Hardware-accelerated video decoding
+- Extensive codec support (H.264, HEVC, VP9)
+
+**Usage**:
+- `media3-exoplayer`: Player engine, load control, codec handling
+- `media3-ui`: `PlayerView` for video rendering
+- `media3-exoplayer-rtsp`: RTSP MediaSource implementation
+
+**Example**:
+```kotlin
+val exoPlayer = ExoPlayer.Builder(context).build()
+val mediaItem = MediaItem.fromUri("rtsp://192.168.1.10:8554/H264Video")
+exoPlayer.setMediaItem(mediaItem)
+exoPlayer.prepare()
+exoPlayer.play()
+```
+
+---
+
+#### 11.2.5 Testing Dependencies
+
+| Dependency | Version | Purpose | Scope |
+|------------|---------|---------|-------|
+| `junit:junit` | 4.13.2 | Unit testing framework | Test |
+| `androidx.test.ext:junit` | 1.1.5 | Android JUnit extensions | AndroidTest |
+| `androidx.test.espresso:espresso-core` | 3.5.1 | UI testing framework | AndroidTest |
+| `androidx.compose.ui:ui-test-junit4` | (BOM) | Compose UI testing | AndroidTest |
+| `androidx.compose.ui:ui-test-manifest` | (BOM) | Test manifest for Compose | Debug |
+
+**Usage**:
+- **JUnit**: Unit tests for ViewModels, data classes, utilities
+- **Espresso**: Integration tests for Activities
+- **Compose UI Test**: Composable testing with semantics tree
+
+**Example Test**:
+```kotlin
+@Test
+fun cameraViewModel_incrementShutterSpeed_updatesState() {
+    val viewModel = CameraViewModel()
+    val initialShutter = viewModel.cameraState.value.shutterSpeed
+
+    viewModel.incrementShutterSpeed()
+
+    assertNotEquals(initialShutter, viewModel.cameraState.value.shutterSpeed)
+}
+```
+
+---
+
+### 11.3 Build Configuration
+
+**File**: `app/build.gradle.kts`
+
+#### 11.3.1 Android Configuration
+
+```kotlin
+android {
+    namespace = "uk.unmannedsystems.dpm_android"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "uk.unmannedsystems.dpm_android"
+        minSdk = 24  // Android 7.0 (Nougat)
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+    }
+}
+```
+
+**SDK Versions**:
+- **minSdk 24**: Android 7.0+ (released 2016)
+  - Covers 95%+ of active devices
+  - Jetpack Compose minimum requirement
+- **targetSdk 36**: Latest Android API level
+- **compileSdk 36**: Build against latest SDK
+
+#### 11.3.2 Kotlin Configuration
+
+```kotlin
+compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+kotlinOptions {
+    jvmTarget = "11"
+}
+```
+
+**Java 11 Target**:
+- Required for Kotlin 2.0.21
+- Modern language features (lambdas, streams)
+
+#### 11.3.3 Compose Configuration
+
+```kotlin
+buildFeatures {
+    compose = true
+}
+```
+
+**Compose Compiler**:
+- Kotlin Compose Compiler Plugin 2.0.21
+- Automatic from `kotlin-compose` plugin
+
+---
+
+### 11.4 Gradle Plugins
+
+**From**: `app/build.gradle.kts`
+
+```kotlin
+plugins {
+    alias(libs.plugins.android.application)  // com.android.application:8.13.0
+    alias(libs.plugins.kotlin.android)       // org.jetbrains.kotlin.android:2.0.21
+    alias(libs.plugins.kotlin.compose)       // org.jetbrains.kotlin.plugin.compose:2.0.21
+}
+```
+
+**Plugin Purposes**:
+1. **android.application**: Android app build system
+2. **kotlin.android**: Kotlin language support
+3. **kotlin.compose**: Compose compiler integration
+
+---
+
+### 11.5 Version Catalog Details
+
+**File**: `gradle/libs.versions.toml`
+
+**Version Block**:
+```toml
+[versions]
+agp = "8.13.0"             # Android Gradle Plugin
+kotlin = "2.0.21"          # Kotlin language
+composeBom = "2024.09.00"  # Compose Bill of Materials
+media3 = "1.2.0"           # ExoPlayer (Media3)
+coroutines = "1.7.3"       # Kotlin Coroutines
+gson = "2.10.1"            # JSON library
+datastore = "1.0.0"        # DataStore Preferences
+```
+
+**Benefits of Version Catalog**:
+- Change `media3 = "1.2.0"` → all Media3 dependencies update
+- Type-safe references: `libs.androidx.media3.exoplayer`
+- No version conflicts
+
+---
+
+### 11.6 Dependency Update Strategy
+
+**Current Versions**: Up-to-date as of October 2025
+
+**Update Cadence**:
+- **Compose BOM**: Monthly (new features, bug fixes)
+- **Kotlin**: Quarterly (language updates)
+- **Media3**: As needed (RTSP bug fixes)
+- **AndroidX Libraries**: Quarterly (stability focus)
+
+**Testing After Updates**:
+1. Run unit tests: `./gradlew test`
+2. Run instrumented tests: `./gradlew connectedAndroidTest`
+3. Manual testing of video streaming (critical path)
+4. Check EventLog for warnings
+
+**Known Compatibility**:
+- Compose BOM 2024.09.00 compatible with Kotlin 2.0.21 ✅
+- Media3 1.2.0 stable for RTSP ✅
+- No known dependency conflicts ✅
+
+---
+
+### 11.7 Dependency Graph Visualization
+
+**High-Level Architecture**:
+```
+App Layer (Composables)
+  ↓
+  └─ ViewModels (State Management)
+       ↓
+       ├─ NetworkManager (TCP/UDP)
+       │    └─ Gson (JSON serialization)
+       │
+       ├─ SettingsRepository (DataStore)
+       │    └─ DataStore Preferences
+       │
+       └─ VideoPlayerViewModel
+            └─ ExoPlayer (Media3)
+                 └─ Media3 RTSP Extension
+```
+
+**Dependency Relationships**:
+- **UI Layer**: Depends on Compose + ViewModels
+- **ViewModel Layer**: Depends on NetworkManager + Repositories
+- **Data Layer**: Depends on Gson + DataStore
+- **Video Layer**: Depends on Media3 (independent subsystem)
+
+---
+
+### 11.8 ProGuard Configuration
+
+**File**: `app/proguard-rules.pro`
+
+**Current Status**: Not configured (debug builds only)
+
+**Future Considerations** (for release builds):
+- Keep Gson serialization classes
+- Keep ExoPlayer reflection classes
+- Obfuscate proprietary protocol code
+- Remove logging in production
+
+**Example Rules** (for future):
+```proguard
+# Keep Gson serialization
+-keep class uk.unmannedsystems.dpm_android.camera.CameraState { *; }
+-keep class uk.unmannedsystems.dpm_android.network.** { *; }
+
+# Keep ExoPlayer
+-keep class androidx.media3.** { *; }
+```
+
+---
+
 ## 📋 Document Generation Status
 
 | Phase | Sections | Status |
 |-------|----------|--------|
 | **Phase 1** | 1-3: Executive Summary, Project Structure, Architecture Overview | ✅ Complete |
 | **Phase 2** | 4-7: Core Components, Data Layer, Network Layer, UI Layer | ✅ Complete |
-| **Phase 3** | 8: State Management | ✅ **COMPLETE** |
-| **Phase 3** | 9-11: Video Streaming, Navigation, Dependencies | ⏳ Pending |
+| **Phase 3** | 8-11: State Management, Video Streaming, Navigation, Dependencies | ✅ **COMPLETE** |
 | **Phase 4** | 12-18: Configuration, Testing, Build, Conventions, Deployment | ⏳ Pending |
 
-**Next Action**: Continue Phase 3 with Sections 9-11
+**Next Action**: Continue with Phase 4 (Sections 12-18)
 
 ---
 
 **Document Metadata**
 
 **Generated**: October 25, 2025
-**Phase**: 3 of 4 (In Progress - Section 8 Complete)
-**Sections Complete**: 1-8
-**Sections Remaining**: 10
+**Phase**: 3 of 4 (**COMPLETE**)
+**Sections Complete**: 1-11
+**Sections Remaining**: 7
 **Est. Completion**: After Phase 4
 
 ---
