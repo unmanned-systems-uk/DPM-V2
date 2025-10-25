@@ -1,6 +1,7 @@
 package uk.unmannedsystems.dpm_android.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -88,6 +90,13 @@ fun CameraControlScreen(
         onMenuClick = {
             // TODO: Show settings menu
         },
+        onConnectionClick = {
+            if (cameraState.isConnected) {
+                viewModel.disconnect()
+            } else {
+                viewModel.connect()
+            }
+        },
         modifier = modifier
     )
 }
@@ -110,6 +119,7 @@ private fun CameraControlContent(
     onFileFormatClick: () -> Unit,
     onCaptureClick: () -> Unit,
     onMenuClick: () -> Unit,
+    onConnectionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -131,14 +141,23 @@ private fun CameraControlContent(
             )
         }
 
-        // Minimized settings in top-left corner
+        // Connection status indicator - top-left corner
+        ConnectionStatusIndicator(
+            isConnected = cameraState.isConnected,
+            onClick = onConnectionClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
+
+        // Minimized settings below connection indicator
         if (expandedSetting == ExpandedSetting.NONE) {
             MinimizedSettings(
                 cameraState = cameraState,
                 onExpandSetting = onExpandSetting,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(16.dp)
+                    .padding(start = 16.dp, top = 80.dp, end = 16.dp)
             )
         }
 
@@ -192,11 +211,7 @@ private fun CameraControlContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Status indicators
-                StatusIndicator(
-                    icon = if (cameraState.isConnected) "●" else "○",
-                    value = if (cameraState.isConnected) "CONN" else "DISC"
-                )
+                // Status indicators (removed connection status - now in top-left)
                 StatusIndicator(
                     icon = "🔋",
                     value = "${cameraState.batteryLevel}%"
@@ -372,6 +387,61 @@ private fun ExpandedSettingDialog(
                 }
                 ExpandedSetting.NONE -> { /* Should not happen */ }
             }
+        }
+    }
+}
+
+/**
+ * Connection status indicator with RED/GREEN circle
+ * Click to connect/disconnect
+ */
+@Composable
+private fun ConnectionStatusIndicator(
+    isConnected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .background(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Colored circle indicator
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .background(
+                    color = if (isConnected) Color(0xFF00FF00) else Color(0xFFFF0000),
+                    shape = CircleShape
+                )
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    shape = CircleShape
+                )
+        )
+
+        // Status text
+        Column {
+            Text(
+                text = if (isConnected) "Air-Side Connected" else "Air-Side Disconnected",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isConnected) "Tap to disconnect" else "Tap to connect",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp
+            )
         }
     }
 }

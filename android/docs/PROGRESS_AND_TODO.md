@@ -1,21 +1,238 @@
 # DPM Android App - Progress & TODO
 
-## Current Status (2025-10-25)
+## RECENT UPDATES (October 25, 2025)
+
+### Latest Changes ✅
+
+**10. Fixed Auto-Connect on App Launch** *(DPMApplication)*
+
+**Issue Fixed:**
+- Auto-connect only happened when entering Settings screen
+- If user stayed on Camera screen, no connection attempt made
+- NetworkManager initialized too late (when ViewModel created)
+
+**Solution - Custom Application Class:**
+- Created DPMApplication.kt:
+  * Extends Application class - runs before any Activity
+  * Loads saved settings using SettingsRepository
+  * Initializes NetworkManager on app startup
+  * Auto-connects immediately when app launches
+  * Uses applicationScope for coroutine lifecycle
+  * Comprehensive error handling and logging
+
+- Updated AndroidManifest.xml:
+  * Added android:name=".DPMApplication" to <application> tag
+  * App now uses custom Application class
+
+- Updated SettingsViewModel.kt:
+  * Removed auto-connect logic (now in Application)
+  * Still reinitializes NetworkManager when settings change
+  * Simplified initialization flow
+
+**Benefits:**
+✅ Auto-connect happens IMMEDIATELY on app startup
+✅ Works regardless of which screen is shown first
+✅ NetworkManager initialized before any UI
+✅ Connection attempt happens in background
+✅ User sees GREEN circle on Camera screen right away (if connected)
+
+**9. Fixed Connection Status Issues - NetworkManager Singleton** *(Critical Bug Fixes)*
+
+**Issues Fixed:**
+1. **Settings screen status not updating on first connect** - FIXED
+2. **Camera screen not showing connection status** - FIXED
+
+**Root Cause:**
+- Each ViewModel was creating its own NetworkClient instance
+- SettingsViewModel and CameraViewModel had separate connections
+- StateFlow references were recreated when settings changed
+- Camera was trying to connect to default IP, not saved IP
+
+**Solution - NetworkManager Singleton:**
+- Created NetworkManager.kt:
+  * Singleton pattern ensures single NetworkClient instance
+  * Stable StateFlow that survives client recreation
+  * Manages all connection operations centrally
+  * Forwards connection status from NetworkClient to stable flow
+  * Proper logging for debugging
+- Updated SettingsViewModel.kt:
+  * Uses NetworkManager instead of local NetworkClient
+  * Subscribes to NetworkManager.connectionStatus (stable reference)
+  * All connect/disconnect calls go through NetworkManager
+- Updated CameraViewModel.kt:
+  * Removed local NetworkClient instance
+  * Subscribes to shared NetworkManager.connectionStatus
+  * Both screens now see the same connection state
+  * Removed onCleared cleanup (NetworkManager handles it)
+
+**Benefits:**
+✅ Single connection instance across entire app
+✅ Connection status updates immediately in all screens
+✅ Settings and Camera always show same status
+✅ No duplicate connection attempts
+✅ Saved settings shared across app
+✅ Connection survives screen navigation
+
+**8. Persistent Settings & Auto-Connect** *(Multiple files)*
+- **Settings are now saved and remembered across app restarts**
+- **Auto-connect on app startup** using saved settings
+- **Reset to Defaults button** - quick restore of default configuration
+
+Implementation Details:
+- Created SettingsRepository.kt:
+  - Uses DataStore Preferences for persistent storage
+  - Saves all network settings (IP, ports, timeouts, intervals)
+  - Provides Flow-based reactive settings updates
+  - `resetToDefaults()` function for quick reset
+- Updated SettingsViewModel.kt:
+  - Changed to AndroidViewModel to access Application context
+  - Loads saved settings on initialization
+  - Auto-connects on first load (after settings are loaded)
+  - `updateSettings()` now persists to DataStore
+  - Added `resetToDefaults()` function
+  - Flag to prevent multiple auto-connect attempts
+- Updated SettingsScreen.kt:
+  - Converted default settings info card to interactive card with button
+  - Added "Reset to Defaults" button
+  - Text fields update automatically when defaults are loaded
+  - Snackbar confirmation when resetting to defaults
+  - LaunchedEffect to sync UI with settings changes
+- Updated build.gradle.kts & libs.versions.toml:
+  - Added DataStore Preferences dependency (v1.0.0)
+
+User Experience:
+- App remembers your last network configuration
+- No need to re-enter IP and ports after restart
+- Automatic connection on startup (uses saved settings)
+- One-click reset to default configuration
+- Confirmation messages for all settings changes
+
+**7. Live Connection Status on Camera Screen** *(app/src/main/java/uk/unmannedsystems/dpm_android/camera/)*
+- Added real-time connection status indicator to main camera screen
+- **RED circle** = Air-Side disconnected (no heartbeats received)
+- **GREEN circle** = Air-Side connected (heartbeats active)
+- **CLICKABLE** - Tap the indicator to connect/disconnect without going to settings!
+- Indicator positioned prominently in top-left corner
+- Shows status text: "Air-Side Connected" / "Air-Side Disconnected"
+- Shows hint text: "Tap to connect" / "Tap to disconnect"
+- Visual feedback: Semi-transparent background, rounded corners, clickable ripple
+- CameraViewModel now monitors network connection status in real-time
+- Updated CameraViewModel.kt:
+  - Integrated NetworkClient for connection monitoring
+  - Added `connect()` and `disconnect()` functions
+  - Updates camera state when network status changes
+  - Properly cleans up network resources on ViewModel clear
+- Updated CameraControlScreen.kt:
+  - Added ConnectionStatusIndicator composable with onClick callback
+  - 24dp colored circle with white border
+  - Clickable area with visual feedback
+  - Two-line text: status + action hint
+  - Moved connection status from bottom bar to prominent top-left position
+  - Removed redundant connection indicator from bottom status bar
+
+### Implemented Features ✅
+
+**1. Connection Status Diagnostics** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt)*
+- Added `ConnectionLogEntry` data class with timestamp, level, and message
+- Added `LogLevel` enum (INFO, SUCCESS, WARNING, ERROR)
+- Enhanced `NetworkStatus` with:
+  - `connectionLogs: List<ConnectionLogEntry>` - keeps last 50 connection events
+  - `targetIp: String?` - shows target IP being connected to
+  - `targetPort: Int?` - shows target port being connected to
+
+**2. Enhanced NetworkClient Logging** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt)*
+- Added `addConnectionLog()` function to log connection events
+- Connection process now logs every step:
+  - "Attempting to connect to IP:PORT"
+  - "Connecting TCP socket..."
+  - "TCP socket connected successfully"
+  - "Sending handshake..."
+  - "Starting UDP listeners..."
+  - Error messages with details
+- Logs are color-coded by level and displayed in real-time
+- Integration with global EventLog for cross-app diagnostics
+
+**3. Connection Status UI Enhancements** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
+- Connection status card now shows:
+  - Current state (DISCONNECTED, CONNECTING, CONNECTED, etc.)
+  - Target IP and port being connected to
+  - Real-time connection logs on the right side (last 5 entries)
+  - Logs are color-coded: INFO (blue), SUCCESS (green), WARNING (yellow), ERROR (red)
+  - Timestamps in HH:mm:ss format
+- Added `ConnectionLogsList` composable for displaying logs
+
+**4. Settings Save Confirmation** *(app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt)*
+- Added Snackbar notification when network settings are saved
+- Shows: "Settings saved: IP:PORT"
+- Provides immediate user feedback
+- Uses Material3 Scaffold with SnackbarHost
+
+**5. Event Log Screen for Development Diagnostics** *(NEW FILES)*
+- Created `EventLogViewModel.kt`:
+  - Singleton ViewModel for app-wide event logging
+  - Stores last 1000 events
+  - Event categories: NETWORK, CAMERA, UI, SYSTEM, ERROR
+  - Event levels: DEBUG, INFO, WARNING, ERROR
+  - Convenience methods: `logDebug()`, `logInfo()`, `logWarning()`, `logError()`
+  - Filter by category and level
+- Created `EventLogScreen.kt`:
+  - Full-screen event log viewer
+  - Auto-scrolls to newest events
+  - Filter buttons (All, Network, Errors)
+  - Clear log button
+  - Color-coded event cards by level
+  - Shows timestamp, category, level, message, and optional details
+- Added "Event Log" menu item to navigation drawer
+
+**6. MainActivity Navigation Update** *(app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt)*
+- Added EVENT_LOG destination to navigation menu
+- Icon: Icons.Default.List
+- Accessible from navigation drawer
+
+### Testing Results ✅ (October 25, 2025)
+
+**Tested in Emulator:**
+- ✅ Connection status diagnostics display correctly
+- ✅ Real-time connection logs appear on right side of status card
+- ✅ Logs are color-coded (INFO, SUCCESS, WARNING, ERROR)
+- ✅ Target IP and port displayed when connecting
+- ✅ Settings save confirmation Snackbar appears with correct message
+- ✅ Event Log menu item visible and accessible
+- ✅ Event Log screen displays events correctly
+- ✅ Filter buttons work (All, Network, Errors)
+- ✅ Clear log button works
+- ✅ Auto-scroll to newest events working
+
+**Build Status:**
+- ✅ APK builds successfully (BUILD SUCCESSFUL in 1m 51s)
+- ⚠️ Minor deprecation warning: Icons.Default.List (non-critical)
+
+**Git Commit:**
+- Commit: `6d10c30` - [UI] Enhanced connection diagnostics and event logging
+
+### Current Status (2025-10-25)
 
 ### Working Features ✓
 - Basic UI layout with Camera Control and Settings screens
 - Network settings configuration (IP, ports)
-- Connection state management
+- Connection state management with detailed logging
 - Protocol message structures defined
-- TCP/UDP client implementation
+- TCP/UDP client implementation with step-by-step diagnostics
+- Real-time connection status display with logs
+- Settings save confirmation feedback
+- Development event log for diagnostics
 
-### Issues Identified ❌
-1. **No connection diagnostics** - Connection failures show only "ERROR" state
-2. **No settings save confirmation** - User doesn't know if settings were saved
-3. **Poor error visibility** - No indication of what step failed during connection
-4. **No network permission verification** - App may fail silently if permissions denied
-5. **No pre-flight checks** - No validation before attempting connection
-6. **Target IP not shown in status** - User can't verify which IP is being used
+### Issues Resolved ✅
+1. ~~**No connection diagnostics**~~ - **FIXED**: Now shows detailed connection logs with timestamps
+2. ~~**No settings save confirmation**~~ - **FIXED**: Snackbar shows confirmation message
+3. ~~**Poor error visibility**~~ - **FIXED**: Connection logs show each step and errors in detail
+4. **No network permission verification** - Permissions added to manifest (previous fix)
+5. **No pre-flight checks** - TODO: Add network connectivity validation
+6. ~~**Target IP not shown in status**~~ - **FIXED**: Target IP and port now displayed
+
+### Remaining Issues ❌
+1. **No pre-flight checks** - No validation before attempting connection
+2. **Network permission runtime check** - Should verify permissions at startup
 
 ---
 

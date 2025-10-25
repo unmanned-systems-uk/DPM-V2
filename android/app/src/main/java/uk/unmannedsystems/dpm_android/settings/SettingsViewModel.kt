@@ -1,71 +1,78 @@
 package uk.unmannedsystems.dpm_android.settings
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import uk.unmannedsystems.dpm_android.network.NetworkClient
+import uk.unmannedsystems.dpm_android.network.NetworkManager
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
 import uk.unmannedsystems.dpm_android.network.NetworkStatus
 
 /**
  * ViewModel for managing network settings and connection
  */
-class SettingsViewModel : ViewModel() {
-    private val _networkSettings = MutableStateFlow(NetworkSettings())
-    val networkSettings: StateFlow<NetworkSettings> = _networkSettings.asStateFlow()
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val settingsRepository = SettingsRepository(application)
 
-    private var networkClient: NetworkClient? = null
+    val networkSettings: StateFlow<NetworkSettings> = settingsRepository.networkSettingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = NetworkSettings()
+        )
 
-    val networkStatus: StateFlow<NetworkStatus>
-        get() = networkClient?.connectionStatus ?: MutableStateFlow(NetworkStatus()).asStateFlow()
+    // Use NetworkManager's stable StateFlow
+    val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
 
     init {
-        // Initialize network client with default settings
-        initializeNetworkClient(_networkSettings.value)
+        // Monitor settings changes and reinitialize NetworkManager when settings change
+        // Note: Auto-connect happens in DPMApplication.onCreate(), not here
+        viewModelScope.launch {
+            settingsRepository.networkSettingsFlow.collect { savedSettings ->
+                // Reinitialize NetworkManager when settings change
+                // (This happens after user saves new settings)
+                NetworkManager.initialize(savedSettings)
+            }
+        }
     }
 
     /**
-     * Update network settings
+     * Update network settings and persist them
      */
     fun updateSettings(settings: NetworkSettings) {
-        _networkSettings.value = settings
+        viewModelScope.launch {
+            // Disconnect if currently connected
+            NetworkManager.disconnect()
 
-        // Disconnect if currently connected
-        networkClient?.disconnect()
+            // Save settings to DataStore (will trigger flow and reinitialize)
+            settingsRepository.saveNetworkSettings(settings)
+        }
+    }
 
-        // Reinitialize with new settings
-        initializeNetworkClient(settings)
+    /**
+     * Reset to default settings
+     */
+    fun resetToDefaults() {
+        viewModelScope.launch {
+            settingsRepository.resetToDefaults()
+            // Settings will be updated via the flow which will reinitialize NetworkManager
+        }
     }
 
     /**
      * Connect to Raspberry Pi
      */
     fun connect() {
-        networkClient?.connect()
+        NetworkManager.connect()
     }
 
     /**
      * Disconnect from Raspberry Pi
      */
     fun disconnect() {
-        networkClient?.disconnect()
-    }
-
-    /**
-     * Get the current network client instance
-     */
-    fun getNetworkClient(): NetworkClient? = networkClient
-
-    private fun initializeNetworkClient(settings: NetworkSettings) {
-        networkClient?.close()
-        networkClient = NetworkClient(settings)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        networkClient?.close()
+        NetworkManager.disconnect()
     }
 }
