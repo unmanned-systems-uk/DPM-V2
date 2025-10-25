@@ -1043,25 +1043,954 @@ Ground Station                        Air-Side (R16)
 
 ---
 
+---
+
+## 4. Core Components
+
+### 4.1 DPMApplication
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/DPMApplication.kt`
+
+**Purpose**: Custom Application class for app-wide initialization and lifecycle management.
+
+**Class Structure**:
+```kotlin
+class DPMApplication : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    companion object {
+        private const val TAG = "DPMApplication"
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "DPM Application starting...")
+
+        // Initialize network on app startup
+        applicationScope.launch {
+            try {
+                // Load saved settings
+                val settingsRepository = SettingsRepository(this@DPMApplication)
+                val savedSettings = settingsRepository.networkSettingsFlow.first()
+
+                Log.d(TAG, "Loaded settings: ${savedSettings.targetIp}:${savedSettings.commandPort}")
+
+                // Initialize NetworkManager with saved settings
+                NetworkManager.initialize(savedSettings)
+
+                // Auto-connect on startup
+                Log.d(TAG, "Auto-connecting on app startup...")
+                NetworkManager.connect()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error initializing network on startup", e)
+            }
+        }
+    }
+}
+```
+
+**Responsibilities**:
+- App-wide initialization
+- Load persisted settings on startup
+- Initialize NetworkManager singleton with saved settings
+- Auto-connect to R16 Air Unit on app launch
+- Provide application-scoped CoroutineScope for background operations
+- Log application lifecycle events
+
+**Lifecycle Management**:
+- **onCreate()**: Called when app process starts
+  - Creates application CoroutineScope with SupervisorJob
+  - Loads settings from DataStore
+  - Initializes NetworkManager
+  - Triggers auto-connect
+- **onTerminate()**: Not implemented (Android may not call this in production)
+
+**Dependencies Used**:
+- `SettingsRepository`: Load network settings
+- `NetworkManager`: Initialize singleton with settings
+- `kotlinx.coroutines`: Background operations
+
+**Configuration**: Declared in `AndroidManifest.xml`:
+```xml
+<application
+    android:name=".DPMApplication"
+    ...>
+```
+
+### 4.2 MainActivity
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/MainActivity.kt`
+
+**Purpose**: Main entry point and host for Jetpack Compose UI.
+
+**Class Structure**:
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            DPMAndroidTheme {
+                DPMAndroidApp()
+            }
+        }
+    }
+}
+```
+
+**Responsibilities**:
+- Activity lifecycle management
+- Enable edge-to-edge display
+- Set up Jetpack Compose content
+- Apply Material Design 3 theme
+- Host navigation system
+
+**Lifecycle Management**:
+- **onCreate()**: Set up Compose UI tree
+- No custom lifecycle methods needed (ViewModels handle state)
+- Configuration changes handled by Compose (state survives rotation)
+
+### 4.3 Navigation System
+
+**Implementation**: Drawer-based navigation with enum destinations
+
+**Code Structure**:
+```kotlin
+@Composable
+fun DPMAndroidApp() {
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.CAMERA) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("DPM Android", style = MaterialTheme.typography.headlineMedium)
+
+                    AppDestinations.entries.forEach { destination ->
+                        NavigationDrawerItem(
+                            icon = { Icon(destination.icon, contentDescription = destination.label) },
+                            label = { Text(destination.label) },
+                            selected = destination == currentDestination,
+                            onClick = {
+                                currentDestination = destination
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(onClick = { scope.launch { drawerState.open() } }) {
+                    Icon(Icons.Default.Menu, contentDescription = "Menu")
+                }
+            }
+        ) { innerPadding ->
+            // Render selected destination
+            when (currentDestination) {
+                AppDestinations.CAMERA -> CameraControlScreen(Modifier.padding(innerPadding))
+                AppDestinations.DOWNLOADS -> PlaceholderScreen(...)
+                AppDestinations.SYSTEM_STATUS -> SystemStatusScreen(...)
+                AppDestinations.EVENT_LOG -> EventLogScreen(...)
+                AppDestinations.SETTINGS -> SettingsScreen(...)
+            }
+        }
+    }
+}
+
+enum class AppDestinations(val label: String, val icon: ImageVector) {
+    CAMERA("Camera", Icons.Default.CameraAlt),
+    DOWNLOADS("Downloads", Icons.Default.Download),
+    SYSTEM_STATUS("System Status", Icons.Default.Info),
+    EVENT_LOG("Event Log", Icons.Default.List),
+    SETTINGS("Settings", Icons.Default.Settings),
+}
+```
+
+**Navigation Features**:
+- Modal drawer navigation (swipe from left or tap FAB)
+- 5 destination screens
+- State preserved with `rememberSaveable`
+- Drawer closes after selection
+- Camera screen is default destination
+
+**Navigation Flow**:
+```
+App Launch
+    ↓
+MainActivity onCreate()
+    ↓
+DPMAndroidApp() composable
+    ↓
+Default: Camera Screen
+    ├→ Swipe/Tap Menu
+    │   ├→ Camera (default)
+    │   ├→ Downloads
+    │   ├→ System Status
+    │   ├→ Event Log
+    │   └→ Settings
+    └→ Navigate to selected screen
+```
+
+---
+
+## 5. Data Layer
+
+### 5.1 Data Models
+
+The application uses strongly-typed data classes for all state management.
+
+#### 5.1.1 CameraState
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraState.kt`
+
+**Purpose**: Complete state representation of camera settings and status.
+
+**Data Class**:
+```kotlin
+data class CameraState(
+    val mode: CameraMode = CameraMode.MANUAL,
+    val shutterSpeed: ShutterSpeed = ShutterSpeed.Speed_1_125,
+    val aperture: Aperture = Aperture.F4_0,
+    val iso: ISO = ISO.ISO_800,
+    val exposureCompensation: Float = 0.0f,
+    val whiteBalance: WhiteBalance = WhiteBalance.AUTO,
+    val focusMode: FocusMode = FocusMode.AUTO,
+    val fileFormat: FileFormat = FileFormat.JPEG,
+    val isRecording: Boolean = false,
+    val batteryLevel: Int = 100,
+    val remainingShots: Int = 999,
+    val isConnected: Boolean = false
+)
+```
+
+**Fields**:
+- `mode: CameraMode` - Shooting mode (Manual, Auto, Aperture Priority, Shutter Priority, Program)
+- `shutterSpeed: ShutterSpeed` - Shutter speed (1/8000s to 30s)
+- `aperture: Aperture` - F-stop value (f/1.4 to f/22)
+- `iso: ISO` - ISO sensitivity (100 to 51200)
+- `exposureCompensation: Float` - EV compensation (-3.0 to +3.0)
+- `whiteBalance: WhiteBalance` - White balance preset
+- `focusMode: FocusMode` - Focus mode (Auto, Manual, Continuous)
+- `fileFormat: FileFormat` - Image format (JPEG, RAW, JPEG+RAW)
+- `isRecording: Boolean` - Video recording status
+- `batteryLevel: Int` - Battery percentage (0-100)
+- `remainingShots: Int` - Shots remaining on SD card
+- `isConnected: Boolean` - Camera connection status
+
+**Supporting Enums**:
+
+```kotlin
+enum class ShutterSpeed(val displayValue: String, val seconds: Double) {
+    Speed_1_8000("1/8000", 1.0 / 8000),
+    Speed_1_4000("1/4000", 1.0 / 4000),
+    // ... 19 total values from 1/8000s to 30s
+    Speed_30("30\"", 30.0)
+}
+
+enum class Aperture(val displayValue: String, val fNumber: Float) {
+    F1_4("1.4", 1.4f),
+    F1_8("1.8", 1.8f),
+    // ... 10 total values from f/1.4 to f/22
+    F22_0("22", 22.0f)
+}
+
+enum class ISO(val displayValue: String, val value: Int) {
+    ISO_100("100", 100),
+    ISO_200("200", 200),
+    // ... 10 total values from 100 to 51200
+    ISO_51200("51200", 51200)
+}
+```
+
+**Usage**:
+- Primary state in `CameraViewModel`
+- Observed by `CameraControlScreen` via `StateFlow`
+- Immutable (modifications use `.copy()`)
+
+#### 5.1.2 NetworkSettings
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt`
+
+**Purpose**: Network configuration for connecting to R16 Air Unit.
+
+**Data Class**:
+```kotlin
+data class NetworkSettings(
+    val targetIp: String = "192.168.1.10",
+    val commandPort: Int = 5000,
+    val statusListenPort: Int = 5001,
+    val heartbeatPort: Int = 5002,
+    val connectionTimeoutMs: Long = 5000,
+    val heartbeatIntervalMs: Long = 1000,
+    val statusUpdateIntervalMs: Long = 200  // 5Hz
+)
+```
+
+**Fields**:
+- `targetIp`: R16 Air Unit IP address
+- `commandPort`: TCP port for commands (5000)
+- `statusListenPort`: UDP port for status broadcasts (5001)
+- `heartbeatPort`: UDP port for heartbeat (5002)
+- `connectionTimeoutMs`: TCP socket timeout
+- `heartbeatIntervalMs`: Heartbeat send interval (1 Hz)
+- `statusUpdateIntervalMs`: Expected status broadcast interval (5 Hz)
+
+**Usage**:
+- Persisted in DataStore by `SettingsRepository`
+- Used by `NetworkManager` for socket configuration
+- Configurable in Settings screen
+
+#### 5.1.3 VideoStreamSettings
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt`
+
+**Purpose**: Video streaming configuration for RTSP player.
+
+**Data Class**:
+```kotlin
+data class VideoStreamSettings(
+    val enabled: Boolean = true,
+    val rtspUrl: String = "rtsp://192.168.1.10:8554/H264Video",
+    val aspectRatioMode: AspectRatioMode = AspectRatioMode.FILL,
+    val bufferDurationMs: Long = 500
+)
+
+enum class AspectRatioMode {
+    AUTO,   // Detect from stream
+    FILL,   // Fill entire screen
+    FIT     // Maintain aspect ratio
+}
+```
+
+**Fields**:
+- `enabled`: Toggle video streaming on/off
+- `rtspUrl`: RTSP stream URL
+- `aspectRatioMode`: How video fills screen
+- `bufferDurationMs`: ExoPlayer buffer size for low latency
+
+**Usage**:
+- Persisted in DataStore by `SettingsRepository`
+- Used by `VideoPlayerViewModel` for ExoPlayer configuration
+- Configurable in Settings screen
+
+#### 5.1.4 Network Protocol Messages
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/network/ProtocolMessages.kt`
+
+**Purpose**: JSON message structures for network protocol.
+
+**Base Message Structure**:
+```kotlin
+data class BaseMessage(
+    val protocolVersion: String = "1.0",
+    val messageType: String,  // "handshake", "command", "response", "status", "heartbeat"
+    val sequenceId: Int,
+    val timestamp: Long,
+    val payload: Any
+)
+```
+
+**Command Payload**:
+```kotlin
+data class CommandPayload(
+    val command: String,      // e.g., "camera.capture", "camera.set_property"
+    val parameters: Map<String, Any> = emptyMap()
+)
+```
+
+**Response Payload**:
+```kotlin
+data class ResponsePayload(
+    val status: String,       // "success" or "error"
+    val message: String? = null,
+    val data: Map<String, Any>? = null
+)
+```
+
+**Status Payload** (from UDP broadcasts):
+```kotlin
+data class StatusPayload(
+    val camera: CameraStatusInfo,
+    val system: SystemStatus
+)
+
+data class CameraStatusInfo(
+    val isConnected: Boolean,
+    val model: String?,
+    val batteryLevel: Int,
+    val remainingShots: Int,
+    val isRecording: Boolean,
+    val currentSettings: Map<String, Any>
+)
+
+data class SystemStatus(
+    val uptimeSeconds: Long,
+    val cpuUsagePercent: Float,
+    val memoryUsedMb: Int,
+    val memoryTotalMb: Int,
+    val diskUsedGb: Float,
+    val diskTotalGb: Float,
+    val temperatureCelsius: Float
+)
+```
+
+### 5.2 Repositories
+
+#### 5.2.1 SettingsRepository
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsRepository.kt`
+
+**Purpose**: Abstract settings persistence using DataStore Preferences.
+
+**Implementation**:
+```kotlin
+class SettingsRepository(private val context: Context) {
+    companion object {
+        private const val DATASTORE_NAME = "dpm_settings"
+    }
+
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(DATASTORE_NAME)
+
+    // DataStore keys
+    private val TARGET_IP = stringPreferencesKey("target_ip")
+    private val COMMAND_PORT = intPreferencesKey("command_port")
+    private val STATUS_PORT = intPreferencesKey("status_listen_port")
+    private val HEARTBEAT_PORT = intPreferencesKey("heartbeat_port")
+    private val CONNECTION_TIMEOUT = longPreferencesKey("connection_timeout_ms")
+    private val HEARTBEAT_INTERVAL = longPreferencesKey("heartbeat_interval_ms")
+    private val STATUS_INTERVAL = longPreferencesKey("status_update_interval_ms")
+
+    // Video settings keys
+    private val VIDEO_ENABLED = booleanPreferencesKey("video_enabled")
+    private val VIDEO_RTSP_URL = stringPreferencesKey("video_rtsp_url")
+    private val VIDEO_ASPECT_RATIO = stringPreferencesKey("video_aspect_ratio")
+    private val VIDEO_BUFFER_DURATION = longPreferencesKey("video_buffer_duration")
+
+    // Network settings flow
+    val networkSettingsFlow: Flow<NetworkSettings> = context.dataStore.data
+        .map { preferences ->
+            NetworkSettings(
+                targetIp = preferences[TARGET_IP] ?: "192.168.1.10",
+                commandPort = preferences[COMMAND_PORT] ?: 5000,
+                statusListenPort = preferences[STATUS_PORT] ?: 5001,
+                heartbeatPort = preferences[HEARTBEAT_PORT] ?: 5002,
+                connectionTimeoutMs = preferences[CONNECTION_TIMEOUT] ?: 5000,
+                heartbeatIntervalMs = preferences[HEARTBEAT_INTERVAL] ?: 1000,
+                statusUpdateIntervalMs = preferences[STATUS_INTERVAL] ?: 200
+            )
+        }
+
+    // Video settings flow
+    val videoSettingsFlow: Flow<VideoStreamSettings> = context.dataStore.data
+        .map { preferences ->
+            VideoStreamSettings(
+                enabled = preferences[VIDEO_ENABLED] ?: true,
+                rtspUrl = preferences[VIDEO_RTSP_URL] ?: "rtsp://192.168.1.10:8554/H264Video",
+                aspectRatioMode = try {
+                    AspectRatioMode.valueOf(preferences[VIDEO_ASPECT_RATIO] ?: "FILL")
+                } catch (e: IllegalArgumentException) {
+                    AspectRatioMode.FILL
+                },
+                bufferDurationMs = preferences[VIDEO_BUFFER_DURATION] ?: 500
+            )
+        }
+
+    // Save network settings
+    suspend fun saveNetworkSettings(settings: NetworkSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[TARGET_IP] = settings.targetIp
+            preferences[COMMAND_PORT] = settings.commandPort
+            preferences[STATUS_PORT] = settings.statusListenPort
+            preferences[HEARTBEAT_PORT] = settings.heartbeatPort
+            preferences[CONNECTION_TIMEOUT] = settings.connectionTimeoutMs
+            preferences[HEARTBEAT_INTERVAL] = settings.heartbeatIntervalMs
+            preferences[STATUS_INTERVAL] = settings.statusUpdateIntervalMs
+        }
+    }
+
+    // Save video settings
+    suspend fun saveVideoSettings(settings: VideoStreamSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[VIDEO_ENABLED] = settings.enabled
+            preferences[VIDEO_RTSP_URL] = settings.rtspUrl
+            preferences[VIDEO_ASPECT_RATIO] = settings.aspectRatioMode.name
+            preferences[VIDEO_BUFFER_DURATION] = settings.bufferDurationMs
+        }
+    }
+
+    // Reset to defaults
+    suspend fun resetToDefaults() {
+        context.dataStore.edit { preferences ->
+            preferences.clear()
+        }
+    }
+}
+```
+
+**Public API**:
+- `networkSettingsFlow: Flow<NetworkSettings>` - Observable network settings
+- `videoSettingsFlow: Flow<VideoStreamSettings>` - Observable video settings
+- `suspend fun saveNetworkSettings(settings: NetworkSettings)` - Persist network config
+- `suspend fun saveVideoSettings(settings: VideoStreamSettings)` - Persist video config
+- `suspend fun resetToDefaults()` - Clear all settings
+
+**Data Persistence Strategy**:
+- Uses DataStore Preferences for key-value storage
+- Type-safe keys with `Preferences` API
+- Asynchronous read/write operations
+- Exposes data via `Flow` for reactive updates
+- Settings changes automatically propagate to observers
+
+**Default Values**:
+- Defined inline in Flow mapping
+- Match production R16 Air Unit configuration
+- Fallback to sensible defaults if keys missing
+
+---
+
+## 6. Network Layer
+
+### 6.1 NetworkManager (Singleton)
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkManager.kt`
+
+**Purpose**: Singleton wrapper for NetworkClient providing stable StateFlow and app-wide access.
+
+**Implementation**:
+```kotlin
+object NetworkManager {
+    private var networkClient: NetworkClient? = null
+    private val _connectionStatus = MutableStateFlow(NetworkStatus())
+    val connectionStatus: StateFlow<NetworkStatus> = _connectionStatus.asStateFlow()
+
+    fun initialize(settings: NetworkSettings) {
+        networkClient?.close()
+        networkClient = NetworkClient(settings).apply {
+            // Forward NetworkClient status to our stable StateFlow
+            CoroutineScope(Dispatchers.Main).launch {
+                connectionStatus.collect { status ->
+                    _connectionStatus.value = status
+                }
+            }
+        }
+    }
+
+    fun connect() {
+        networkClient?.connect()
+    }
+
+    fun disconnect() {
+        networkClient?.disconnect()
+    }
+
+    suspend fun captureImage(): Result<ResponsePayload> {
+        return networkClient?.captureImage() ?: Result.failure(Exception("Not initialized"))
+    }
+
+    // ... other command methods
+}
+```
+
+**Responsibilities**:
+- Manage single NetworkClient instance
+- Provide stable StateFlow across configuration changes
+- Forward commands to NetworkClient
+- Initialize with settings from repository
+
+### 6.2 NetworkClient Implementation
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt`
+
+**Purpose**: Low-level TCP/UDP client for protocol implementation.
+
+**Architecture**:
+```
+NetworkClient
+    ├── TCP Socket (Port 5000)
+    │   ├── Command Sender (PrintWriter)
+    │   └── Response Receiver (BufferedReader)
+    ├── UDP Socket (Port 5001)
+    │   └── Status Listener (DatagramSocket)
+    └── UDP Socket (Port 5002)
+        └── Heartbeat Sender (DatagramSocket)
+```
+
+**Key Methods**:
+
+**Connection Management**:
+```kotlin
+fun connect() {
+    connectJob = scope.launch {
+        updateConnectionState(ConnectionState.CONNECTING)
+        try {
+            connectTcp()               // 1. TCP socket
+            sendHandshake()            // 2. Handshake protocol
+            startUdpStatusListener()   // 3. UDP status receiver
+            startHeartbeat()           // 4. UDP heartbeat sender
+            updateConnectionState(ConnectionState.CONNECTED)
+        } catch (e: Exception) {
+            updateConnectionState(ConnectionState.ERROR, errorMessage = e.message)
+        }
+    }
+}
+
+fun disconnect() {
+    sendDisconnect()
+    cleanup()  // Close all sockets
+    updateConnectionState(ConnectionState.DISCONNECTED)
+}
+```
+
+**Command Sending (TCP)**:
+```kotlin
+suspend fun sendCommand(command: String, parameters: Map<String, Any> = emptyMap()): Result<ResponsePayload> {
+    return withContext(Dispatchers.IO) {
+        try {
+            // 1. Create message
+            val message = BaseMessage(
+                messageType = "command",
+                sequenceId = sequenceId.incrementAndGet(),
+                timestamp = System.currentTimeMillis() / 1000,
+                payload = CommandPayload(command, parameters)
+            )
+
+            // 2. Serialize to JSON
+            val json = gson.toJson(message)
+
+            // 3. Send via TCP
+            tcpWriter?.println(json)
+            tcpWriter?.flush()
+
+            // 4. Wait for response
+            val response = tcpReader?.readLine()
+
+            // 5. Parse response
+            val responseMessage = gson.fromJson(response, BaseMessage::class.java)
+            val responsePayload = gson.fromJson(
+                gson.toJson(responseMessage.payload),
+                ResponsePayload::class.java
+            )
+
+            Result.success(responsePayload)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+```
+
+**Status Listener (UDP Port 5001)**:
+```kotlin
+private fun startUdpStatusListener() {
+    statusListenerJob = scope.launch {
+        udpSocket = DatagramSocket(settings.statusListenPort)
+        val buffer = ByteArray(4096)
+
+        while (isActive) {
+            val packet = DatagramPacket(buffer, buffer.size)
+            udpSocket?.receive(packet)  // Block waiting for status
+
+            val json = String(packet.data, 0, packet.length)
+            val statusMessage = gson.fromJson(json, BaseMessage::class.java)
+            val statusPayload = gson.fromJson(
+                gson.toJson(statusMessage.payload),
+                StatusPayload::class.java
+            )
+
+            // Update state flows
+            _cameraStatus.value = statusPayload.camera
+            _systemStatus.value = statusPayload.system
+        }
+    }
+}
+```
+
+**Heartbeat Sender (UDP Port 5002)**:
+```kotlin
+private fun startHeartbeat() {
+    heartbeatJob = scope.launch {
+        heartbeatSocket = DatagramSocket()
+        val address = InetAddress.getByName(settings.targetIp)
+
+        while (isActive) {
+            val heartbeat = BaseMessage(
+                messageType = "heartbeat",
+                sequenceId = sequenceId.incrementAndGet(),
+                timestamp = System.currentTimeMillis() / 1000,
+                payload = HeartbeatPayload(
+                    sender = "ground",
+                    uptimeSeconds = getUptimeSeconds()
+                )
+            )
+
+            val json = gson.toJson(heartbeat)
+            val bytes = json.toByteArray()
+            val packet = DatagramPacket(bytes, bytes.size, address, settings.heartbeatPort)
+
+            heartbeatSocket?.send(packet)
+
+            delay(settings.heartbeatIntervalMs)  // 1 Hz
+        }
+    }
+}
+```
+
+**Connection Lifecycle**:
+1. `connect()` called
+2. TCP socket opened to 192.168.1.10:5000
+3. Handshake message sent
+4. UDP listener starts on port 5001 (status broadcasts)
+5. UDP heartbeat starts sending to port 5002 (1 Hz)
+6. Connection state → CONNECTED
+7. Status updates received at 5 Hz
+8. Commands sent on-demand via TCP
+9. `disconnect()` called
+10. All sockets closed gracefully
+
+**Error Handling**:
+- TCP timeout: 5 seconds (configurable)
+- Failed connection: Auto-retry after 2 seconds
+- Socket errors: Log and update connection state
+- JSON parse errors: Log and skip message
+- Missing responses: Return Result.failure()
+
+---
+
+## 7. UI Layer
+
+### 7.1 Jetpack Compose Architecture
+
+**Theme System**
+
+**Color Palette** (`ui/theme/Color.kt`):
+```kotlin
+// Professional camera UI - Dark theme
+val CameraBlack = Color(0xFF0A0A0A)
+val CameraDarkGray = Color(0xFF1A1A1A)
+val CameraMediumGray = Color(0xFF2D2D2D)
+val CameraLightGray = Color(0xFF808080)
+val CameraTextPrimary = Color(0xFFFFFFFF)
+val CameraTextSecondary = Color(0xFFB0B0B0)
+
+// Accent colors
+val CameraAccentRed = Color(0xFFE53935)      // Errors, recording
+val CameraAccentOrange = Color(0xFFFF9800)   // Warnings
+val CameraAccentGreen = Color(0xFF4CAF50)    // Success
+val CameraAccentBlue = Color(0xFF2196F3)     // Primary actions
+```
+
+**Theme Configuration** (`ui/theme/Theme.kt`):
+```kotlin
+private val CameraColorScheme = darkColorScheme(
+    primary = CameraAccentBlue,
+    secondary = CameraAccentOrange,
+    tertiary = CameraAccentGreen,
+    background = CameraBlack,
+    surface = CameraDarkGray,
+    surfaceVariant = CameraMediumGray,
+    onPrimary = CameraTextPrimary,
+    onSecondary = CameraTextPrimary,
+    onBackground = CameraTextPrimary,
+    onSurface = CameraTextPrimary,
+    error = CameraAccentRed
+)
+
+@Composable
+fun DPMAndroidTheme(
+    darkTheme: Boolean = true,  // Always dark for professional camera app
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = CameraColorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+```
+
+**Design Rationale**:
+- Always dark theme for professional camera operation
+- High contrast for outdoor visibility
+- Color-coded status indicators (red/orange/green/blue)
+- Consistent with professional video/photo equipment UX
+
+### 7.2 Screen Documentation
+
+#### 7.2.1 CameraControlScreen
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraControlScreen.kt`
+
+**Purpose**: Main camera control interface with live video background and overlay controls.
+
+**Layout Structure**:
+```
+Box (Full Screen)
+├── FullScreenVideoPlayer (Background Layer - RTSP Video)
+└── Overlay Controls (Foreground Layer)
+    ├── ConnectionStatusIndicator (Top-Left)
+    ├── MinimizedSettings (Top-Left, below connection)
+    │   ├── Shutter Speed
+    │   ├── Aperture
+    │   └── ISO
+    ├── ExpandedSettingDialog (Center, modal)
+    ├── Mode Indicator (Top-Right)
+    └── Bottom Controls (Row)
+        ├── Left: Quick Controls (WB, Format)
+        ├── Center: Capture Button
+        └── Right: Status Indicators (Battery, Shots)
+```
+
+**Code Example**:
+```kotlin
+@Composable
+fun CameraControlScreen(
+    viewModel: CameraViewModel = viewModel(),
+    videoPlayerViewModel: VideoPlayerViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
+    modifier: Modifier = Modifier
+) {
+    val cameraState by viewModel.cameraState.collectAsState()
+    val videoSettings by settingsViewModel.videoSettings.collectAsState()
+    var expandedSetting by rememberSaveable { mutableStateOf(ExpandedSetting.NONE) }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Full-screen video background
+        FullScreenVideoPlayer(
+            videoSettings = videoSettings,
+            videoPlayerViewModel = videoPlayerViewModel,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Connection indicator
+        ConnectionStatusIndicator(
+            isConnected = cameraState.isConnected,
+            onClick = { if (cameraState.isConnected) viewModel.disconnect() else viewModel.connect() },
+            modifier = Modifier.align(Alignment.TopStart)
+        )
+
+        // Camera controls overlay...
+    }
+}
+```
+
+**User Interactions**:
+- Tap **Capture Button** → `viewModel.captureImage()`
+- Tap **Shutter/Aperture/ISO** → Expand setting dialog
+- Tap **+/-** in dialog → Increment/decrement value
+- Tap **Connection Indicator** → Connect/disconnect
+- Tap **Mode Indicator** → Future: Show mode selector
+
+**State Observation**:
+```kotlin
+val cameraState by viewModel.cameraState.collectAsState()
+// Automatically recomposes when state changes
+```
+
+#### 7.2.2 SettingsScreen
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt`
+
+**Purpose**: Configure network and video streaming settings.
+
+**Features**:
+- Network settings (IP, ports, timeouts)
+- Video streaming toggle and RTSP URL
+- Aspect ratio selection
+- Save/Reset buttons
+- Connection controls
+
+**Layout**: Vertical scrollable form with TextField inputs and dropdowns.
+
+#### 7.2.3 SystemStatusScreen
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/system/SystemStatusScreen.kt`
+
+**Purpose**: Display real-time system telemetry from R16 Air Unit.
+
+**Displays**:
+- System uptime
+- CPU usage percentage
+- Memory used/total
+- Storage used/total
+- Temperature
+- Manual refresh button
+
+**Data Source**: UDP status broadcasts parsed by NetworkClient.
+
+### 7.3 Reusable Components
+
+#### FullScreenVideoPlayer
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
+
+**Purpose**: RTSP video player with state overlays.
+
+**Parameters**:
+```kotlin
+@Composable
+fun FullScreenVideoPlayer(
+    videoSettings: VideoStreamSettings,
+    videoPlayerViewModel: VideoPlayerViewModel = viewModel(),
+    modifier: Modifier = Modifier
+)
+```
+
+**Features**:
+- ExoPlayer embedded via AndroidView
+- Low-latency RTSP streaming
+- State overlays: Disconnected, Connecting, Error, Connected, Disabled
+- Aspect ratio modes (FILL, FIT, AUTO)
+- Automatic lifecycle management
+
+**Usage**:
+```kotlin
+FullScreenVideoPlayer(
+    videoSettings = videoSettings,
+    videoPlayerViewModel = videoPlayerViewModel,
+    modifier = Modifier.fillMaxSize()
+)
+```
+
+#### Camera UI Components
+
+**CameraButtons** (`camera/components/CameraButtons.kt`):
+- ControlButton - Generic button with label
+- CaptureButton - Large circular capture button
+- StatusIndicator - Icon + value display
+- ModeSelector - Camera mode picker
+
+**ExposureControl** (`camera/components/ExposureControl.kt`):
+- Exposure adjustment dial with +/- buttons
+- Large value display
+- Increment/decrement callbacks
+
+---
+
 ## 📋 Document Generation Status
 
 | Phase | Sections | Status |
 |-------|----------|--------|
-| **Phase 1** | 1-3: Executive Summary, Project Structure, Architecture Overview | ✅ **COMPLETE** |
-| **Phase 2** | 4-7: Core Components, Data Layer, Network Layer, UI Layer | ⏳ Pending |
+| **Phase 1** | 1-3: Executive Summary, Project Structure, Architecture Overview | ✅ Complete |
+| **Phase 2** | 4-7: Core Components, Data Layer, Network Layer, UI Layer | ✅ **COMPLETE** |
 | **Phase 3** | 8-11: State Management, Video Streaming, Navigation, Dependencies | ⏳ Pending |
 | **Phase 4** | 12-18: Configuration, Testing, Build, Conventions, Deployment | ⏳ Pending |
 
-**Next Action**: Run Phase 2 to continue documentation
+**Next Action**: Run Phase 3 to continue documentation
 
 ---
 
 **Document Metadata**
 
 **Generated**: October 25, 2025
-**Phase**: 1 of 4 (Foundation)
-**Sections Complete**: 1-3
-**Sections Remaining**: 15
+**Phase**: 2 of 4 (Core Implementation)
+**Sections Complete**: 1-7
+**Sections Remaining**: 11
 **Est. Completion**: After Phase 4
 
 ---
