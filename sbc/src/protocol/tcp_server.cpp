@@ -12,6 +12,7 @@
 #include <cstring>
 #include <errno.h>
 #include <sstream>
+#include <algorithm>
 
 TCPServer::TCPServer(int port)
     : server_socket_(-1)
@@ -146,6 +147,12 @@ void TCPServer::acceptLoop() {
 void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
     Logger::debug("Handling client " + client_ip);
 
+    // Add client to active clients list
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
+        active_clients_.push_back(client_socket);
+    }
+
     char buffer[config::TCP_BUFFER_SIZE];
     std::string message_buffer;
 
@@ -205,6 +212,15 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
                 Logger::error("Error processing command from " + client_ip + ": " + std::string(e.what()));
             }
         }
+    }
+
+    // Remove client from active clients list
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
+        active_clients_.erase(
+            std::remove(active_clients_.begin(), active_clients_.end(), client_socket),
+            active_clients_.end()
+        );
     }
 
     // Graceful shutdown: stop sending, allow receiving for a moment
@@ -323,13 +339,31 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
         );
     }
 
-    // Check if camera is connected
+    // Check if camera is connected, attempt immediate reconnection if needed
     if (!camera_->isConnected()) {
-        return messages::createErrorResponse(
-            seq_id, "camera.capture",
-            messages::ErrorCode::COMMAND_FAILED,
-            "Camera not connected"
-        );
+        Logger::info("Camera not connected - attempting immediate reconnection for capture command");
+
+        bool reconnected = camera_->connect();
+        if (reconnected) {
+            Logger::info("Camera reconnected successfully!");
+
+            // Send notification about reconnection
+            sendNotification(
+                messages::NotificationLevel::INFO,
+                messages::NotificationCategory::CAMERA,
+                "Camera Connected",
+                "Camera successfully reconnected and ready",
+                "",
+                true
+            );
+        } else {
+            Logger::warning("Camera reconnection failed");
+            return messages::createErrorResponse(
+                seq_id, "camera.capture",
+                messages::ErrorCode::COMMAND_FAILED,
+                "Camera not connected"
+            );
+        }
     }
 
     // Trigger capture
@@ -363,13 +397,31 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
         );
     }
 
-    // Check if camera is connected
+    // Check if camera is connected, attempt immediate reconnection if needed
     if (!camera_->isConnected()) {
-        return messages::createErrorResponse(
-            seq_id, "camera.set_property",
-            messages::ErrorCode::COMMAND_FAILED,
-            "Camera not connected"
-        );
+        Logger::info("Camera not connected - attempting immediate reconnection for set_property command");
+
+        bool reconnected = camera_->connect();
+        if (reconnected) {
+            Logger::info("Camera reconnected successfully!");
+
+            // Send notification about reconnection
+            sendNotification(
+                messages::NotificationLevel::INFO,
+                messages::NotificationCategory::CAMERA,
+                "Camera Connected",
+                "Camera successfully reconnected and ready",
+                "",
+                true
+            );
+        } else {
+            Logger::warning("Camera reconnection failed");
+            return messages::createErrorResponse(
+                seq_id, "camera.set_property",
+                messages::ErrorCode::COMMAND_FAILED,
+                "Camera not connected"
+            );
+        }
     }
 
     // Validate parameters
@@ -419,13 +471,31 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
         );
     }
 
-    // Check if camera is connected
+    // Check if camera is connected, attempt immediate reconnection if needed
     if (!camera_->isConnected()) {
-        return messages::createErrorResponse(
-            seq_id, "camera.get_properties",
-            messages::ErrorCode::COMMAND_FAILED,
-            "Camera not connected"
-        );
+        Logger::info("Camera not connected - attempting immediate reconnection for get_properties command");
+
+        bool reconnected = camera_->connect();
+        if (reconnected) {
+            Logger::info("Camera reconnected successfully!");
+
+            // Send notification about reconnection
+            sendNotification(
+                messages::NotificationLevel::INFO,
+                messages::NotificationCategory::CAMERA,
+                "Camera Connected",
+                "Camera successfully reconnected and ready",
+                "",
+                true
+            );
+        } else {
+            Logger::warning("Camera reconnection failed");
+            return messages::createErrorResponse(
+                seq_id, "camera.get_properties",
+                messages::ErrorCode::COMMAND_FAILED,
+                "Camera not connected"
+            );
+        }
     }
 
     // Validate parameters
@@ -458,6 +528,35 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
     }
 
     return messages::createSuccessResponse(seq_id, "camera.get_properties", result);
+}
+
+void TCPServer::sendNotification(messages::NotificationLevel level,
+                                 messages::NotificationCategory category,
+                                 const std::string& title,
+                                 const std::string& message,
+                                 const std::string& action,
+                                 bool dismissible) {
+    // Create notification message
+    int seq_id = notification_seq_id_++;
+    json notification = messages::createNotificationMessage(
+        seq_id, level, category, title, message, action, dismissible
+    );
+
+    std::string notification_str = notification.dump() + "\n";
+
+    Logger::info("Broadcasting notification: " + title);
+
+    // Send to all connected clients
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    for (int client_socket : active_clients_) {
+        ssize_t bytes_sent = send(client_socket, notification_str.c_str(),
+                                 notification_str.size(), MSG_DONTWAIT);
+        if (bytes_sent < 0) {
+            Logger::warning("Failed to send notification to client socket " +
+                          std::to_string(client_socket) + ": " +
+                          std::string(strerror(errno)));
+        }
+    }
 }
 
 bool TCPServer::validateMessage(const json& msg, std::string& error) {

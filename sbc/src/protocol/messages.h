@@ -20,6 +20,21 @@ enum class ErrorCode {
     COMMAND_FAILED = 5005
 };
 
+// Notification levels
+enum class NotificationLevel {
+    INFO,
+    WARNING,
+    ERROR
+};
+
+// Notification categories
+enum class NotificationCategory {
+    CAMERA,
+    GIMBAL,
+    SYSTEM,
+    NETWORK
+};
+
 inline std::string errorCodeToString(ErrorCode code) {
     switch (code) {
         case ErrorCode::INVALID_JSON:
@@ -36,6 +51,25 @@ inline std::string errorCodeToString(ErrorCode code) {
             return "Command execution failed";
         default:
             return "Unknown error";
+    }
+}
+
+inline std::string notificationLevelToString(NotificationLevel level) {
+    switch (level) {
+        case NotificationLevel::INFO: return "info";
+        case NotificationLevel::WARNING: return "warning";
+        case NotificationLevel::ERROR: return "error";
+        default: return "info";
+    }
+}
+
+inline std::string notificationCategoryToString(NotificationCategory category) {
+    switch (category) {
+        case NotificationCategory::CAMERA: return "camera";
+        case NotificationCategory::GIMBAL: return "gimbal";
+        case NotificationCategory::SYSTEM: return "system";
+        case NotificationCategory::NETWORK: return "network";
+        default: return "system";
     }
 }
 
@@ -171,6 +205,34 @@ inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_
             {"sender", sender},
             {"uptime_seconds", uptime}
         }}
+    };
+}
+
+// Create notification message
+inline json createNotificationMessage(int seq_id, NotificationLevel level,
+                                     NotificationCategory category,
+                                     const std::string& title,
+                                     const std::string& message,
+                                     const std::string& action = "",
+                                     bool dismissible = true) {
+    json payload = {
+        {"level", notificationLevelToString(level)},
+        {"category", notificationCategoryToString(category)},
+        {"title", title},
+        {"message", message},
+        {"dismissible", dismissible}
+    };
+
+    if (!action.empty()) {
+        payload["action"] = action;
+    }
+
+    return {
+        {"protocol_version", "1.0"},
+        {"message_type", "notification"},
+        {"sequence_id", seq_id},
+        {"timestamp", std::time(nullptr)},
+        {"payload", payload}
     };
 }
 
