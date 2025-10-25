@@ -1,3 +1,4 @@
+Architecture guide.md
 Instructions for Claude Code: Generate Complete Android Architecture Documentation
 📋 Overview
 Task: Generate comprehensive architecture documentation for the entire DPM Android application.
