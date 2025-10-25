@@ -2,6 +2,25 @@
 
 ## RECENT UPDATES (October 25, 2025)
 
+### Latest Changes ✅
+
+**7. Live Connection Status on Camera Screen** *(app/src/main/java/uk/unmannedsystems/dpm_android/camera/)*
+- Added real-time connection status indicator to main camera screen
+- **RED circle** = Air-Side disconnected (no heartbeats received)
+- **GREEN circle** = Air-Side connected (heartbeats active)
+- Indicator positioned prominently in top-left corner
+- Shows status text: "Air-Side Connected" / "Air-Side Disconnected"
+- CameraViewModel now monitors network connection status in real-time
+- Updated CameraViewModel.kt:
+  - Integrated NetworkClient for connection monitoring
+  - Updates camera state when network status changes
+  - Properly cleans up network resources on ViewModel clear
+- Updated CameraControlScreen.kt:
+  - Added ConnectionStatusIndicator composable
+  - 24dp colored circle with white border
+  - Moved connection status from bottom bar to prominent top-left position
+  - Removed redundant connection indicator from bottom status bar
+
 ### Implemented Features ✅
 
 **1. Connection Status Diagnostics** *(app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt)*

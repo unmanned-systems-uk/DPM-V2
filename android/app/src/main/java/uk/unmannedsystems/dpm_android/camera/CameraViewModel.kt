@@ -1,10 +1,15 @@
 package uk.unmannedsystems.dpm_android.camera
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import uk.unmannedsystems.dpm_android.network.ConnectionState
+import uk.unmannedsystems.dpm_android.network.NetworkClient
+import uk.unmannedsystems.dpm_android.network.NetworkSettings
 
 /**
  * ViewModel for managing camera state and controls
@@ -12,6 +17,23 @@ import kotlinx.coroutines.flow.update
 class CameraViewModel : ViewModel() {
     private val _cameraState = MutableStateFlow(CameraState())
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
+
+    // Network client for monitoring connection status
+    private val networkClient = NetworkClient(NetworkSettings())
+
+    init {
+        // Monitor network connection status
+        viewModelScope.launch {
+            networkClient.connectionStatus.collect { networkStatus ->
+                _cameraState.update { state ->
+                    state.copy(
+                        isConnected = networkStatus.state == ConnectionState.CONNECTED ||
+                                     networkStatus.state == ConnectionState.OPERATIONAL
+                    )
+                }
+            }
+        }
+    }
 
     /**
      * Increment shutter speed (faster)
@@ -130,5 +152,10 @@ class CameraViewModel : ViewModel() {
      */
     fun setFocusMode(mode: FocusMode) {
         _cameraState.update { it.copy(focusMode = mode) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        networkClient.close()
     }
 }
