@@ -249,7 +249,7 @@ camera.set_property → {
 
 ---
 
-## 🔍 Validation
+## 🔍 Validation Commands
 
 ### Checking Synchronization
 
@@ -264,7 +264,7 @@ cat commands.json | jq -r '.commands | to_entries[] |
 
 # Check Phase 1 camera properties status
 cat camera_properties.json | jq -r '.implementation_phases.phase_1.properties[] as $prop |
-  "\($prop): air=\(.properties[$prop].implemented.air_side) ground=\(.properties[$prop].implemented.ground_side)"'
+  "\($prop): \(.properties[$prop].implemented | "air=\(.air_side) ground=\(.ground_side)")"'
 
 # List properties ready for ground-side implementation (air-side done)
 cat camera_properties.json | jq -r '.properties | to_entries[] |
