@@ -26,21 +26,35 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
 - ✅ **ALWAYS** read `CC_READ_THIS_FIRST.md` first (this file)
 - This is your source of truth for workflow rules
 
-### 2. Check Protocol Synchronization
+### 2. Pull Latest Changes from Git
+- ✅ **MANDATORY** - Always pull latest before doing ANY work
+- ✅ Run `git pull origin main` at start of EVERY session
+- ✅ This ensures you have latest protocol definitions
+- ✅ This ensures you have changes from ground-side/air-side
+- ⚠️ **CRITICAL** - Never work on stale code!
+
+**If git pull shows conflicts:**
+1. **STOP** immediately
+2. **Tell user**: "Git pull has conflicts that need resolution"
+3. **List** the conflicting files
+4. **Wait** for user to resolve or give instructions
+5. **DO NOT** attempt to resolve conflicts without user approval
+
+### 3. Check Protocol Synchronization
 - ✅ **MANDATORY** - Check `docs/protocol/commands.json` for new commands
 - ✅ Look for commands with `"air_side": false`
 - ✅ Check if ground-side has added commands you need to implement
 - ✅ **ASK USER** about any new commands before implementing
 - ⚠️ **CRITICAL** - Protocol sync MUST happen every session
 
-### 3. Check Current Status
+### 4. Check Current Status
 - ✅ Read `PROGRESS_AND_TODO.md` to understand:
   - What phase we're in
   - What's been completed
   - What's currently blocked
   - What to work on next
 
-### 3. Read Relevant Technical Docs (If Needed)
+### 5. Read Relevant Technical Docs (If Needed)
 - ⚠️ **DO NOT** read `Project_Summary_and_Action_Plan.md` unless explicitly asked
 - ⚠️ **DO NOT** re-read technical specs you've already reviewed in this session
 - ✅ **DO** read specific technical docs when starting new features:
@@ -49,9 +63,10 @@ This document establishes the **mandatory workflow** for Claude Code (CC) when w
   - Protocol specs - When implementing protocol features
   - Sony SDK docs - When working on camera integration
 
-### 4. Understand Git Status
-- ✅ Check what files have been modified since last commit
+### 6. Understand Git Status
+- ✅ Run `git status` to check for uncommitted changes
 - ✅ Identify what needs to be committed
+- ✅ Check current branch (should be `main`)
 
 ---
 
@@ -295,12 +310,12 @@ git commit -m "[DOCS] Updated PROGRESS_AND_TODO.md with Docker solution
 **Standard workflow:**
 
 ```bash
-# 1. Start of session - check status
+# 1. Start of session - ALWAYS pull latest first
+git pull origin main
+
+# 2. Check status and recent commits
 git status
 git log --oneline -5  # Review recent commits
-
-# 2. Before starting work - pull latest
-git pull origin main
 
 # 3. Make changes, test, verify
 
