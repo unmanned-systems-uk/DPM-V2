@@ -3,7 +3,8 @@
     "allow": [
       "Bash(echo:*)",
       "Bash(./gradlew.bat --version)",
-      "Bash(./gradlew.bat:*)"
+      "Bash(./gradlew.bat:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
