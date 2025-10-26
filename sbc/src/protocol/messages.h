@@ -122,13 +122,35 @@ struct CameraStatus {
     int battery_percent;
     int remaining_shots;
 
+    // Current camera properties (for UI synchronization)
+    std::string shutter_speed;
+    std::string aperture;
+    std::string iso;
+    std::string white_balance;
+    std::string focus_mode;
+    std::string file_format;
+
     json toJson() const {
-        return {
+        json result = {
             {"connected", connected},
             {"model", model},
             {"battery_percent", battery_percent},
             {"remaining_shots", remaining_shots}
         };
+
+        // Add current settings if camera is connected
+        if (connected) {
+            result["settings"] = {
+                {"shutter_speed", shutter_speed},
+                {"aperture", aperture},
+                {"iso", iso},
+                {"white_balance", white_balance},
+                {"focus_mode", focus_mode},
+                {"file_format", file_format}
+            };
+        }
+
+        return result;
     }
 };
 

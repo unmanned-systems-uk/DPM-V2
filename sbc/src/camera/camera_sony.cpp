@@ -221,11 +221,27 @@ public:
 
             // Query remaining shots from camera
             status.remaining_shots = getRemainingShotsCount();
+
+            // Query current camera properties for UI synchronization
+            // Note: getProperty is const, so we can call it from const getStatus()
+            // These will be sent to ground station for display
+            status.shutter_speed = const_cast<CameraSony*>(this)->getProperty("shutter_speed");
+            status.aperture = const_cast<CameraSony*>(this)->getProperty("aperture");
+            status.iso = const_cast<CameraSony*>(this)->getProperty("iso");
+            status.white_balance = const_cast<CameraSony*>(this)->getProperty("white_balance");
+            status.focus_mode = const_cast<CameraSony*>(this)->getProperty("focus_mode");
+            status.file_format = const_cast<CameraSony*>(this)->getProperty("file_format");
         } else {
             status.connected = false;
             status.model = "none";
             status.battery_percent = 0;
             status.remaining_shots = 0;
+            status.shutter_speed = "";
+            status.aperture = "";
+            status.iso = "";
+            status.white_balance = "";
+            status.focus_mode = "";
+            status.file_format = "";
         }
 
         return status;
