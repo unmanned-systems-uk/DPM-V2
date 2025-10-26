@@ -30,6 +30,9 @@ object NetworkManager {
     private val _systemStatus = MutableStateFlow<SystemStatus?>(null)
     val systemStatus: StateFlow<SystemStatus?> = _systemStatus.asStateFlow()
 
+    private val _cameraStatus = MutableStateFlow<CameraStatusInfo?>(null)
+    val cameraStatus: StateFlow<CameraStatusInfo?> = _cameraStatus.asStateFlow()
+
     /**
      * Initialize or reinitialize network client with new settings
      */
@@ -55,6 +58,13 @@ object NetworkManager {
         scope.launch {
             networkClient?.systemStatus?.collect { status ->
                 _systemStatus.value = status
+            }
+        }
+
+        // Forward camera status to our stable StateFlow
+        scope.launch {
+            networkClient?.cameraStatus?.collect { status ->
+                _cameraStatus.value = status
             }
         }
     }

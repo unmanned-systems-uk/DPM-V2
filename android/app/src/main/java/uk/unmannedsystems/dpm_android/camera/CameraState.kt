@@ -30,28 +30,52 @@ enum class CameraMode(val displayName: String, val shortName: String) {
 }
 
 /**
- * Shutter speed values
+ * Shutter speed values - Sony Alpha 1 supported range
+ *
+ * All 35 shutter speeds supported in Manual (M) mode
+ * Range: 1/8000 to 1/3 second
+ *
+ * Note: Long exposures (>0.5 seconds) require Bulb mode and are not supported
+ * via the shutter_speed property. Future Phase 2 implementation.
+ *
+ * Source: /docs/protocol/CAMERA_SHUTTER_SPEEDS.md
  */
 enum class ShutterSpeed(val displayValue: String, val seconds: Double) {
     Speed_1_8000("1/8000", 1.0 / 8000),
+    Speed_1_6400("1/6400", 1.0 / 6400),
+    Speed_1_5000("1/5000", 1.0 / 5000),
     Speed_1_4000("1/4000", 1.0 / 4000),
+    Speed_1_3200("1/3200", 1.0 / 3200),
+    Speed_1_2500("1/2500", 1.0 / 2500),
     Speed_1_2000("1/2000", 1.0 / 2000),
+    Speed_1_1600("1/1600", 1.0 / 1600),
+    Speed_1_1250("1/1250", 1.0 / 1250),
     Speed_1_1000("1/1000", 1.0 / 1000),
+    Speed_1_800("1/800", 1.0 / 800),
+    Speed_1_640("1/640", 1.0 / 640),
     Speed_1_500("1/500", 1.0 / 500),
+    Speed_1_400("1/400", 1.0 / 400),
+    Speed_1_320("1/320", 1.0 / 320),
     Speed_1_250("1/250", 1.0 / 250),
+    Speed_1_200("1/200", 1.0 / 200),
+    Speed_1_160("1/160", 1.0 / 160),
     Speed_1_125("1/125", 1.0 / 125),
+    Speed_1_100("1/100", 1.0 / 100),
+    Speed_1_80("1/80", 1.0 / 80),
     Speed_1_60("1/60", 1.0 / 60),
+    Speed_1_50("1/50", 1.0 / 50),
+    Speed_1_40("1/40", 1.0 / 40),
     Speed_1_30("1/30", 1.0 / 30),
+    Speed_1_25("1/25", 1.0 / 25),
+    Speed_1_20("1/20", 1.0 / 20),
     Speed_1_15("1/15", 1.0 / 15),
+    Speed_1_13("1/13", 1.0 / 13),
+    Speed_1_10("1/10", 1.0 / 10),
     Speed_1_8("1/8", 1.0 / 8),
+    Speed_1_6("1/6", 1.0 / 6),
+    Speed_1_5("1/5", 1.0 / 5),
     Speed_1_4("1/4", 1.0 / 4),
-    Speed_1_2("1/2", 1.0 / 2),
-    Speed_1("1\"", 1.0),
-    Speed_2("2\"", 2.0),
-    Speed_4("4\"", 4.0),
-    Speed_8("8\"", 8.0),
-    Speed_15("15\"", 15.0),
-    Speed_30("30\"", 30.0);
+    Speed_1_3("1/3", 1.0 / 3);
 
     companion object {
         fun fromOrdinal(ordinal: Int): ShutterSpeed {

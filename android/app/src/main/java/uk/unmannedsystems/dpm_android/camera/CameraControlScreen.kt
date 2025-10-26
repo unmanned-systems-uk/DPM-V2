@@ -70,10 +70,19 @@ fun CameraControlScreen(
     val videoSettings by settingsViewModel.videoSettings.collectAsState()
     var expandedSetting by rememberSaveable { mutableStateOf(ExpandedSetting.NONE) }
 
+    // Get connection state from NetworkManager
+    val networkStatus by uk.unmannedsystems.dpm_android.network.NetworkManager.connectionStatus.collectAsState()
+
+    // Auto-connect when screen appears
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.startAutoConnect()
+    }
+
     CameraControlContent(
         cameraState = cameraState,
         videoSettings = videoSettings,
         videoPlayerViewModel = videoPlayerViewModel,
+        networkStatus = networkStatus,
         expandedSetting = expandedSetting,
         onExpandSetting = { expandedSetting = it },
         onIncrementShutter = viewModel::incrementShutterSpeed,
@@ -114,6 +123,7 @@ private fun CameraControlContent(
     cameraState: CameraState,
     videoSettings: uk.unmannedsystems.dpm_android.network.VideoStreamSettings,
     videoPlayerViewModel: VideoPlayerViewModel,
+    networkStatus: uk.unmannedsystems.dpm_android.network.NetworkStatus,
     expandedSetting: ExpandedSetting,
     onExpandSetting: (ExpandedSetting) -> Unit,
     onIncrementShutter: () -> Unit,
@@ -146,34 +156,27 @@ private fun CameraControlContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Connection status indicators - top-left corner (stacked vertically)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Air-Side connection status
-            ConnectionStatusIndicator(
-                isConnected = cameraState.isConnected,
-                onClick = onConnectionClick
-            )
-
-            // Video connection status
-            VideoConnectionIndicator(
-                videoState = videoState,
-                videoEnabled = videoSettings.enabled
-            )
-        }
-
-        // Minimized settings below connection indicators
+        // Sony-style camera parameter overlay (auto-hides after inactivity)
         if (expandedSetting == ExpandedSetting.NONE) {
-            MinimizedSettings(
+            SonyCameraOverlay(
                 cameraState = cameraState,
-                onExpandSetting = onExpandSetting,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 160.dp, end = 16.dp)
+                videoState = videoState,
+                connectionState = networkStatus.state,
+                onParameterClick = { parameter ->
+                    when (parameter) {
+                        "shutter" -> onExpandSetting(ExpandedSetting.SHUTTER)
+                        "aperture" -> onExpandSetting(ExpandedSetting.APERTURE)
+                        "iso" -> onExpandSetting(ExpandedSetting.ISO)
+                        "wb" -> onWhiteBalanceClick()
+                        "format" -> onFileFormatClick()
+                        "mode" -> { /* TODO: Mode selector */ }
+                        "focus" -> { /* TODO: Focus mode toggle */ }
+                        "shutter_type" -> { /* TODO: Shutter type */ }
+                        "exp_comp" -> { /* TODO: Exposure compensation */ }
+                    }
+                },
+                onConnectionClick = onConnectionClick,
+                modifier = Modifier.fillMaxSize()
             )
         }
 
@@ -193,62 +196,17 @@ private fun CameraControlContent(
             )
         }
 
-        // Bottom controls
-        Row(
+        // Capture button - always visible in bottom center
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(bottom = 32.dp)
         ) {
-            // Left side - Quick controls
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ControlButton(
-                    label = cameraState.whiteBalance.shortName,
-                    onClick = onWhiteBalanceClick
-                )
-                ControlButton(
-                    label = cameraState.fileFormat.displayName,
-                    onClick = onFileFormatClick
-                )
-            }
-
-            // Center - Capture button
             CaptureButton(
                 onClick = onCaptureClick,
                 isRecording = cameraState.isRecording
             )
-
-            // Right side - Mode and status
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Status indicators (removed connection status - now in top-left)
-                StatusIndicator(
-                    icon = "🔋",
-                    value = "${cameraState.batteryLevel}%"
-                )
-                StatusIndicator(
-                    icon = "📷",
-                    value = cameraState.remainingShots.toString()
-                )
-            }
         }
-
-        // Top-right status (mode indicator)
-        Text(
-            text = cameraState.mode.shortName,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        )
     }
 }
 
@@ -332,7 +290,7 @@ private fun CompactSettingItem(
 }
 
 /**
- * Expanded setting dialog in center of screen
+ * Expanded setting dialog in center of screen - minimal and transparent
  */
 @Composable
 private fun ExpandedSettingDialog(
@@ -347,24 +305,25 @@ private fun ExpandedSettingDialog(
     onDecrementISO: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Semi-transparent background to dismiss
+    // Very subtle background to dismiss - can still see video
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = 0.15f))
             .clickable(onClick = onDismiss)
     )
 
-    // Setting control card
+    // Minimal control with subtle background
     Card(
-        modifier = modifier.size(400.dp, 300.dp),
+        modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color.Black.copy(alpha = 0.6f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             when (expandedSetting) {
@@ -390,7 +349,7 @@ private fun ExpandedSettingDialog(
                         Text(
                             text = "ISO",
                             style = MaterialTheme.typography.labelMedium,
-                            color = CameraTextSecondary
+                            color = Color.White.copy(alpha = 0.8f)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         ExposureControl(

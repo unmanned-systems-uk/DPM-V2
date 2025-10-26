@@ -85,6 +85,19 @@ data class SystemStatus(
 )
 
 /**
+ * Simple camera settings synchronized from Air Side
+ * Broadcast in every UDP status message (5 Hz)
+ */
+data class SimpleCameraSettings(
+    @SerializedName("shutter_speed") val shutterSpeed: String = "",
+    val aperture: String = "",
+    val iso: String = "",
+    @SerializedName("white_balance") val whiteBalance: String = "",
+    @SerializedName("focus_mode") val focusMode: String = "",
+    @SerializedName("file_format") val fileFormat: String = ""
+)
+
+/**
  * Camera status information from Pi
  */
 data class CameraStatusInfo(
@@ -95,7 +108,9 @@ data class CameraStatusInfo(
     @SerializedName("battery_minutes_remaining") val batteryMinutesRemaining: Int?,
     val recording: Boolean,
     val storage: StorageInfo?,
-    @SerializedName("current_settings") val currentSettings: CurrentCameraSettings?
+    @SerializedName("current_settings") val currentSettings: CurrentCameraSettings?,
+    val settings: SimpleCameraSettings? = null,  // New field for synchronized settings
+    @SerializedName("remaining_shots") val remainingShots: Int? = null
 )
 
 /**

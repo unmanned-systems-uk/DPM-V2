@@ -34,6 +34,52 @@ class CameraViewModel : ViewModel() {
                 }
             }
         }
+
+        // Monitor camera status for settings synchronization
+        viewModelScope.launch {
+            NetworkManager.cameraStatus.collect { cameraStatus ->
+                cameraStatus?.let { status ->
+                    // Sync battery level and remaining shots
+                    _cameraState.update { state ->
+                        state.copy(
+                            batteryLevel = status.batteryPercent,
+                            remainingShots = status.remainingShots ?: state.remainingShots
+                        )
+                    }
+
+                    // Sync camera settings if available
+                    status.settings?.let { settings ->
+                        syncCameraSettings(settings)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Start auto-connect to Air-Side
+     * Should be called when the camera screen appears
+     */
+    fun startAutoConnect() {
+        viewModelScope.launch {
+            // Check if already connected or connecting
+            val currentState = NetworkManager.connectionStatus.value.state
+            if (currentState == ConnectionState.CONNECTED ||
+                currentState == ConnectionState.OPERATIONAL ||
+                currentState == ConnectionState.CONNECTING) {
+                Log.d(TAG, "Auto-connect skipped - already connected/connecting (state: $currentState)")
+                return@launch
+            }
+
+            // Check if NetworkManager is initialized
+            if (!NetworkManager.isInitialized()) {
+                Log.w(TAG, "Auto-connect skipped - NetworkManager not initialized")
+                return@launch
+            }
+
+            Log.d(TAG, "Starting auto-connect to Air-Side...")
+            NetworkManager.connect()
+        }
     }
 
     // ========== Protocol Conversion Helpers ==========
@@ -313,6 +359,57 @@ class CameraViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending property command: $property = $value", e)
             }
+        }
+    }
+
+    /**
+     * Synchronize camera settings from Air Side status broadcasts
+     * Updates UI to match actual camera state
+     */
+    private fun syncCameraSettings(settings: uk.unmannedsystems.dpm_android.network.SimpleCameraSettings) {
+        _cameraState.update { state ->
+            var newState = state
+
+            // Sync shutter speed (if not empty)
+            if (settings.shutterSpeed.isNotEmpty()) {
+                val shutterSpeed = ShutterSpeed.entries.find {
+                    it.displayValue == settings.shutterSpeed
+                }
+                if (shutterSpeed != null && shutterSpeed != state.shutterSpeed) {
+                    Log.d(TAG, "Syncing shutter speed: ${settings.shutterSpeed}")
+                    newState = newState.copy(shutterSpeed = shutterSpeed)
+                }
+            }
+
+            // Sync aperture (if not empty)
+            if (settings.aperture.isNotEmpty()) {
+                // Remove "f/" prefix if present
+                val apertureValue = settings.aperture.removePrefix("f/")
+                val aperture = Aperture.entries.find {
+                    it.displayValue == apertureValue
+                }
+                if (aperture != null && aperture != state.aperture) {
+                    Log.d(TAG, "Syncing aperture: ${settings.aperture}")
+                    newState = newState.copy(aperture = aperture)
+                }
+            }
+
+            // Sync ISO (if not empty)
+            if (settings.iso.isNotEmpty()) {
+                val iso = ISO.entries.find {
+                    it.displayValue == settings.iso
+                }
+                if (iso != null && iso != state.iso) {
+                    Log.d(TAG, "Syncing ISO: ${settings.iso}")
+                    newState = newState.copy(iso = iso)
+                }
+            }
+
+            // TODO: Sync white balance when Air Side implements it
+            // TODO: Sync focus mode when Air Side implements it
+            // TODO: Sync file format when Air Side implements it
+
+            newState
         }
     }
 }
