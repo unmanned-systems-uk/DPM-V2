@@ -41,7 +41,8 @@ class NetworkClient(
     private var tcpWriter: PrintWriter? = null
     private var tcpReader: BufferedReader? = null
     private var udpSocket: DatagramSocket? = null
-    private var heartbeatSocket: DatagramSocket? = null
+    private var heartbeatSendSocket: DatagramSocket? = null
+    private var heartbeatReceiveSocket: DatagramSocket? = null
 
     // State flows
     private val _connectionStatus = MutableStateFlow(NetworkStatus())
@@ -57,6 +58,8 @@ class NetworkClient(
     private var connectJob: Job? = null
     private var statusListenerJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var heartbeatReceiverJob: Job? = null
+    private var heartbeatWatchdogJob: Job? = null
 
     /**
      * Connect to the Raspberry Pi
@@ -98,10 +101,20 @@ class NetworkClient(
                 startUdpStatusListener()
                 addConnectionLog("UDP status listener started", LogLevel.SUCCESS)
 
-                // Start heartbeat
-                addConnectionLog("Starting heartbeat on port ${settings.heartbeatPort}...", LogLevel.INFO)
-                startHeartbeat()
-                addConnectionLog("Heartbeat started", LogLevel.SUCCESS)
+                // Start heartbeat sender
+                addConnectionLog("Starting heartbeat sender on port ${settings.heartbeatPort}...", LogLevel.INFO)
+                startHeartbeatSender()
+                addConnectionLog("Heartbeat sender started", LogLevel.SUCCESS)
+
+                // Start heartbeat receiver
+                addConnectionLog("Starting heartbeat receiver...", LogLevel.INFO)
+                startHeartbeatReceiver()
+                addConnectionLog("Heartbeat receiver started", LogLevel.SUCCESS)
+
+                // Start heartbeat watchdog
+                addConnectionLog("Starting heartbeat watchdog...", LogLevel.INFO)
+                startHeartbeatWatchdog()
+                addConnectionLog("Heartbeat watchdog started", LogLevel.SUCCESS)
 
                 updateConnectionState(
                     ConnectionState.CONNECTED,
@@ -304,10 +317,13 @@ class NetworkClient(
         }
     }
 
-    private fun startHeartbeat() {
+    /**
+     * Start sending heartbeats to Air-Side
+     */
+    private fun startHeartbeatSender() {
         heartbeatJob = scope.launch {
             try {
-                heartbeatSocket = DatagramSocket()
+                heartbeatSendSocket = DatagramSocket()
                 val address = InetAddress.getByName(settings.targetIp)
                 val startTime = System.currentTimeMillis()
 
@@ -331,17 +347,105 @@ class NetworkClient(
                         settings.heartbeatPort
                     )
 
-                    heartbeatSocket?.send(packet)
+                    heartbeatSendSocket?.send(packet)
 
-                    // Update last heartbeat time
+                    // Update last heartbeat SENT time
                     _connectionStatus.value = _connectionStatus.value.copy(
-                        lastHeartbeatMs = System.currentTimeMillis()
+                        lastHeartbeatSentMs = System.currentTimeMillis()
                     )
 
                     delay(settings.heartbeatIntervalMs)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Heartbeat error", e)
+                Log.e(TAG, "Heartbeat sender error", e)
+            }
+        }
+    }
+
+    /**
+     * Start receiving heartbeats from Air-Side
+     */
+    private fun startHeartbeatReceiver() {
+        heartbeatReceiverJob = scope.launch {
+            try {
+                // Bind to a local port to receive heartbeat responses
+                val receivePort = settings.heartbeatPort + 1000  // Use different port for receiving
+                heartbeatReceiveSocket = DatagramSocket(receivePort)
+                heartbeatReceiveSocket?.soTimeout = 0  // Non-blocking for continuous receive
+
+                Log.d(TAG, "Heartbeat receiver listening on port $receivePort")
+
+                val buffer = ByteArray(4096)
+                while (isActive) {
+                    try {
+                        val packet = DatagramPacket(buffer, buffer.size)
+                        heartbeatReceiveSocket?.receive(packet)
+
+                        val json = String(packet.data, 0, packet.length)
+                        Log.d(TAG, "Received heartbeat: ${json.take(200)}")
+
+                        // Parse heartbeat
+                        try {
+                            val message = gson.fromJson(json, BaseMessage::class.java)
+                            if (message.messageType == "heartbeat") {
+                                // Update last heartbeat RECEIVED time
+                                val now = System.currentTimeMillis()
+                                _connectionStatus.value = _connectionStatus.value.copy(
+                                    lastHeartbeatReceivedMs = now
+                                )
+                                Log.d(TAG, "Heartbeat received from Air-Side at $now")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to parse heartbeat: ${e.message}")
+                        }
+
+                    } catch (e: SocketException) {
+                        if (isActive) {
+                            Log.w(TAG, "Heartbeat receiver socket error: ${e.message}")
+                        }
+                        break
+                    } catch (e: Exception) {
+                        if (isActive) {
+                            Log.w(TAG, "Heartbeat receiver error: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Heartbeat receiver init error", e)
+            }
+        }
+    }
+
+    /**
+     * Monitor heartbeat timeout and update connection state
+     */
+    private fun startHeartbeatWatchdog() {
+        heartbeatWatchdogJob = scope.launch {
+            // Wait a bit before starting monitoring (give time for first heartbeat)
+            delay(3000)
+
+            while (isActive) {
+                val status = _connectionStatus.value
+
+                // Only check if we're supposed to be connected
+                if (status.state == ConnectionState.CONNECTED ||
+                    status.state == ConnectionState.OPERATIONAL) {
+
+                    if (!status.isHeartbeatAlive(5000)) {
+                        val timeSince = status.timeSinceLastHeartbeat()
+                        val errorMsg = "Heartbeat timeout: No response from Air-Side for ${timeSince}ms"
+                        Log.e(TAG, errorMsg)
+
+                        updateConnectionState(
+                            ConnectionState.ERROR,
+                            errorMessage = errorMsg,
+                            logMessage = errorMsg,
+                            logLevel = LogLevel.ERROR
+                        )
+                    }
+                }
+
+                delay(1000)  // Check every second
             }
         }
     }
@@ -364,6 +468,8 @@ class NetworkClient(
         connectJob?.cancel()
         statusListenerJob?.cancel()
         heartbeatJob?.cancel()
+        heartbeatReceiverJob?.cancel()
+        heartbeatWatchdogJob?.cancel()
 
         // Close all I/O streams and sockets in proper order
         try {
@@ -399,9 +505,15 @@ class NetworkClient(
         }
 
         try {
-            heartbeatSocket?.close()
+            heartbeatSendSocket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing heartbeat socket", e)
+            Log.e(TAG, "Error closing heartbeat send socket", e)
+        }
+
+        try {
+            heartbeatReceiveSocket?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing heartbeat receive socket", e)
         }
 
         // Null out references
@@ -409,7 +521,8 @@ class NetworkClient(
         tcpWriter = null
         tcpReader = null
         udpSocket = null
-        heartbeatSocket = null
+        heartbeatSendSocket = null
+        heartbeatReceiveSocket = null
     }
 
     private fun updateConnectionState(

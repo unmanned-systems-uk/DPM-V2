@@ -45,13 +45,31 @@ enum class LogLevel {
  */
 data class NetworkStatus(
     val state: ConnectionState = ConnectionState.DISCONNECTED,
-    val lastHeartbeatMs: Long = 0,
+    val lastHeartbeatSentMs: Long = 0,       // When we last sent a heartbeat
+    val lastHeartbeatReceivedMs: Long = 0,   // When we last received a heartbeat from Air-Side
     val roundTripTimeMs: Long = 0,
     val errorMessage: String? = null,
     val connectionLogs: List<ConnectionLogEntry> = emptyList(),
     val targetIp: String? = null,
     val targetPort: Int? = null
-)
+) {
+    /**
+     * Check if connection is healthy (received heartbeat recently)
+     * @param timeoutMs Maximum time since last heartbeat before considering connection dead
+     */
+    fun isHeartbeatAlive(timeoutMs: Long = 5000): Boolean {
+        if (lastHeartbeatReceivedMs == 0L) return true // Not yet started monitoring
+        return System.currentTimeMillis() - lastHeartbeatReceivedMs < timeoutMs
+    }
+
+    /**
+     * Time since last heartbeat received in milliseconds
+     */
+    fun timeSinceLastHeartbeat(): Long {
+        if (lastHeartbeatReceivedMs == 0L) return 0L
+        return System.currentTimeMillis() - lastHeartbeatReceivedMs
+    }
+}
 
 /**
  * Video stream settings for RTSP video display
