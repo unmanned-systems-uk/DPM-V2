@@ -116,6 +116,12 @@ class NetworkClient(
                 startHeartbeatWatchdog()
                 addConnectionLog("Heartbeat watchdog started", LogLevel.SUCCESS)
 
+                // Set connection start time for heartbeat monitoring
+                val connectionStartTime = System.currentTimeMillis()
+                _connectionStatus.value = _connectionStatus.value.copy(
+                    connectionStartedMs = connectionStartTime
+                )
+
                 updateConnectionState(
                     ConnectionState.CONNECTED,
                     logMessage = "Connected to ${settings.targetIp}:${settings.commandPort}",
@@ -423,6 +429,7 @@ class NetworkClient(
         heartbeatWatchdogJob = scope.launch {
             // Wait a bit before starting monitoring (give time for first heartbeat)
             delay(3000)
+            Log.d(TAG, "Heartbeat watchdog monitoring started")
 
             while (isActive) {
                 val status = _connectionStatus.value
@@ -431,9 +438,19 @@ class NetworkClient(
                 if (status.state == ConnectionState.CONNECTED ||
                     status.state == ConnectionState.OPERATIONAL) {
 
-                    if (!status.isHeartbeatAlive(5000)) {
-                        val timeSince = status.timeSinceLastHeartbeat()
-                        val errorMsg = "Heartbeat timeout: No response from Air-Side for ${timeSince}ms"
+                    val isAlive = status.isHeartbeatAlive(5000)
+                    val timeSince = status.timeSinceLastHeartbeat()
+                    val timeSinceConnect = System.currentTimeMillis() - status.connectionStartedMs
+
+                    Log.d(TAG, "Watchdog check - isAlive: $isAlive, lastRx: ${status.lastHeartbeatReceivedMs}, " +
+                              "timeSinceLastRx: ${timeSince}ms, timeSinceConnect: ${timeSinceConnect}ms")
+
+                    if (!isAlive) {
+                        val errorMsg = if (status.lastHeartbeatReceivedMs == 0L) {
+                            "Heartbeat timeout: No response from Air-Side after ${timeSinceConnect}ms (never received)"
+                        } else {
+                            "Heartbeat timeout: No response from Air-Side for ${timeSince}ms"
+                        }
                         Log.e(TAG, errorMsg)
 
                         updateConnectionState(

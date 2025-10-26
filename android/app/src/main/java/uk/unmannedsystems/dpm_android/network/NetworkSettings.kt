@@ -47,6 +47,7 @@ data class NetworkStatus(
     val state: ConnectionState = ConnectionState.DISCONNECTED,
     val lastHeartbeatSentMs: Long = 0,       // When we last sent a heartbeat
     val lastHeartbeatReceivedMs: Long = 0,   // When we last received a heartbeat from Air-Side
+    val connectionStartedMs: Long = 0,       // When the connection was established
     val roundTripTimeMs: Long = 0,
     val errorMessage: String? = null,
     val connectionLogs: List<ConnectionLogEntry> = emptyList(),
@@ -58,7 +59,16 @@ data class NetworkStatus(
      * @param timeoutMs Maximum time since last heartbeat before considering connection dead
      */
     fun isHeartbeatAlive(timeoutMs: Long = 5000): Boolean {
-        if (lastHeartbeatReceivedMs == 0L) return true // Not yet started monitoring
+        // If we've never received a heartbeat from Air-Side
+        if (lastHeartbeatReceivedMs == 0L) {
+            // Grace period: Allow 10 seconds after connection for first heartbeat
+            // After that, if still no heartbeat received, consider connection dead
+            if (connectionStartedMs == 0L) return true  // Not yet connected
+            val gracePeriodMs = 10000L
+            val timeSinceConnect = System.currentTimeMillis() - connectionStartedMs
+            return timeSinceConnect < gracePeriodMs
+        }
+        // Normal check: has it been too long since last heartbeat?
         return System.currentTimeMillis() - lastHeartbeatReceivedMs < timeoutMs
     }
 

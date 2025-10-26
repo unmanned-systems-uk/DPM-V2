@@ -4,7 +4,9 @@
       "Bash(echo:*)",
       "Bash(./gradlew.bat --version)",
       "Bash(./gradlew.bat:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb:*)"
     ],
     "deny": [],
     "ask": []
