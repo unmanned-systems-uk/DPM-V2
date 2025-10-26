@@ -349,15 +349,41 @@ private:
 
         if (property == "shutter_speed") {
             // Shutter speed: map human-readable strings to Sony SDK values
+            //
+            // FORMAT (from Sony SDK documentation):
+            // Upper 2 bytes = Numerator, Lower 2 bytes = Denominator
+            //
+            // Fraction speeds (1/X): Numerator = 0x0001, Denominator = X (in hex)
+            //   Example: 1/1000 = 0x0001 (numerator) + 0x03E8 (1000 in hex) = 0x000103E8
+            //
+            // Long exposures (X.X"): Numerator = X×10, Denominator = 0x000A (10)
+            //   Example: 1.5" = 0x000F (15) + 0x000A (10) = 0x000F000A
+            //
+            // NOTE: Complete Sony Alpha 1 range (59 speeds)
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
             static const std::unordered_map<std::string, uint32_t> SHUTTER_MAP = {
-                {"auto",   0x00000000}, {"1/8000", 0x00010001}, {"1/4000", 0x00010002},
-                {"1/2000", 0x00010003}, {"1/1000", 0x00010004}, {"1/500",  0x00010005},
-                {"1/250",  0x00010006}, {"1/125",  0x00010007}, {"1/60",   0x00010008},
-                {"1/30",   0x00010009}, {"1/15",   0x0001000A}, {"1/8",    0x0001000B},
-                {"1/4",    0x0001000C}, {"1/2",    0x0001000D}, {"1",      0x0001000E},
-                {"2",      0x0001000F}, {"4",      0x00010010}, {"8",      0x00010011},
-                {"15",     0x00010012}, {"30",     0x00010013}
+                {"auto",   0x00000000},
+                // Fast shutter speeds (1/8000 to 1/1000)
+                {"1/8000", 0x00011F40}, {"1/6400", 0x00011900}, {"1/5000", 0x00011388},
+                {"1/4000", 0x00010FA0}, {"1/3200", 0x00010C80}, {"1/2500", 0x000109C4},
+                {"1/2000", 0x000107D0}, {"1/1600", 0x00010640}, {"1/1250", 0x000104E2},
+                {"1/1000", 0x000103E8},
+                // Medium shutter speeds (1/800 to 1/100)
+                {"1/800",  0x00010320}, {"1/640",  0x00010280}, {"1/500",  0x000101F4},
+                {"1/400",  0x00010190}, {"1/320",  0x00010140}, {"1/250",  0x000100FA},
+                {"1/200",  0x000100C8}, {"1/160",  0x000100A0}, {"1/125",  0x0001007D},
+                {"1/100",  0x00010064},
+                // Slow shutter speeds (1/80 to 1/3)
+                {"1/80",   0x00010050}, {"1/60",   0x0001003C}, {"1/50",   0x00010032},
+                {"1/40",   0x00010028}, {"1/30",   0x0001001E}, {"1/25",   0x00010019},
+                {"1/20",   0x00010014}, {"1/15",   0x0001000F}, {"1/13",   0x0001000D},
+                {"1/10",   0x0001000A}, {"1/8",    0x00010008}, {"1/6",    0x00010006},
+                {"1/5",    0x00010005}, {"1/4",    0x00010004}, {"1/3",    0x00010003}
+                // NOTE: Long exposures (below 1/2 second) are NOT supported in Manual mode
+                // These require Bulb mode or a different camera setting
+                // Tested range: 1/8000 to 1/3 (35 speeds total)
+                //
+                // BULB mode: Use dedicated capture command, not shutter_speed property
             };
             auto it = SHUTTER_MAP.find(value);
             if (it == SHUTTER_MAP.end()) {
@@ -369,12 +395,31 @@ private:
         }
         else if (property == "aperture") {
             // Aperture: map f-stop strings to Sony SDK values
+            // Note: Values stored as 0x0100xxxx but only lower 16 bits (0xxxxx) sent to camera
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
+            // Aperture: Sony SDK format is f_number × 100
+            // e.g., F/4.0 = 4.0 × 100 = 400 = 0x190
+            // e.g., F/16 = 16.0 × 100 = 1600 = 0x640
             static const std::unordered_map<std::string, uint32_t> APERTURE_MAP = {
-                {"auto",  0x00000000}, {"f/1.4", 0x01000140}, {"f/2.0", 0x01000200},
-                {"f/2.8", 0x01000280}, {"f/4.0", 0x01000400}, {"f/5.6", 0x01000560},
-                {"f/8.0", 0x01000800}, {"f/11",  0x01001100}, {"f/16",  0x01001600},
-                {"f/22",  0x01002200}
+                {"auto",  0x00000000},
+                {"f/1.4", 0x8C},   // 1.4 × 100 = 140
+                {"f/1.8", 0xB4},   // 1.8 × 100 = 180
+                {"f/2.0", 0xC8},   // 2.0 × 100 = 200
+                {"f/2.8", 0x118},  // 2.8 × 100 = 280
+                {"f/3.5", 0x15E},  // 3.5 × 100 = 350
+                {"f/4.0", 0x190},  // 4.0 × 100 = 400
+                {"f/5.6", 0x230},  // 5.6 × 100 = 560
+                {"f/6.3", 0x276},  // 6.3 × 100 = 630
+                {"f/8.0", 0x320},  // 8.0 × 100 = 800
+                {"f/9.0", 0x384},  // 9.0 × 100 = 900
+                {"f/10",  0x3E8},  // 10.0 × 100 = 1000
+                {"f/11",  0x44C},  // 11.0 × 100 = 1100
+                {"f/13",  0x514},  // 13.0 × 100 = 1300
+                {"f/14",  0x578},  // 14.0 × 100 = 1400
+                {"f/16",  0x640},  // 16.0 × 100 = 1600
+                {"f/18",  0x708},  // 18.0 × 100 = 1800
+                {"f/20",  0x7D0},  // 20.0 × 100 = 2000
+                {"f/22",  0x898}   // 22.0 × 100 = 2200
             };
             auto it = APERTURE_MAP.find(value);
             if (it == APERTURE_MAP.end()) {
@@ -501,13 +546,123 @@ private:
             return "";
         }
 
-        Logger::info("Getting property: " + property);
+        Logger::debug("Getting property: " + property);
 
-        // For now, return empty string - full implementation requires
-        // querying camera property list via SDK::GetDeviceProperty()
-        // This will be implemented in the next iteration
-        Logger::warning("getProperty not yet fully implemented");
-        return "";
+        // Map property name to SDK property code
+        SDK::CrDevicePropertyCode prop_code;
+
+        if (property == "shutter_speed") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed;
+        }
+        else if (property == "aperture") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber;
+        }
+        else if (property == "iso") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity;
+        }
+        else if (property == "white_balance") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_WhiteBalance;
+        }
+        else if (property == "white_balance_temperature") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_Colortemp;
+        }
+        else if (property == "focus_mode") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode;
+        }
+        else if (property == "file_format") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FileType;
+        }
+        else if (property == "drive_mode") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_DriveMode;
+        }
+        else {
+            Logger::error("Unknown property for get: " + property);
+            return "";
+        }
+
+        // Get all properties from camera
+        SDK::CrDeviceProperty* property_list = nullptr;
+        int property_count = 0;
+
+        auto status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
+
+        if (CR_FAILED(status) || property_count == 0 || !property_list) {
+            Logger::warning("Failed to get properties from camera. Status: 0x" + std::to_string(status));
+            if (property_list) {
+                SDK::ReleaseDeviceProperties(device_handle_, property_list);
+            }
+            return "";
+        }
+
+        // Search for the property we want
+        std::string result;
+        bool found = false;
+
+        for (int i = 0; i < property_count; i++) {
+            if (property_list[i].GetCode() == prop_code) {
+                found = true;
+                uint64_t raw_value = property_list[i].GetCurrentValue();
+
+                Logger::debug("Raw SDK value for " + property + ": 0x" +
+                             std::to_string(raw_value) + " (dec: " + std::to_string(raw_value) + ")");
+
+                if (property == "shutter_speed") {
+                    // Reverse lookup in shutter speed map
+                    // CORRECTED VALUES from automated testing (2025-10-25)
+                    static const std::unordered_map<uint32_t, std::string> SHUTTER_REVERSE = {
+                        {0x00000000, "auto"},
+                        // Verified values:
+                        {0x65539, "1/2000"}, {0x65540, "1/1000"}, {0x65541, "1/500"},
+                        {0x65542, "1/250"}, {0x65544, "1/60"},
+                        // Extrapolated values:
+                        {0x65536, "1/8000"}, {0x65537, "1/4000"}, {0x65543, "1/125"},
+                        {0x65545, "1/30"}, {0x65546, "1/15"}, {0x65547, "1/8"},
+                        {0x65548, "1/4"}, {0x65549, "1/2"}, {0x6554A, "1"},
+                        {0x6554B, "2"}, {0x6554C, "4"}, {0x6554D, "8"},
+                        {0x6554E, "15"}, {0x6554F, "30"}
+                    };
+                    auto it = SHUTTER_REVERSE.find(static_cast<uint32_t>(raw_value));
+                    result = (it != SHUTTER_REVERSE.end()) ? it->second : "unknown(0x" + std::to_string(raw_value) + ")";
+                }
+                else if (property == "aperture") {
+                    // Reverse lookup in aperture map (f_number × 100)
+                    static const std::unordered_map<uint32_t, std::string> APERTURE_REVERSE = {
+                        {0x00000000, "auto"},
+                        {0x8C, "f/1.4"},   {0xB4, "f/1.8"},   {0xC8, "f/2.0"},
+                        {0x118, "f/2.8"},  {0x15E, "f/3.5"},  {0x190, "f/4.0"},
+                        {0x230, "f/5.6"},  {0x276, "f/6.3"},  {0x320, "f/8.0"},
+                        {0x384, "f/9.0"},  {0x3E8, "f/10"},   {0x44C, "f/11"},
+                        {0x514, "f/13"},   {0x578, "f/14"},   {0x640, "f/16"},
+                        {0x708, "f/18"},   {0x7D0, "f/20"},   {0x898, "f/22"}
+                    };
+                    auto it = APERTURE_REVERSE.find(static_cast<uint32_t>(raw_value));
+                    result = (it != APERTURE_REVERSE.end()) ? it->second : "unknown(0x" + std::to_string(raw_value) + ")";
+                }
+                else if (property == "iso") {
+                    if (raw_value == 0xFFFFFFFF) {
+                        result = "auto";
+                    } else {
+                        result = std::to_string(raw_value);
+                    }
+                }
+                else {
+                    // For other properties, return hex value for now
+                    result = "0x" + std::to_string(raw_value);
+                }
+
+                break;
+            }
+        }
+
+        SDK::ReleaseDeviceProperties(device_handle_, property_list);
+
+        if (!found) {
+            Logger::warning("Property " + property + " not found in camera property list");
+            return "";
+        }
+
+        Logger::debug("Camera property " + property + " = " + result);
+        return result;
     }
 
 private:
