@@ -9,6 +9,7 @@
 #include <chrono>
 #include <thread>
 #include <unordered_map>
+#include <future>
 
 // Sony SDK headers
 #include "CRSDK/CameraRemote_SDK.h"
@@ -130,28 +131,44 @@ public:
         // Create callback
         callback_ = std::make_unique<SonyCameraCallback>();
 
-        // Connect to camera
+        // Prepare connection parameters
         auto* non_const_camera_info = const_cast<SDK::ICrCameraObjectInfo*>(camera_info);
+        auto callback_ptr = callback_.get();
 
-        auto connect_status = SDK::Connect(
-            non_const_camera_info,
-            callback_.get(),
-            &device_handle_,
-            SDK::CrSdkControlMode_Remote,
-            SDK::CrReconnecting_ON
-        );
+        // Connect to camera with timeout protection (10 second timeout)
+        Logger::info("Attempting SDK Connect with 10s timeout...");
 
-        if (CR_FAILED(connect_status)) {
-            Logger::error("Failed to connect to camera. Status: 0x" +
-                         std::to_string(connect_status));
+        SDK::CrDeviceHandle temp_handle = 0;
+        bool connect_success = runWithTimeout([non_const_camera_info, callback_ptr, &temp_handle]() -> bool {
+            auto connect_status = SDK::Connect(
+                non_const_camera_info,
+                callback_ptr,
+                &temp_handle,
+                SDK::CrSdkControlMode_Remote,
+                SDK::CrReconnecting_ON
+            );
+
+            if (CR_FAILED(connect_status)) {
+                Logger::error("Failed to connect to camera. Status: 0x" +
+                             std::to_string(connect_status));
+                return false;
+            }
+
+            Logger::info("SDK Connect succeeded. Device handle: " +
+                        std::to_string(temp_handle));
+            return true;
+        }, 10000, "camera.connect");
+
+        if (!connect_success) {
+            Logger::error("Camera connection timed out or failed");
             callback_.reset();
             camera_list_->Release();
             camera_list_ = nullptr;
             return false;
         }
 
-        Logger::info("SDK Connect succeeded. Device handle: " +
-                    std::to_string(device_handle_));
+        // Store the device handle
+        device_handle_ = temp_handle;
 
         // Wait for OnConnected callback (critical - camera won't accept commands until this fires)
         Logger::info("Waiting for OnConnected callback...");
@@ -203,16 +220,18 @@ public:
     }
 
     bool isConnected() const override {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return isConnectedLocked();
+        // Read connection status from callback's atomic flag
+        // This is thread-safe and never blocks - the SDK callbacks maintain this flag
+        return callback_ && callback_->isConnected();
     }
 
     messages::CameraStatus getStatus() const override {
-        std::lock_guard<std::mutex> lock(mutex_);
-
         messages::CameraStatus status;
 
-        if (isConnectedLocked()) {
+        // Check connection using callback's atomic flag (fast, never blocks)
+        if (isConnected()) {
+            // Camera is connected - acquire lock to query properties
+            std::lock_guard<std::mutex> lock(mutex_);
             status.connected = true;
             status.model = camera_model_;
 
@@ -248,51 +267,61 @@ public:
     }
 
     bool capture() override {
-        std::lock_guard<std::mutex> lock(mutex_);
-
-        if (!isConnectedLocked()) {
-            Logger::error("Cannot capture: camera not connected");
-            return false;
+        SDK::CrDeviceHandle handle;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!isConnectedLocked()) {
+                Logger::error("Cannot capture: camera not connected");
+                return false;
+            }
+            handle = device_handle_;  // Copy handle while locked
         }
 
         Logger::info("Triggering shutter release...");
 
-        // Send shutter button DOWN (press)
-        auto status_down = SDK::SendCommand(
-            device_handle_,
-            SDK::CrCommandId_Release,
-            SDK::CrCommandParam_Down
-        );
+        // Wrap SDK call in timeout protection (5 second timeout)
+        bool success = runWithTimeout([handle]() -> bool {
+            // Send shutter button DOWN (press)
+            auto status_down = SDK::SendCommand(
+                handle,
+                SDK::CrCommandId_Release,
+                SDK::CrCommandParam_Down
+            );
 
-        if (CR_FAILED(status_down)) {
-            Logger::error("Failed to send shutter DOWN command. Status: 0x" +
-                         std::to_string(status_down));
-            return false;
+            if (CR_FAILED(status_down)) {
+                Logger::error("Failed to send shutter DOWN command. Status: 0x" +
+                             std::to_string(status_down));
+                return false;
+            }
+
+            Logger::debug("Shutter DOWN command sent");
+
+            // Small delay to allow shutter press to register
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            // Send shutter button UP (release)
+            auto status_up = SDK::SendCommand(
+                handle,
+                SDK::CrCommandId_Release,
+                SDK::CrCommandParam_Up
+            );
+
+            if (CR_FAILED(status_up)) {
+                Logger::error("Failed to send shutter UP command. Status: 0x" +
+                             std::to_string(status_up));
+                // Try to recover by sending UP again
+                SDK::SendCommand(handle, SDK::CrCommandId_Release, SDK::CrCommandParam_Up);
+                return false;
+            }
+
+            Logger::debug("Shutter UP command sent");
+            return true;
+        }, 5000, "camera.capture");
+
+        if (success) {
+            Logger::info("Shutter release sequence completed successfully");
         }
-
-        Logger::debug("Shutter DOWN command sent");
-
-        // Small delay to allow shutter press to register
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Send shutter button UP (release)
-        auto status_up = SDK::SendCommand(
-            device_handle_,
-            SDK::CrCommandId_Release,
-            SDK::CrCommandParam_Up
-        );
-
-        if (CR_FAILED(status_up)) {
-            Logger::error("Failed to send shutter UP command. Status: 0x" +
-                         std::to_string(status_up));
-            // Try to recover by sending UP again
-            SDK::SendCommand(device_handle_, SDK::CrCommandId_Release, SDK::CrCommandParam_Up);
-            return false;
-        }
-
-        Logger::debug("Shutter UP command sent");
-        Logger::info("Shutter release sequence completed successfully");
-        return true;
+        return success;
     }
 
 private:
@@ -331,6 +360,42 @@ private:
         return callback_ != nullptr &&
                callback_->isConnected() &&
                device_handle_ != 0;
+    }
+
+    // Timeout wrapper for Sony SDK operations that may block indefinitely
+    // CRITICAL: std::future destructor blocks, so we must detach timed-out tasks
+    template<typename Func>
+    bool runWithTimeout(Func&& func, int timeout_ms, const std::string& operation_name) {
+        // Use shared_ptr to manage future lifetime
+        auto future_ptr = std::make_shared<std::future<bool>>(
+            std::async(std::launch::async, std::forward<Func>(func))
+        );
+
+        if (future_ptr->wait_for(std::chrono::milliseconds(timeout_ms)) == std::future_status::timeout) {
+            Logger::error(operation_name + " timed out after " + std::to_string(timeout_ms) + "ms - camera may be in incompatible state");
+            Logger::warning("Possible causes: camera reviewing image, menu open, or wrong mode");
+            Logger::warning("Background thread detached - it will continue running but won't block");
+
+            // Detach the future by moving it to a background cleanup thread
+            // This prevents the destructor from blocking
+            std::thread([future_ptr]() {
+                try {
+                    future_ptr->wait();  // Wait for completion in background
+                    Logger::debug("Detached SDK operation finally completed");
+                } catch (...) {
+                    Logger::warning("Detached SDK operation threw exception");
+                }
+            }).detach();
+
+            return false;
+        }
+
+        try {
+            return future_ptr->get();
+        } catch (const std::exception& e) {
+            Logger::error(operation_name + " threw exception: " + std::string(e.what()));
+            return false;
+        }
     }
 
     int getBatteryLevel() const {
@@ -542,16 +607,28 @@ private:
             return false;
         }
 
-        // Send property to camera
-        auto status = SDK::SetDeviceProperty(device_handle_, &prop);
+        // Copy handle and property for timeout-protected SDK call
+        SDK::CrDeviceHandle handle = device_handle_;
+        SDK::CrDeviceProperty prop_copy = prop;
 
-        if (CR_FAILED(status)) {
-            Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
-            return false;
+        // Release lock before potentially blocking SDK call
+        mutex_.unlock();
+
+        // Send property to camera with timeout protection (5 second timeout)
+        bool success = runWithTimeout([handle, prop_copy]() mutable -> bool {
+            auto status = SDK::SetDeviceProperty(handle, &prop_copy);
+
+            if (CR_FAILED(status)) {
+                Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
+                return false;
+            }
+            return true;
+        }, 5000, "camera.set_property." + property);
+
+        if (success) {
+            Logger::info("Property set successfully");
         }
-
-        Logger::info("Property set successfully");
-        return true;
+        return success;
     }
 
     std::string getProperty(const std::string& property) const override {
