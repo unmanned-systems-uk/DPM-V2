@@ -1,6 +1,8 @@
 package uk.unmannedsystems.dpm_android.camera
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
@@ -25,15 +27,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -90,7 +98,7 @@ fun SonyRemoteControlScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Close button overlay on video
+            // Menu button overlay on video
             IconButton(
                 onClick = onClose,
                 modifier = Modifier
@@ -99,11 +107,64 @@ fun SonyRemoteControlScreen(
                     .background(Color.Black.copy(alpha = 0.6f), shape = CircleShape)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close advanced controls",
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Open menu",
                     tint = Color.White
                 )
             }
+
+            // Camera error banner (e.g., "Camera not connected")
+            cameraState.cameraError?.let { errorMessage ->
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Error",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Please check camera connectivity",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Connection status indicator - top right corner
+            ConnectionStatusIcon(
+                networkStatus = networkStatus,
+                onClick = { },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 16.dp, end = 16.dp)
+            )
         }
 
         // Control sidebar on the right
@@ -763,5 +824,80 @@ private fun FocusButton(
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+/**
+ * Connection status icon indicator
+ * Shows Air-Side connection state with colored circle
+ * Pulses when heartbeats are received from Air-Side
+ */
+@Composable
+private fun ConnectionStatusIcon(
+    networkStatus: uk.unmannedsystems.dpm_android.network.NetworkStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Pulse animation - triggers when heartbeat is received
+    var pulseKey by remember { mutableStateOf(0) }
+
+    // Detect heartbeat changes and trigger pulse
+    LaunchedEffect(networkStatus.lastHeartbeatReceivedMs) {
+        if (networkStatus.lastHeartbeatReceivedMs > 0L &&
+            (networkStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED ||
+             networkStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL)) {
+            pulseKey++
+        }
+    }
+
+    // Animated scale for pulse effect
+    val scale by animateFloatAsState(
+        targetValue = if (pulseKey % 2 == 0) 1f else 1.4f,
+        animationSpec = tween(durationMillis = 150),
+        label = "heartbeat_pulse"
+    )
+
+    val (statusColor, statusText) = when (networkStatus.state) {
+        uk.unmannedsystems.dpm_android.network.ConnectionState.DISCONNECTED -> Pair(
+            Color(0xFFFF0000), // Red
+            "Disconnected"
+        )
+        uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTING -> Pair(
+            Color(0xFFFFAA00), // Yellow
+            "Connecting"
+        )
+        uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED,
+        uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL -> Pair(
+            Color(0xFF00FF00), // Green
+            "Connected"
+        )
+        uk.unmannedsystems.dpm_android.network.ConnectionState.ERROR -> Pair(
+            Color(0xFFFF0000), // Red
+            "Error"
+        )
+    }
+
+    Surface(
+        modifier = modifier
+            .size(40.dp)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.6f)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Colored status circle with heartbeat pulse
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .scale(scale)
+                    .background(
+                        color = statusColor,
+                        shape = CircleShape
+                    )
+            )
+        }
     }
 }
