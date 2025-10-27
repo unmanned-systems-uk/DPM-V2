@@ -229,32 +229,8 @@ public:
         // Check connection using callback's atomic flag (fast, never blocks)
         bool connected = isConnected();
 
-        // Try to acquire lock without blocking
-        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
-
-        if (lock.owns_lock() && connected) {
-            // We got the lock and camera is connected - query fresh status
-            cached_status_.connected = true;
-            cached_status_.model = camera_model_;
-
-            // Query battery level from camera
-            cached_status_.battery_percent = getBatteryLevel();
-
-            // Query remaining shots from camera
-            cached_status_.remaining_shots = getRemainingShotsCount();
-
-            // Query current camera properties for UI synchronization
-            cached_status_.shutter_speed = const_cast<CameraSony*>(this)->getProperty("shutter_speed");
-            cached_status_.aperture = const_cast<CameraSony*>(this)->getProperty("aperture");
-            cached_status_.iso = const_cast<CameraSony*>(this)->getProperty("iso");
-            cached_status_.white_balance = const_cast<CameraSony*>(this)->getProperty("white_balance");
-            cached_status_.focus_mode = const_cast<CameraSony*>(this)->getProperty("focus_mode");
-            cached_status_.file_format = const_cast<CameraSony*>(this)->getProperty("file_format");
-
-            return cached_status_;
-        }
-        else if (!connected) {
-            // Camera disconnected - return disconnected status
+        if (!connected) {
+            // Camera disconnected - return disconnected status immediately
             messages::CameraStatus status;
             status.connected = false;
             status.model = "none";
@@ -268,12 +244,29 @@ public:
             status.file_format = "";
             return status;
         }
-        else {
-            // Couldn't get lock - return cached status (never blocks)
-            // Update connection status based on current atomic flag
-            cached_status_.connected = connected;
-            return cached_status_;
+
+        // Try to get device handle and model without blocking
+        {
+            std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+            if (!lock.owns_lock()) {
+                // Couldn't get lock - return cached status (never blocks)
+                cached_status_.connected = connected;
+                return cached_status_;
+            }
+
+            // Got the lock - update basic status quickly
+            // NOTE: We skip detailed property queries here to minimize mutex hold time
+            // Properties are queried on-demand via getProperty() when needed
+            cached_status_.connected = true;
+            cached_status_.model = camera_model_;
+            cached_status_.battery_percent = getBatteryLevel();  // Placeholder
+            cached_status_.remaining_shots = getRemainingShotsCount();  // Placeholder
+
+            // Keep existing property values from cache
+            // (they're updated by setProperty() calls)
         }
+
+        return cached_status_;
     }
 
     bool capture() override {
