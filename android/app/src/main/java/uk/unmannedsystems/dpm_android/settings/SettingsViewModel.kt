@@ -32,6 +32,41 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = VideoStreamSettings()
         )
 
+    val propertyQueryFrequency: StateFlow<Float> = settingsRepository.propertyQueryFrequencyFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultPropertyQueryFrequency()
+        )
+
+    val propertyQueryEnabled: StateFlow<Boolean> = settingsRepository.propertyQueryEnabledFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultPropertyQueryEnabled()
+        )
+
+    val autoConnectEnabled: StateFlow<Boolean> = settingsRepository.autoConnectEnabledFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultAutoConnectEnabled()
+        )
+
+    val autoReconnectEnabled: StateFlow<Boolean> = settingsRepository.autoReconnectEnabledFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultAutoReconnectEnabled()
+        )
+
+    val autoReconnectInterval: StateFlow<Int> = settingsRepository.autoReconnectIntervalFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultAutoReconnectInterval()
+        )
+
     // Use NetworkManager's stable StateFlow
     val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
 
@@ -90,6 +125,55 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateVideoSettings(settings: VideoStreamSettings) {
         viewModelScope.launch {
             settingsRepository.saveVideoSettings(settings)
+        }
+    }
+
+    /**
+     * Update property query frequency and persist it
+     */
+    fun updatePropertyQueryFrequency(frequencyHz: Float) {
+        viewModelScope.launch {
+            settingsRepository.savePropertyQueryFrequency(frequencyHz)
+        }
+    }
+
+    /**
+     * Update property query enabled state and persist it
+     */
+    fun updatePropertyQueryEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.savePropertyQueryEnabled(enabled)
+        }
+    }
+
+    /**
+     * Update auto-connect enabled state and persist it
+     */
+    fun updateAutoConnectEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.saveAutoConnectEnabled(enabled)
+        }
+    }
+
+    /**
+     * Update auto-reconnect enabled state and persist it
+     */
+    fun updateAutoReconnectEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.saveAutoReconnectEnabled(enabled)
+            // Update NetworkManager configuration
+            NetworkManager.configureAutoReconnect(enabled, autoReconnectInterval.value)
+        }
+    }
+
+    /**
+     * Update auto-reconnect interval and persist it
+     */
+    fun updateAutoReconnectInterval(intervalSeconds: Int) {
+        viewModelScope.launch {
+            settingsRepository.saveAutoReconnectInterval(intervalSeconds)
+            // Update NetworkManager configuration
+            NetworkManager.configureAutoReconnect(autoReconnectEnabled.value, intervalSeconds)
         }
     }
 }

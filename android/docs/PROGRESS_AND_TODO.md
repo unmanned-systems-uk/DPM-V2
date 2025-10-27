@@ -17,74 +17,128 @@
 Documentation Review:  ████████████████████████████████ 100% Complete
 Project Setup:         ████████████████████████████████ 100% Complete
 Network Layer:         ████████████████████████████████ 100% Complete
-UI Implementation:     ████████████████████████████░░░░  85% In Progress
+UI Implementation:     ██████████████████████░░░░░░░░░░  75% In Progress
 Command Protocol:      ████████████░░░░░░░░░░░░░░░░░░░░  40% In Progress
-Video Streaming:       ████████████████████████████████ 100% Complete
 Testing:               ██████░░░░░░░░░░░░░░░░░░░░░░░░░░  20% Started
-Integration:           ████████████████████░░░░░░░░░░░░  60% In Progress
+Integration:           ████████████████░░░░░░░░░░░░░░░░  50% In Progress
 ```
 
-**Overall Completion:** 70% (Phase 1 MVP)
+**Overall Completion:** 65% (Phase 1 MVP)
 
-**Last Updated:** October 25, 2025 - RTSP video streaming implementation complete
+**Last Updated:** October 27, 2025 - Camera enhancements and critical heartbeat issue discovered
 
 ---
 
 ## RECENT UPDATES
 
-### 📹 RTSP Video Streaming Implementation (October 25, 2025) ✅
+### 🚨 CRITICAL: Heartbeat Not Received - Air-Side Issue (October 27, 2025) 🔴
 
-**Feature Complete:**
-- ✅ Added ExoPlayer (Media3) dependencies for RTSP streaming
-- ✅ Created VideoStreamSettings data model with AspectRatioMode enum
-- ✅ Extended SettingsRepository with video settings persistence (DataStore)
-- ✅ Created VideoPlayerViewModel with ExoPlayer lifecycle management
-- ✅ Created FullScreenVideoPlayer composable with state overlays
-- ✅ Added video settings section to SettingsScreen:
-  * Enable/disable video toggle with Card UI
-  * RTSP URL text field (default: rtsp://192.168.1.10:8554/H264Video)
-  * Aspect ratio dropdown (AUTO, FILL, FIT)
-  * Save Video Settings button
-- ✅ Integrated full-screen video player into CameraControlScreen:
-  * Video displays as background layer
-  * All camera controls remain as semi-transparent overlay
-  * QGroundControl-style interface design
-- ✅ Low-latency configuration (500ms buffer for <1s latency)
-- ✅ Proper lifecycle management with LaunchedEffect and DisposableEffect
-- ✅ State overlays: Disconnected, Connecting, Connected, Error, Disabled
-- ✅ Build successful (29s) - all compilation verified
-
-**Architecture:**
-- Separate `video` package for video-related code
-- VideoPlayerViewModel manages ExoPlayer instance
-- FullScreenVideoPlayer embeds ExoPlayer's PlayerView using AndroidView
-- Settings persist via existing DataStore pattern
-- Aspect ratio modes: AUTO (detect), FILL (full screen), FIT (maintain ratio)
-
-**Files Created:**
-- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
-- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
-
-**Files Modified:**
-- `gradle/libs.versions.toml` (added media3 version 1.2.0)
-- `app/build.gradle.kts` (added media3 libraries)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkSettings.kt` (added VideoStreamSettings)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsRepository.kt` (video persistence)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsViewModel.kt` (video state)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsScreen.kt` (video UI section)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/camera/CameraControlScreen.kt` (video background)
-
-**Testing Status:**
-- ⏳ Ready for testing with public RTSP URL (Big Buck Bunny)
-- ⏳ Ready for testing with R16 hardware (rtsp://192.168.1.10:8554/H264Video)
+**BLOCKER DISCOVERED:**
+- Ground-Side (Android) not receiving UDP heartbeat broadcasts from Air-Side
+- Connection stuck at CONNECTED state, never reaches OPERATIONAL
+- Property querying disabled (requires OPERATIONAL state)
+- No heartbeat messages in logs
+- Air-Side heartbeat broadcaster likely not sending on port 5556
 
 **Impact:**
-- Live FPV video display on Camera screen
-- Configurable RTSP streaming from R16 Air Unit
-- Professional drone ground station interface
-- Foundation for future recording/playback features
+- Camera property queries not working
+- Connection state incomplete
+- User experience degraded
+
+**Action Required:**
+- ❗ Investigate Air-Side heartbeat broadcaster service
+- ❗ Check if UDP packets being sent on port 5556
+- ❗ Review Air-Side logs for errors
+
+**Status:** 🔴 ACTIVE BLOCKER - Needs immediate Air-Side investigation
 
 ---
+
+### ✅ Camera Error Handling (October 27, 2025) ✅
+
+**Feature Complete:**
+- ✅ Added cameraError field to CameraState
+- ✅ Enhanced error parsing in CameraViewModel
+  * Detects error code 5005 "Camera not connected"
+  * Extracts error details from protocol responses
+  * Clears errors on successful queries
+- ✅ Added prominent error banner UI in CameraControlScreen
+  * Displays at top of screen with warning icon
+  * Shows error message to user
+  * Includes "Please check camera connectivity" instruction
+  * Uses Material3 error colors
+
+**Files Modified:**
+- `CameraState.kt` - Added cameraError field
+- `CameraViewModel.kt` - Enhanced queryAndUpdateProperties()
+- `CameraControlScreen.kt` - Added error banner UI
+
+**Impact:**
+- Users now see clear error messages when camera operations fail
+- Better UX for diagnosing camera connection issues
+
+---
+
+### ✅ Battery Level Color Coding (October 27, 2025) ✅
+
+**Feature Complete:**
+- ✅ Color-coded battery warnings:
+  * Battery ≥50%: White (normal)
+  * Battery <50%: Orange (#FF9800)
+  * Battery <30%: Red
+  * Battery <20%: Flashing red (infinite animation, 500ms cycle)
+- ✅ Added textColor parameter to SonyParameter composable
+- ✅ Smooth alpha animation for critical battery levels
+
+**Files Modified:**
+- `SonyCameraOverlay.kt` - Added color logic and animation
+
+**Impact:**
+- Users get clear visual warnings for low battery
+- Critical battery levels (<20%) are impossible to miss with flashing
+
+---
+
+### ✅ Property Query Controls (October 27, 2025) ✅
+
+**Features Complete:**
+1. **Heartbeat-Based Property Querying**
+   - Property queries now ONLY work in OPERATIONAL state (heartbeat required)
+   - Prevents queries when connection established but no heartbeat
+   - Files Modified: `CameraViewModel.kt`
+
+2. **Diagnostic Toggle for Property Queries**
+   - Added "Enable Property Querying" toggle in Settings
+   - Allows disabling queries for diagnostics
+   - Persisted via DataStore
+   - Visual feedback when enabled/disabled
+   - Files Modified: `SettingsRepository.kt`, `SettingsViewModel.kt`, `SettingsManager.kt`, `CameraViewModel.kt`, `SettingsScreen.kt`
+
+**Impact:**
+- Better control over when property queries happen
+- Diagnostic capability for troubleshooting
+- Exposed the heartbeat issue
+
+---
+
+### ✅ Mode Panel Removal (October 27, 2025) ✅
+
+**Changes Made:**
+- Removed Mode indicator from camera overlay top bar
+- Removed Mode collapsible section from advanced control screen
+- Removed Mode indicator from Main Settings exposure triangle
+
+**Reason:**
+- Camera modes (Manual/Av/Tv/P/Auto) not useful for this application
+- Simplified UI
+
+**Files Modified:**
+- `SonyCameraOverlay.kt` - Removed mode from top bar
+- `SonyRemoteControlScreen.kt` - Removed Mode section and indicator
+
+---
+
+## RECENT UPDATES
 
 ### 📊 System Status Screen Implementation (October 25, 2025) ✅
 
@@ -459,43 +513,6 @@ Integration:           ███████████████████
 
 ---
 
-### ✅ RTSP Video Streaming (COMPLETE)
-
-**Features:**
-- ✅ Full-screen RTSP video player
-  * ExoPlayer (Media3) with native RTSP support
-  * Low-latency configuration (500ms buffer)
-  * Proper lifecycle management
-  * State overlays (Disconnected, Connecting, Error, Connected, Disabled)
-- ✅ Video settings in Settings screen
-  * Enable/disable video streaming toggle
-  * RTSP URL configuration (default: rtsp://192.168.1.10:8554/H264Video)
-  * Aspect ratio mode selector (AUTO, FILL, FIT)
-  * Settings persistence via DataStore
-- ✅ Camera screen integration
-  * Full-screen video background
-  * Semi-transparent camera control overlay
-  * QGroundControl-style interface
-- ✅ Aspect ratio modes
-  * AUTO: Detect from stream
-  * FILL: Fill entire screen
-  * FIT: Maintain aspect ratio
-
-**Architecture:**
-- `uk.unmannedsystems.dpm_android.video` package
-- VideoPlayerViewModel for ExoPlayer lifecycle
-- FullScreenVideoPlayer composable with AndroidView interop
-- VideoStreamSettings data model with persistence
-- Proper resource cleanup on dispose
-
-**Files:**
-- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerViewModel.kt`
-- `app/src/main/java/uk/unmannedsystems/dpm_android/video/VideoPlayerView.kt`
-
-**Status:** 100% Complete - Ready for testing
-
----
-
 ### ⏸️ Downloads Screen (PLANNED)
 
 **Planned Features:**
@@ -606,11 +623,10 @@ Integration:           ███████████████████
 - ✅ Stable StateFlow across app
 
 **UI Screens:**
-- ✅ Camera Control (full camera interface with live video)
+- ✅ Camera Control (full camera interface)
 - ✅ Settings (network configuration with persistence)
 - ✅ System Status (real-time monitoring)
 - ✅ Event Log (development diagnostics)
-- ✅ RTSP Video Streaming (full-screen background)
 - ✅ Navigation drawer menu
 - ✅ Material3 design
 
@@ -623,10 +639,6 @@ Integration:           ███████████████████
 - ✅ Reset to defaults
 - ✅ Real-time status updates
 - ✅ Error handling with user feedback
-- ✅ RTSP video streaming with ExoPlayer
-- ✅ Configurable aspect ratio modes
-- ✅ Low-latency video configuration
-- ✅ Video enable/disable toggle
 
 **Commands:**
 - ✅ Handshake
@@ -657,14 +669,14 @@ Integration:           ███████████████████
 ## NEXT STEPS
 
 ### Immediate Tasks
-1. ✅ ~~Implement system.get_status command~~ **COMPLETE**
-2. ✅ ~~Implement RTSP video streaming~~ **COMPLETE**
-3. ⏳ Test RTSP video with public URL (Big Buck Bunny)
-4. ⏳ Test RTSP video with R16 hardware (rtsp://192.168.1.10:8554/H264Video)
-5. ⏳ Test system.get_status end-to-end with air-side
-6. ⏳ Test camera.capture end-to-end with air-side
-7. ⏳ Verify WiFi connectivity with dynamic IP
-8. ⏳ Test on physical H16 hardware (when available)
+1. 🔴 **CRITICAL** - Investigate Air-Side heartbeat broadcaster (BLOCKER)
+   - Check if service is running on Raspberry Pi
+   - Verify UDP packets being sent on port 5556
+   - Review Air-Side logs for errors
+2. ⏳ Test system.get_status end-to-end with air-side (after heartbeat fixed)
+3. ⏳ Test camera.capture end-to-end with air-side (after heartbeat fixed)
+4. ⏳ Verify WiFi connectivity with dynamic IP
+5. ⏳ Test on physical H16 hardware (when available)
 
 ### Short Term (Next Session)
 1. Wait for air-side to implement camera.set_property
@@ -685,25 +697,19 @@ Integration:           ███████████████████
 
 ## BUILD STATUS
 
-**Last Build:** October 25, 2025 (RTSP Video Streaming)
+**Last Build:** October 27, 2025
 **Status:** ✅ SUCCESS
 **Command:** `./gradlew assembleDebug`
-**Build Time:** 29 seconds
-**Warnings:** 1 (Icons.Filled.List deprecation, non-critical)
+**Build Time:** 41 seconds
+**Warnings:** 3 (deprecation warnings, non-critical)
 **Errors:** 0
 **APK:** Generated successfully at `app/build/outputs/apk/debug/app-debug.apk`
-
-**New Dependencies Added:**
-- ✅ androidx.media3:media3-exoplayer:1.2.0
-- ✅ androidx.media3:media3-ui:1.2.0
-- ✅ androidx.media3:media3-exoplayer-rtsp:1.2.0
 
 **Dependencies Status:**
 - ✅ All dependencies resolved
 - ✅ Gradle sync successful
 - ✅ Kotlin compilation successful
 - ✅ No unresolved references
-- ✅ ExoPlayer libraries integrated
 
 ---
 
@@ -711,9 +717,16 @@ Integration:           ███████████████████
 
 **Current Branch:** main
 **Remote:** https://github.com/unmanned-systems-uk/DPM-V2.git
-**Last Commit:** 3132d2b - [FEATURE] System Status implementation
-**Status:** ✅ Clean (all changes committed and pushed)
-**Uncommitted Changes:** 0
+**Last Commit:** (to be updated at end of session)
+**Status:** ⚠️ Changes not yet committed
+**Uncommitted Changes:** Multiple files (session in progress)
+
+**Session Changes (October 27, 2025):**
+1. Camera error handling implementation
+2. Battery level color coding with flashing animation
+3. Property query controls and diagnostics toggle
+4. Mode panel removal
+5. CLAUDE_MEMORY.md created for session continuity
 
 **Recent Commits:**
 1. `3132d2b` - [FEATURE] System Status: Implemented system.get_status with new UI
@@ -741,7 +754,13 @@ Integration:           ███████████████████
 ## KNOWN ISSUES
 
 ### Active Issues
-*None currently identified*
+
+**🔴 CRITICAL: No Heartbeat Reception (October 27, 2025)**
+- **Status**: ACTIVE BLOCKER
+- **Issue**: Ground-Side not receiving UDP heartbeat broadcasts from Air-Side
+- **Impact**: Connection stuck at CONNECTED, property querying disabled
+- **Root Cause**: Air-Side heartbeat broadcaster not sending on port 5556
+- **Action**: Investigate Air-Side service
 
 ### Resolved Issues
 - ✅ Settings screen status not updating on first connect → Fixed with NetworkManager
@@ -850,11 +869,8 @@ android/
 │   │       │   │   ├── SettingsViewModel.kt ✅
 │   │       │   │   └── SettingsRepository.kt ✅
 │   │       │   ├── system/
-│   │       │   │   ├── SystemStatusScreen.kt ✅
-│   │       │   │   └── SystemStatusViewModel.kt ✅
-│   │       │   ├── video/
-│   │       │   │   ├── VideoPlayerViewModel.kt ✅ 🆕
-│   │       │   │   └── VideoPlayerView.kt ✅ 🆕
+│   │       │   │   ├── SystemStatusScreen.kt ✅ NEW!
+│   │       │   │   └── SystemStatusViewModel.kt ✅ NEW!
 │   │       │   └── ui/theme/
 │   │       │       ├── Color.kt ✅
 │   │       │       ├── Theme.kt ✅
@@ -864,6 +880,7 @@ android/
 ├── docs/
 │   ├── PROGRESS_AND_TODO.MD ✅ (this file)
 │   └── CC_READ_THIS_FIRST.md ✅
+├── CLAUDE_MEMORY.md ✅ NEW! (Session continuity notes)
 └── gradle/
     └── libs.versions.toml ✅
 ```

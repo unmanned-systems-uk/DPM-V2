@@ -7,12 +7,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /**
  * ViewModel for managing RTSP video stream playback using ExoPlayer
@@ -36,9 +41,19 @@ class VideoPlayerViewModel : ViewModel() {
     private var reconnectionAttempts = 0
     private val maxReconnectionAttempts = 3
 
+    // Latency optimization - periodic monitoring and correction
+    private var latencyMonitorJob: Job? = null
+    private var periodicReconnectJob: Job? = null
+    private var connectionStartTime: Long = 0
+
     companion object {
         private const val TAG = "VideoPlayerViewModel"
         private const val RECONNECTION_DELAY_MS = 2000L
+
+        // Latency optimization constants
+        private const val LATENCY_CHECK_INTERVAL_MS = 10000L    // Check latency every 10s
+        private const val MAX_ACCEPTABLE_LATENCY_MS = 3000L     // Max 3s lag before correction (increased threshold)
+        private const val PERIODIC_RECONNECT_INTERVAL_MS = 1200000L  // Full reconnect every 20 mins
     }
 
     /**
@@ -76,7 +91,7 @@ class VideoPlayerViewModel : ViewModel() {
 
                 _videoState.value = VideoState.Connecting
 
-                // Configure low-latency load control
+                // Configure aggressive low-latency load control
                 val loadControl = DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
                         bufferDurationMs.toInt(),  // Min buffer
@@ -84,10 +99,16 @@ class VideoPlayerViewModel : ViewModel() {
                         (bufferDurationMs / 2).toInt(),  // Buffer for playback
                         bufferDurationMs.toInt()   // Buffer for rebuffer
                     )
+                    .setPrioritizeTimeOverSizeThresholds(true)  // Low-latency mode
+                    .setBackBuffer(0, false)  // Don't keep back buffer
                     .build()
+
+                // Track selector optimized for low latency
+                val trackSelector = DefaultTrackSelector(context)
 
                 exoPlayer = ExoPlayer.Builder(context)
                     .setLoadControl(loadControl)
+                    .setTrackSelector(trackSelector)
                     .build()
                     .apply {
                         val mediaItem = MediaItem.fromUri(rtspUrl)
@@ -163,7 +184,12 @@ class VideoPlayerViewModel : ViewModel() {
                         play()
                     }
 
-                Log.d(TAG, "Player initialized successfully")
+                // Start latency monitoring and periodic maintenance
+                connectionStartTime = System.currentTimeMillis()
+                startLatencyMonitoring()
+                startPeriodicReconnect()
+
+                Log.d(TAG, "Player initialized successfully with latency optimizations")
             } catch (e: Exception) {
                 val errorMsg = e.message ?: "Failed to initialize player"
                 Log.e(TAG, "Failed to initialize player", e)
@@ -177,6 +203,13 @@ class VideoPlayerViewModel : ViewModel() {
      */
     fun releasePlayer() {
         Log.d(TAG, "Releasing player")
+
+        // Cancel monitoring jobs
+        latencyMonitorJob?.cancel()
+        latencyMonitorJob = null
+        periodicReconnectJob?.cancel()
+        periodicReconnectJob = null
+
         exoPlayer?.release()
         exoPlayer = null
         _videoState.value = VideoState.Disconnected
@@ -194,6 +227,90 @@ class VideoPlayerViewModel : ViewModel() {
         Log.d(TAG, "Reconnecting to stream")
         releasePlayer()
         initializePlayer(context, rtspUrl, bufferDurationMs)
+    }
+
+    /**
+     * Start periodic latency monitoring and correction
+     * Checks buffer depth and seeks to live edge when necessary
+     */
+    private fun startLatencyMonitoring() {
+        latencyMonitorJob?.cancel()
+        latencyMonitorJob = viewModelScope.launch {
+            while (isActive) {
+                delay(LATENCY_CHECK_INTERVAL_MS)
+
+                val player = exoPlayer ?: continue
+                if (!player.isPlaying) continue
+
+                try {
+                    // Get buffer information
+                    val bufferedPosition = player.bufferedPosition
+                    val currentPosition = player.currentPosition
+                    val totalBuffer = player.totalBufferedDuration
+
+                    // Calculate latency (how far behind live edge we are)
+                    val bufferAhead = bufferedPosition - currentPosition
+
+                    Log.d(TAG, "[Latency Monitor] Buffer: ${totalBuffer}ms | Buffer ahead: ${bufferAhead}ms | Position: ${currentPosition}ms")
+
+                    // ONLY seek if buffer is growing beyond acceptable limits
+                    // No periodic seeks - only reactive correction when needed
+                    if (bufferAhead > MAX_ACCEPTABLE_LATENCY_MS) {
+                        Log.w(TAG, "[Latency Monitor] High latency detected ($bufferAhead ms) - seeking to live edge")
+                        seekToLiveEdge()
+                    }
+
+                } catch (e: Exception) {
+                    Log.e(TAG, "[Latency Monitor] Error during latency check", e)
+                }
+            }
+        }
+
+        Log.d(TAG, "Latency monitoring started - reactive correction only (threshold: ${MAX_ACCEPTABLE_LATENCY_MS}ms)")
+    }
+
+    /**
+     * Start periodic reconnection as fallback (every 20 minutes)
+     * This ensures fresh connection and prevents any accumulated issues
+     */
+    private fun startPeriodicReconnect() {
+        periodicReconnectJob?.cancel()
+        periodicReconnectJob = viewModelScope.launch {
+            while (isActive) {
+                delay(PERIODIC_RECONNECT_INTERVAL_MS)
+
+                val timeSinceStart = System.currentTimeMillis() - connectionStartTime
+                Log.d(TAG, "[Periodic Reconnect] Triggering full reconnection after ${timeSinceStart / 60000} minutes")
+
+                // Reconnect to flush all buffers and reset state
+                val ctx = lastContext
+                val url = lastRtspUrl
+                val bufDur = lastBufferDurationMs
+
+                if (ctx != null && url != null) {
+                    reconnect(ctx, url, bufDur)
+                }
+            }
+        }
+
+        Log.d(TAG, "Periodic reconnection scheduled (every ${PERIODIC_RECONNECT_INTERVAL_MS / 60000} minutes)")
+    }
+
+    /**
+     * Seek to live edge to minimize latency
+     * This discards buffered frames and jumps to the most recent frame
+     */
+    private fun seekToLiveEdge() {
+        try {
+            val player = exoPlayer ?: return
+
+            // For live streams, seek to default position (live edge)
+            player.seekToDefaultPosition()
+
+            Log.d(TAG, "[Seek] Seeking to live edge - discarding buffer")
+        } catch (e: Exception) {
+            Log.e(TAG, "[Seek] Failed to seek to live edge", e)
+        }
     }
 
     override fun onCleared() {

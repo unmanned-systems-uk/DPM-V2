@@ -1,7 +1,13 @@
 package uk.unmannedsystems.dpm_android.camera
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -17,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,7 +63,7 @@ import kotlinx.coroutines.delay
 fun SonyCameraOverlay(
     cameraState: CameraState,
     videoState: uk.unmannedsystems.dpm_android.video.VideoPlayerViewModel.VideoState,
-    connectionState: uk.unmannedsystems.dpm_android.network.ConnectionState,
+    networkStatus: uk.unmannedsystems.dpm_android.network.NetworkStatus,
     onParameterClick: (String) -> Unit,
     onConnectionClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -75,41 +83,6 @@ fun SonyCameraOverlay(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Connection status indicator - always visible in top right
-        ConnectionStatusIcon(
-            connectionState = connectionState,
-            onClick = {
-                resetTimer()
-                onConnectionClick()
-            },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        )
-
-        // Show overlay toggle button when hidden (below connection icon)
-        if (!isVisible) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 72.dp, end = 16.dp)
-                    .size(40.dp)
-                    .clickable {
-                        isVisible = true
-                        resetTimer()
-                    },
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.5f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Visibility,
-                    contentDescription = "Show camera parameters",
-                    tint = Color.White,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-        }
-
         // Sony-style parameter overlay
         AnimatedVisibility(
             visible = isVisible,
@@ -143,14 +116,6 @@ fun SonyCameraOverlay(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Mode indicator (left)
-                    SonyParameter(
-                        text = cameraState.mode.shortName,
-                        onClick = { onParameterClick("mode") },
-                        onInteraction = resetTimer,
-                        large = true
-                    )
-
                     // Center info - shot count, format, quality
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -168,11 +133,38 @@ fun SonyCameraOverlay(
                         )
                     }
 
-                    // Battery indicator (right)
+                    // Battery indicator (right) - with color coding
+                    val batteryLevel = cameraState.batteryLevel
+                    val batteryColor = remember(batteryLevel) {
+                        when {
+                            batteryLevel < 30 -> Color.Red
+                            batteryLevel < 50 -> Color(0xFFFF9800) // Orange
+                            else -> Color.White
+                        }
+                    }
+
+                    // Flashing animation for <20%
+                    val flashingAlpha: Float = if (batteryLevel < 20) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "battery_flash")
+                        val alpha by infiniteTransition.animateFloat(
+                            initialValue = 0.3f,
+                            targetValue = 1.0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 500, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "battery_alpha"
+                        )
+                        alpha
+                    } else {
+                        1.0f
+                    }
+
                     SonyParameter(
-                        text = "${cameraState.batteryLevel}%",
+                        text = "${batteryLevel}%",
                         onClick = { },
-                        onInteraction = resetTimer
+                        onInteraction = resetTimer,
+                        textColor = batteryColor.copy(alpha = flashingAlpha)
                     )
                 }
 
@@ -275,6 +267,65 @@ fun SonyCameraOverlay(
                 }
             }
         }
+
+        // Connection status indicator - always visible in top right (below battery)
+        // Drawn AFTER AnimatedVisibility so it's on top and clickable
+        ConnectionStatusIcon(
+            networkStatus = networkStatus,
+            onClick = {
+                resetTimer()
+                onConnectionClick()
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 56.dp, end = 16.dp)
+        )
+
+        // Show overlay toggle button when hidden (below connection icon)
+        // Drawn AFTER AnimatedVisibility so it's on top and clickable
+        if (!isVisible) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 104.dp, end = 16.dp)
+                    .size(40.dp)
+                    .clickable {
+                        isVisible = true
+                        resetTimer()
+                    },
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.5f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Visibility,
+                    contentDescription = "Show camera parameters",
+                    tint = Color.White,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+        }
+
+        // Advanced controls button - always visible below visibility button or connection icon
+        // Drawn AFTER AnimatedVisibility so it's on top and clickable
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = if (isVisible) 104.dp else 152.dp, end = 16.dp)
+                .size(40.dp)
+                .clickable {
+                    resetTimer()
+                    onParameterClick("advanced")
+                },
+            shape = CircleShape,
+            color = Color.Black.copy(alpha = 0.5f)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Advanced controls",
+                tint = Color.White,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
     }
 }
 
@@ -288,6 +339,7 @@ private fun SonyParameter(
     onInteraction: () -> Unit = {},
     large: Boolean = false,
     transparent: Boolean = false,
+    textColor: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
     val baseModifier = if (transparent) {
@@ -314,7 +366,7 @@ private fun SonyParameter(
 
     Text(
         text = text,
-        color = Color.White,
+        color = textColor,
         fontSize = if (large) 22.sp else 14.sp,
         fontWeight = if (large) FontWeight.Bold else FontWeight.Normal,
         textAlign = TextAlign.Center,
@@ -337,14 +389,34 @@ private fun SonyParameter(
 /**
  * Connection status icon indicator
  * Shows Air-Side connection state with colored circle
+ * Pulses when heartbeats are received from Air-Side
  */
 @Composable
 private fun ConnectionStatusIcon(
-    connectionState: uk.unmannedsystems.dpm_android.network.ConnectionState,
+    networkStatus: uk.unmannedsystems.dpm_android.network.NetworkStatus,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (statusColor, statusText) = when (connectionState) {
+    // Pulse animation - triggers when heartbeat is received
+    var pulseKey by remember { mutableStateOf(0) }
+
+    // Detect heartbeat changes and trigger pulse
+    LaunchedEffect(networkStatus.lastHeartbeatReceivedMs) {
+        if (networkStatus.lastHeartbeatReceivedMs > 0L &&
+            (networkStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED ||
+             networkStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL)) {
+            pulseKey++
+        }
+    }
+
+    // Animated scale for pulse effect
+    val scale by animateFloatAsState(
+        targetValue = if (pulseKey % 2 == 0) 1f else 1.4f,
+        animationSpec = tween(durationMillis = 150),
+        label = "heartbeat_pulse"
+    )
+
+    val (statusColor, statusText) = when (networkStatus.state) {
         uk.unmannedsystems.dpm_android.network.ConnectionState.DISCONNECTED -> Pair(
             Color(0xFFFF0000), // Red
             "Disconnected"
@@ -375,10 +447,11 @@ private fun ConnectionStatusIcon(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            // Colored status circle
+            // Colored status circle with heartbeat pulse
             Box(
                 modifier = Modifier
                     .size(16.dp)
+                    .scale(scale)
                     .background(
                         color = statusColor,
                         shape = CircleShape

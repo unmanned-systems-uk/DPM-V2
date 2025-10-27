@@ -23,6 +23,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -62,6 +63,11 @@ fun SettingsScreen(
     val networkStatus by viewModel.networkStatus.collectAsState()
     val currentSettings by viewModel.networkSettings.collectAsState()
     val videoSettings by viewModel.videoSettings.collectAsState()
+    val propertyQueryFrequency by viewModel.propertyQueryFrequency.collectAsState()
+    val propertyQueryEnabled by viewModel.propertyQueryEnabled.collectAsState()
+    val autoConnectEnabled by viewModel.autoConnectEnabled.collectAsState()
+    val autoReconnectEnabled by viewModel.autoReconnectEnabled.collectAsState()
+    val autoReconnectInterval by viewModel.autoReconnectInterval.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -73,6 +79,11 @@ fun SettingsScreen(
             networkStatus = networkStatus,
             currentSettings = currentSettings,
             videoSettings = videoSettings,
+            propertyQueryFrequency = propertyQueryFrequency,
+            propertyQueryEnabled = propertyQueryEnabled,
+            autoConnectEnabled = autoConnectEnabled,
+            autoReconnectEnabled = autoReconnectEnabled,
+            autoReconnectInterval = autoReconnectInterval,
             onSaveSettings = { newSettings ->
                 viewModel.updateSettings(newSettings)
                 coroutineScope.launch {
@@ -87,6 +98,51 @@ fun SettingsScreen(
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
                         message = "Video settings saved",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSavePropertyQueryFrequency = { newFrequency ->
+                viewModel.updatePropertyQueryFrequency(newFrequency)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Camera query frequency updated: ${newFrequency}Hz",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSavePropertyQueryEnabled = { enabled ->
+                viewModel.updatePropertyQueryEnabled(enabled)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = if (enabled) "Property querying enabled" else "Property querying disabled",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSaveAutoConnectEnabled = { enabled ->
+                viewModel.updateAutoConnectEnabled(enabled)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = if (enabled) "Auto-connect enabled" else "Auto-connect disabled",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSaveAutoReconnectEnabled = { enabled ->
+                viewModel.updateAutoReconnectEnabled(enabled)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = if (enabled) "Auto-reconnect enabled" else "Auto-reconnect disabled",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            },
+            onSaveAutoReconnectInterval = { interval ->
+                viewModel.updateAutoReconnectInterval(interval)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Auto-reconnect interval updated: ${interval}s",
                         duration = SnackbarDuration.Short
                     )
                 }
@@ -113,8 +169,18 @@ private fun SettingsContent(
     networkStatus: NetworkStatus,
     currentSettings: NetworkSettings,
     videoSettings: VideoStreamSettings,
+    propertyQueryFrequency: Float,
+    propertyQueryEnabled: Boolean,
+    autoConnectEnabled: Boolean,
+    autoReconnectEnabled: Boolean,
+    autoReconnectInterval: Int,
     onSaveSettings: (NetworkSettings) -> Unit,
     onSaveVideoSettings: (VideoStreamSettings) -> Unit,
+    onSavePropertyQueryFrequency: (Float) -> Unit,
+    onSavePropertyQueryEnabled: (Boolean) -> Unit,
+    onSaveAutoConnectEnabled: (Boolean) -> Unit,
+    onSaveAutoReconnectEnabled: (Boolean) -> Unit,
+    onSaveAutoReconnectInterval: (Int) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onResetToDefaults: () -> Unit,
@@ -131,6 +197,10 @@ private fun SettingsContent(
     var aspectRatioMode by rememberSaveable { mutableStateOf(videoSettings.aspectRatioMode) }
     var aspectRatioExpanded by remember { mutableStateOf(false) }
 
+    // Camera settings state
+    var queryFrequency by rememberSaveable { mutableStateOf(propertyQueryFrequency) }
+    var queryEnabled by rememberSaveable { mutableStateOf(propertyQueryEnabled) }
+
     // Update text fields when currentSettings changes (e.g., when defaults are loaded)
     androidx.compose.runtime.LaunchedEffect(currentSettings) {
         targetIp = currentSettings.targetIp
@@ -144,6 +214,15 @@ private fun SettingsContent(
         videoEnabled = videoSettings.enabled
         rtspUrl = videoSettings.rtspUrl
         aspectRatioMode = videoSettings.aspectRatioMode
+    }
+
+    // Update camera settings when they change
+    androidx.compose.runtime.LaunchedEffect(propertyQueryFrequency) {
+        queryFrequency = propertyQueryFrequency
+    }
+
+    androidx.compose.runtime.LaunchedEffect(propertyQueryEnabled) {
+        queryEnabled = propertyQueryEnabled
     }
 
     Column(
@@ -235,6 +314,195 @@ private fun SettingsContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Disconnect")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Connection Settings Section
+        Text(
+            text = "Connection Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Auto-connect on startup toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (autoConnectEnabled)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Auto-Connect on Startup",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (autoConnectEnabled)
+                            "App will connect automatically when launched"
+                        else
+                            "Manual connection required",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = autoConnectEnabled,
+                    onCheckedChange = { onSaveAutoConnectEnabled(it) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Auto-reconnect toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (autoReconnectEnabled)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable Auto-Reconnect",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (autoReconnectEnabled)
+                            "Automatically reconnect if connection is lost during flight"
+                        else
+                            "No automatic reconnection",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = autoReconnectEnabled,
+                    onCheckedChange = { onSaveAutoReconnectEnabled(it) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Auto-reconnect interval
+        var reconnectInterval by rememberSaveable { mutableStateOf(autoReconnectInterval.toFloat()) }
+
+        androidx.compose.runtime.LaunchedEffect(autoReconnectInterval) {
+            reconnectInterval = autoReconnectInterval.toFloat()
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-Reconnect Interval",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${reconnectInterval.toInt()} seconds",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Time to wait before attempting to reconnect",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Slider for interval (1s to 30s)
+                Slider(
+                    value = reconnectInterval,
+                    onValueChange = { reconnectInterval = it },
+                    valueRange = 1f..30f,
+                    steps = 28,  // 1, 2, 3, ..., 30
+                    onValueChangeFinished = {
+                        onSaveAutoReconnectInterval(reconnectInterval.toInt())
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = autoReconnectEnabled
+                )
+
+                // Interval presets
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            reconnectInterval = 3f
+                            onSaveAutoReconnectInterval(3)
+                        },
+                        modifier = Modifier.weight(1f).padding(end = 4.dp),
+                        enabled = autoReconnectEnabled
+                    ) {
+                        Text("3s", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            reconnectInterval = 5f
+                            onSaveAutoReconnectInterval(5)
+                        },
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                        enabled = autoReconnectEnabled
+                    ) {
+                        Text("5s (default)", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            reconnectInterval = 10f
+                            onSaveAutoReconnectInterval(10)
+                        },
+                        modifier = Modifier.weight(1f).padding(start = 4.dp),
+                        enabled = autoReconnectEnabled
+                    ) {
+                        Text("10s", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
 
@@ -494,7 +762,150 @@ private fun SettingsContent(
             Text("Save Video Settings")
         }
 
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Camera Settings Section
+        Text(
+            text = "Camera Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Enable Property Querying Toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (queryEnabled)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable Property Querying",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (queryEnabled)
+                            "Querying camera properties from Air-Side"
+                        else
+                            "Disabled for diagnostics",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = queryEnabled,
+                    onCheckedChange = {
+                        queryEnabled = it
+                        onSavePropertyQueryEnabled(it)
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Property Query Frequency
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Property Query Frequency",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${String.format("%.1f", queryFrequency)} Hz (${String.format("%.0f", 1000 / queryFrequency)}ms interval)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "How often to query camera properties (shutter, ISO, aperture)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Slider for frequency (0.1Hz to 2Hz)
+                Slider(
+                    value = queryFrequency,
+                    onValueChange = { queryFrequency = it },
+                    valueRange = 0.1f..2.0f,
+                    steps = 18,  // 0.1, 0.2, ..., 2.0
+                    onValueChangeFinished = {
+                        onSavePropertyQueryFrequency(queryFrequency)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Frequency presets
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            queryFrequency = 0.5f
+                            onSavePropertyQueryFrequency(0.5f)
+                        },
+                        modifier = Modifier.weight(1f).padding(end = 4.dp)
+                    ) {
+                        Text("0.5Hz (default)", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            queryFrequency = 1.0f
+                            onSavePropertyQueryFrequency(1.0f)
+                        },
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                    ) {
+                        Text("1.0Hz", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            queryFrequency = 2.0f
+                            onSavePropertyQueryFrequency(2.0f)
+                        },
+                        modifier = Modifier.weight(1f).padding(start = 4.dp)
+                    ) {
+                        Text("2.0Hz", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Extra bottom padding to ensure all content is scrollable
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 

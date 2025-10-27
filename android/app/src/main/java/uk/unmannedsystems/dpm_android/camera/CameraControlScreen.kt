@@ -18,18 +18,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,11 +72,13 @@ fun CameraControlScreen(
     viewModel: CameraViewModel = viewModel(),
     videoPlayerViewModel: VideoPlayerViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
+    onMenuVisibilityChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val cameraState by viewModel.cameraState.collectAsState()
     val videoSettings by settingsViewModel.videoSettings.collectAsState()
     var expandedSetting by rememberSaveable { mutableStateOf(ExpandedSetting.NONE) }
+    var showAdvancedControls by rememberSaveable { mutableStateOf(false) }
 
     // Get connection state from NetworkManager
     val networkStatus by uk.unmannedsystems.dpm_android.network.NetworkManager.connectionStatus.collectAsState()
@@ -78,44 +88,61 @@ fun CameraControlScreen(
         viewModel.startAutoConnect()
     }
 
-    CameraControlContent(
-        cameraState = cameraState,
-        videoSettings = videoSettings,
-        videoPlayerViewModel = videoPlayerViewModel,
-        networkStatus = networkStatus,
-        expandedSetting = expandedSetting,
-        onExpandSetting = { expandedSetting = it },
-        onIncrementShutter = viewModel::incrementShutterSpeed,
-        onDecrementShutter = viewModel::decrementShutterSpeed,
-        onIncrementAperture = viewModel::incrementAperture,
-        onDecrementAperture = viewModel::decrementAperture,
-        onIncrementISO = viewModel::incrementISO,
-        onDecrementISO = viewModel::decrementISO,
-        onIncrementExposureComp = { viewModel.adjustExposureCompensation(0.3f) },
-        onDecrementExposureComp = { viewModel.adjustExposureCompensation(-0.3f) },
-        onModeSelected = { modeName ->
-            val mode = CameraMode.entries.find { it.displayName == modeName }
-            mode?.let { viewModel.setMode(it) }
-        },
-        onWhiteBalanceClick = {
-            // TODO: Show white balance selector
-        },
-        onFileFormatClick = {
-            // TODO: Show file format selector
-        },
-        onCaptureClick = viewModel::captureImage,
-        onMenuClick = {
-            // TODO: Show settings menu
-        },
-        onConnectionClick = {
-            if (cameraState.isConnected) {
-                viewModel.disconnect()
-            } else {
-                viewModel.connect()
-            }
-        },
-        modifier = modifier
-    )
+    // Hide menu button when in advanced mode
+    androidx.compose.runtime.LaunchedEffect(showAdvancedControls) {
+        onMenuVisibilityChange(!showAdvancedControls)
+    }
+
+    // Show either the minimalist overlay screen or the Sony Remote advanced screen
+    if (showAdvancedControls) {
+        SonyRemoteControlScreen(
+            viewModel = viewModel,
+            videoPlayerViewModel = videoPlayerViewModel,
+            settingsViewModel = settingsViewModel,
+            onClose = { showAdvancedControls = false },
+            modifier = modifier
+        )
+    } else {
+        CameraControlContent(
+            cameraState = cameraState,
+            videoSettings = videoSettings,
+            videoPlayerViewModel = videoPlayerViewModel,
+            networkStatus = networkStatus,
+            expandedSetting = expandedSetting,
+            onExpandSetting = { expandedSetting = it },
+            onIncrementShutter = viewModel::incrementShutterSpeed,
+            onDecrementShutter = viewModel::decrementShutterSpeed,
+            onIncrementAperture = viewModel::incrementAperture,
+            onDecrementAperture = viewModel::decrementAperture,
+            onIncrementISO = viewModel::incrementISO,
+            onDecrementISO = viewModel::decrementISO,
+            onIncrementExposureComp = { viewModel.adjustExposureCompensation(0.3f) },
+            onDecrementExposureComp = { viewModel.adjustExposureCompensation(-0.3f) },
+            onModeSelected = { modeName ->
+                val mode = CameraMode.entries.find { it.displayName == modeName }
+                mode?.let { viewModel.setMode(it) }
+            },
+            onWhiteBalanceClick = {
+                // TODO: Show white balance selector
+            },
+            onFileFormatClick = {
+                // TODO: Show file format selector
+            },
+            onCaptureClick = viewModel::captureImage,
+            onMenuClick = {
+                // TODO: Show settings menu
+            },
+            onConnectionClick = {
+                if (cameraState.isConnected) {
+                    viewModel.disconnect()
+                } else {
+                    viewModel.connect()
+                }
+            },
+            onAdvancedControlsClick = { showAdvancedControls = true },
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
@@ -140,6 +167,7 @@ private fun CameraControlContent(
     onCaptureClick: () -> Unit,
     onMenuClick: () -> Unit,
     onConnectionClick: () -> Unit,
+    onAdvancedControlsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val videoState by videoPlayerViewModel.videoState.collectAsState()
@@ -156,12 +184,56 @@ private fun CameraControlContent(
             modifier = Modifier.fillMaxSize()
         )
 
+        // Camera error banner (e.g., "Camera not connected")
+        cameraState.cameraError?.let { errorMessage ->
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Please check camera connectivity",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        }
+
         // Sony-style camera parameter overlay (auto-hides after inactivity)
         if (expandedSetting == ExpandedSetting.NONE) {
             SonyCameraOverlay(
                 cameraState = cameraState,
                 videoState = videoState,
-                connectionState = networkStatus.state,
+                networkStatus = networkStatus,
                 onParameterClick = { parameter ->
                     when (parameter) {
                         "shutter" -> onExpandSetting(ExpandedSetting.SHUTTER)
@@ -173,6 +245,7 @@ private fun CameraControlContent(
                         "focus" -> { /* TODO: Focus mode toggle */ }
                         "shutter_type" -> { /* TODO: Shutter type */ }
                         "exp_comp" -> { /* TODO: Exposure compensation */ }
+                        "advanced" -> onAdvancedControlsClick()
                     }
                 },
                 onConnectionClick = onConnectionClick,
@@ -369,13 +442,32 @@ private fun ExpandedSettingDialog(
 /**
  * Connection status indicator with RED/GREEN circle
  * Click to connect/disconnect
+ * Pulses when heartbeats are received from Air-Side
  */
 @Composable
 private fun ConnectionStatusIndicator(
     isConnected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lastHeartbeatMs: Long = 0L
 ) {
+    // Pulse animation - triggers when lastHeartbeatMs changes
+    var pulseKey by remember { mutableStateOf(0) }
+
+    // Detect heartbeat changes and trigger pulse
+    LaunchedEffect(lastHeartbeatMs) {
+        if (lastHeartbeatMs > 0L && isConnected) {
+            pulseKey++
+        }
+    }
+
+    // Animated scale for pulse effect
+    val scale by animateFloatAsState(
+        targetValue = if (pulseKey % 2 == 0) 1f else 1.3f,
+        animationSpec = tween(durationMillis = 200),
+        label = "heartbeat_pulse"
+    )
+
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -388,10 +480,11 @@ private fun ConnectionStatusIndicator(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Colored circle indicator
+        // Colored circle indicator with heartbeat pulse
         Box(
             modifier = Modifier
                 .size(24.dp)
+                .scale(scale)
                 .background(
                     color = if (isConnected) Color(0xFF00FF00) else Color(0xFFFF0000),
                     shape = CircleShape

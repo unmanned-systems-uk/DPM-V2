@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -38,9 +39,23 @@ class SettingsRepository(private val context: Context) {
         private val VIDEO_ASPECT_RATIO = stringPreferencesKey("video_aspect_ratio")
         private val VIDEO_BUFFER_DURATION = longPreferencesKey("video_buffer_duration")
 
+        // Camera settings keys
+        private val PROPERTY_QUERY_FREQUENCY = floatPreferencesKey("property_query_frequency_hz")
+        private val PROPERTY_QUERY_ENABLED = booleanPreferencesKey("property_query_enabled")
+
+        // Connection settings keys
+        private val AUTO_CONNECT_ENABLED = booleanPreferencesKey("auto_connect_enabled")
+        private val AUTO_RECONNECT_ENABLED = booleanPreferencesKey("auto_reconnect_enabled")
+        private val AUTO_RECONNECT_INTERVAL_SECONDS = intPreferencesKey("auto_reconnect_interval_seconds")
+
         // Default values
         private val DEFAULT_SETTINGS = NetworkSettings()
         private val DEFAULT_VIDEO_SETTINGS = VideoStreamSettings()
+        private const val DEFAULT_PROPERTY_QUERY_FREQUENCY = 0.5f // 0.5Hz = every 2 seconds
+        private const val DEFAULT_PROPERTY_QUERY_ENABLED = true
+        private const val DEFAULT_AUTO_CONNECT_ENABLED = true
+        private const val DEFAULT_AUTO_RECONNECT_ENABLED = true
+        private const val DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS = 5 // 5 seconds between reconnect attempts
     }
 
     /**
@@ -121,4 +136,114 @@ class SettingsRepository(private val context: Context) {
      * Get default video settings
      */
     fun getDefaultVideoSettings(): VideoStreamSettings = DEFAULT_VIDEO_SETTINGS
+
+    /**
+     * Flow of property query frequency (Hz)
+     */
+    val propertyQueryFrequencyFlow: Flow<Float> = context.dataStore.data
+        .map { preferences ->
+            preferences[PROPERTY_QUERY_FREQUENCY] ?: DEFAULT_PROPERTY_QUERY_FREQUENCY
+        }
+
+    /**
+     * Save property query frequency
+     */
+    suspend fun savePropertyQueryFrequency(frequencyHz: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[PROPERTY_QUERY_FREQUENCY] = frequencyHz
+        }
+    }
+
+    /**
+     * Get default property query frequency
+     */
+    fun getDefaultPropertyQueryFrequency(): Float = DEFAULT_PROPERTY_QUERY_FREQUENCY
+
+    /**
+     * Flow of property query enabled state
+     */
+    val propertyQueryEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[PROPERTY_QUERY_ENABLED] ?: DEFAULT_PROPERTY_QUERY_ENABLED
+        }
+
+    /**
+     * Save property query enabled state
+     */
+    suspend fun savePropertyQueryEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PROPERTY_QUERY_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default property query enabled state
+     */
+    fun getDefaultPropertyQueryEnabled(): Boolean = DEFAULT_PROPERTY_QUERY_ENABLED
+
+    /**
+     * Flow of auto-connect on startup setting
+     */
+    val autoConnectEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[AUTO_CONNECT_ENABLED] ?: DEFAULT_AUTO_CONNECT_ENABLED
+        }
+
+    /**
+     * Save auto-connect on startup setting
+     */
+    suspend fun saveAutoConnectEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_CONNECT_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default auto-connect enabled state
+     */
+    fun getDefaultAutoConnectEnabled(): Boolean = DEFAULT_AUTO_CONNECT_ENABLED
+
+    /**
+     * Flow of auto-reconnect enabled setting
+     */
+    val autoReconnectEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[AUTO_RECONNECT_ENABLED] ?: DEFAULT_AUTO_RECONNECT_ENABLED
+        }
+
+    /**
+     * Save auto-reconnect enabled setting
+     */
+    suspend fun saveAutoReconnectEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_RECONNECT_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default auto-reconnect enabled state
+     */
+    fun getDefaultAutoReconnectEnabled(): Boolean = DEFAULT_AUTO_RECONNECT_ENABLED
+
+    /**
+     * Flow of auto-reconnect interval (seconds)
+     */
+    val autoReconnectIntervalFlow: Flow<Int> = context.dataStore.data
+        .map { preferences ->
+            preferences[AUTO_RECONNECT_INTERVAL_SECONDS] ?: DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS
+        }
+
+    /**
+     * Save auto-reconnect interval (seconds)
+     */
+    suspend fun saveAutoReconnectInterval(intervalSeconds: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_RECONNECT_INTERVAL_SECONDS] = intervalSeconds
+        }
+    }
+
+    /**
+     * Get default auto-reconnect interval
+     */
+    fun getDefaultAutoReconnectInterval(): Int = DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS
 }

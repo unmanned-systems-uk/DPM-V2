@@ -15,7 +15,8 @@ data class CameraState(
     val isRecording: Boolean = false,
     val batteryLevel: Int = 100,
     val remainingShots: Int = 999,
-    val isConnected: Boolean = false
+    val isConnected: Boolean = false,
+    val cameraError: String? = null  // Error message when camera not connected, etc.
 )
 
 /**
@@ -32,15 +33,13 @@ enum class CameraMode(val displayName: String, val shortName: String) {
 /**
  * Shutter speed values - Sony Alpha 1 supported range
  *
- * All 35 shutter speeds supported in Manual (M) mode
- * Range: 1/8000 to 1/3 second
- *
- * Note: Long exposures (>0.5 seconds) require Bulb mode and are not supported
- * via the shutter_speed property. Future Phase 2 implementation.
+ * Range: 1/8000 second to 30 seconds, plus AUTO
+ * Includes both fast shutter speeds (fractions) and long exposures (full seconds)
  *
  * Source: /docs/protocol/CAMERA_SHUTTER_SPEEDS.md
  */
 enum class ShutterSpeed(val displayValue: String, val seconds: Double) {
+    // Fast shutter speeds (fractions of a second)
     Speed_1_8000("1/8000", 1.0 / 8000),
     Speed_1_6400("1/6400", 1.0 / 6400),
     Speed_1_5000("1/5000", 1.0 / 5000),
@@ -75,7 +74,33 @@ enum class ShutterSpeed(val displayValue: String, val seconds: Double) {
     Speed_1_6("1/6", 1.0 / 6),
     Speed_1_5("1/5", 1.0 / 5),
     Speed_1_4("1/4", 1.0 / 4),
-    Speed_1_3("1/3", 1.0 / 3);
+    Speed_1_3("1/3", 1.0 / 3),
+
+    // Long exposures (full seconds)
+    Speed_0_3_SEC("0.3\"", 0.3),
+    Speed_0_4_SEC("0.4\"", 0.4),
+    Speed_0_5_SEC("0.5\"", 0.5),
+    Speed_0_6_SEC("0.6\"", 0.6),
+    Speed_0_8_SEC("0.8\"", 0.8),
+    Speed_1_0_SEC("1.0\"", 1.0),
+    Speed_1_3_SEC("1.3\"", 1.3),
+    Speed_1_6_SEC("1.6\"", 1.6),
+    Speed_2_0_SEC("2.0\"", 2.0),
+    Speed_2_5_SEC("2.5\"", 2.5),
+    Speed_3_0_SEC("3.0\"", 3.0),
+    Speed_4_0_SEC("4.0\"", 4.0),
+    Speed_5_0_SEC("5.0\"", 5.0),
+    Speed_6_0_SEC("6.0\"", 6.0),
+    Speed_8_0_SEC("8.0\"", 8.0),
+    Speed_10_SEC("10\"", 10.0),
+    Speed_13_SEC("13\"", 13.0),
+    Speed_15_SEC("15\"", 15.0),
+    Speed_20_SEC("20\"", 20.0),
+    Speed_25_SEC("25\"", 25.0),
+    Speed_30_SEC("30\"", 30.0),
+
+    // Auto mode
+    Speed_AUTO("auto", 0.0);
 
     companion object {
         fun fromOrdinal(ordinal: Int): ShutterSpeed {
@@ -89,15 +114,33 @@ enum class ShutterSpeed(val displayValue: String, val seconds: Double) {
  */
 enum class Aperture(val displayValue: String, val fNumber: Float) {
     F1_4("1.4", 1.4f),
+    F1_6("1.6", 1.6f),
     F1_8("1.8", 1.8f),
     F2_0("2.0", 2.0f),
+    F2_2("2.2", 2.2f),
+    F2_5("2.5", 2.5f),
     F2_8("2.8", 2.8f),
+    F3_2("3.2", 3.2f),
+    F3_5("3.5", 3.5f),
     F4_0("4.0", 4.0f),
+    F4_5("4.5", 4.5f),
+    F5_0("5.0", 5.0f),
     F5_6("5.6", 5.6f),
+    F6_3("6.3", 6.3f),
+    F7_1("7.1", 7.1f),
     F8_0("8.0", 8.0f),
-    F11_0("11", 11.0f),
-    F16_0("16", 16.0f),
-    F22_0("22", 22.0f);
+    F9_0("9.0", 9.0f),
+    F10("10", 10.0f),
+    F11("11", 11.0f),
+    F13("13", 13.0f),
+    F14("14", 14.0f),
+    F16("16", 16.0f),
+    F18("18", 18.0f),
+    F20("20", 20.0f),
+    F22("22", 22.0f),
+    F25("25", 25.0f),
+    F29("29", 29.0f),
+    F32("32", 32.0f);
 
     companion object {
         fun fromOrdinal(ordinal: Int): Aperture {
@@ -107,18 +150,36 @@ enum class Aperture(val displayValue: String, val fNumber: Float) {
 }
 
 /**
- * ISO sensitivity values
+ * ISO sensitivity values - Sony Alpha 1 full range with third-stop increments
  */
 enum class ISO(val displayValue: String, val value: Int) {
     ISO_100("100", 100),
+    ISO_125("125", 125),
+    ISO_160("160", 160),
     ISO_200("200", 200),
+    ISO_250("250", 250),
+    ISO_320("320", 320),
     ISO_400("400", 400),
+    ISO_500("500", 500),
+    ISO_640("640", 640),
     ISO_800("800", 800),
+    ISO_1000("1000", 1000),
+    ISO_1250("1250", 1250),
     ISO_1600("1600", 1600),
+    ISO_2000("2000", 2000),
+    ISO_2500("2500", 2500),
     ISO_3200("3200", 3200),
+    ISO_4000("4000", 4000),
+    ISO_5000("5000", 5000),
     ISO_6400("6400", 6400),
+    ISO_8000("8000", 8000),
+    ISO_10000("10000", 10000),
     ISO_12800("12800", 12800),
+    ISO_16000("16000", 16000),
+    ISO_20000("20000", 20000),
     ISO_25600("25600", 25600),
+    ISO_32000("32000", 32000),
+    ISO_40000("40000", 40000),
     ISO_51200("51200", 51200);
 
     companion object {

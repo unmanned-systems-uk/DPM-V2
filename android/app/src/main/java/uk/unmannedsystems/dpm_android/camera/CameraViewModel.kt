@@ -3,13 +3,17 @@ package uk.unmannedsystems.dpm_android.camera
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import uk.unmannedsystems.dpm_android.network.ConnectionState
 import uk.unmannedsystems.dpm_android.network.NetworkManager
+import uk.unmannedsystems.dpm_android.settings.SettingsManager
 
 /**
  * ViewModel for managing camera state and controls
@@ -18,19 +22,37 @@ class CameraViewModel : ViewModel() {
     private val _cameraState = MutableStateFlow(CameraState())
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
 
+    private var propertyPollingJob: Job? = null
+    private var isCurrentlyOperational = false // Track operational state to prevent unnecessary restarts
+
     companion object {
         private const val TAG = "CameraViewModel"
+        private const val DEFAULT_QUERY_FREQUENCY_HZ = 0.5f // 0.5Hz = every 2 seconds
     }
 
     init {
         // Monitor network connection status from shared NetworkManager
         viewModelScope.launch {
             NetworkManager.connectionStatus.collect { networkStatus ->
+                val isConnected = networkStatus.state == ConnectionState.CONNECTED ||
+                                 networkStatus.state == ConnectionState.OPERATIONAL
+
                 _cameraState.update { state ->
-                    state.copy(
-                        isConnected = networkStatus.state == ConnectionState.CONNECTED ||
-                                     networkStatus.state == ConnectionState.OPERATIONAL
-                    )
+                    state.copy(isConnected = isConnected)
+                }
+
+                // Only start property polling when OPERATIONAL (heartbeat received)
+                // This prevents querying when connection is established but no heartbeat yet
+                val isOperational = networkStatus.state == ConnectionState.OPERATIONAL
+
+                // Only start/stop polling if the operational state actually changed
+                if (isOperational != isCurrentlyOperational) {
+                    isCurrentlyOperational = isOperational
+                    if (isOperational) {
+                        startPropertyPolling()
+                    } else {
+                        stopPropertyPolling()
+                    }
                 }
             }
         }
@@ -408,6 +430,156 @@ class CameraViewModel : ViewModel() {
             // TODO: Sync white balance when Air Side implements it
             // TODO: Sync focus mode when Air Side implements it
             // TODO: Sync file format when Air Side implements it
+
+            newState
+        }
+    }
+
+    /**
+     * Start periodic property polling from Air-Side
+     * Queries shutter speed, ISO, and aperture at configured frequency
+     */
+    fun startPropertyPolling() {
+        // Stop any existing polling
+        stopPropertyPolling()
+
+        // Check if property querying is enabled
+        val isEnabled = SettingsManager.getPropertyQueryEnabled()
+        if (!isEnabled) {
+            Log.d(TAG, "Property polling disabled in settings")
+            return
+        }
+
+        // Get query frequency from settings (default 0.5Hz = 2000ms)
+        val frequencyHz = SettingsManager.getPropertyQueryFrequency() ?: DEFAULT_QUERY_FREQUENCY_HZ
+        val intervalMs = (1000 / frequencyHz).toLong()
+
+        Log.d(TAG, "Starting property polling at ${frequencyHz}Hz (every ${intervalMs}ms)")
+
+        propertyPollingJob = viewModelScope.launch {
+            while (isActive) {
+                // Only query if connected and enabled
+                if (_cameraState.value.isConnected && SettingsManager.getPropertyQueryEnabled()) {
+                    queryAndUpdateProperties()
+                }
+                delay(intervalMs)
+            }
+        }
+    }
+
+    /**
+     * Stop property polling
+     */
+    fun stopPropertyPolling() {
+        propertyPollingJob?.cancel()
+        propertyPollingJob = null
+        Log.d(TAG, "Property polling stopped")
+    }
+
+    /**
+     * Query camera properties from Air-Side and update state
+     */
+    private suspend fun queryAndUpdateProperties() {
+        try {
+            val properties = listOf("shutter_speed", "aperture", "iso")
+            val result = NetworkManager.getClient()?.getCameraProperties(properties)
+
+            result?.fold(
+                onSuccess = { response ->
+                    // Check if response contains an error (e.g., camera not connected)
+                    response.error?.let { error ->
+                        // Use the error message from the protocol
+                        val errorMessage = when (error.code) {
+                            5005 -> "Camera not connected"
+                            else -> error.message
+                        }
+                        Log.w(TAG, "Camera error: $errorMessage (code: ${error.code})")
+
+                        // Update state with error message
+                        _cameraState.update { state ->
+                            state.copy(cameraError = errorMessage)
+                        }
+                        return@fold
+                    }
+
+                    // Clear any previous error
+                    _cameraState.update { state ->
+                        if (state.cameraError != null) {
+                            state.copy(cameraError = null)
+                        } else {
+                            state
+                        }
+                    }
+
+                    // Parse successful response
+                    response.result?.let { resultMap ->
+                        Log.d(TAG, "Property query response: $resultMap")
+                        parseAndUpdateProperties(resultMap)
+                    }
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Property query failed", error)
+                    _cameraState.update { state ->
+                        state.copy(cameraError = "Communication error: ${error.message}")
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying properties", e)
+            _cameraState.update { state ->
+                state.copy(cameraError = "Query error: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Parse property values from Air-Side response and update camera state
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun parseAndUpdateProperties(resultMap: Map<String, Any>) {
+        _cameraState.update { state ->
+            var newState = state
+
+            // Parse shutter speed
+            (resultMap["shutter_speed"] as? String)?.let { shutterSpeedStr ->
+                if (shutterSpeedStr.isNotEmpty()) {
+                    val shutterSpeed = ShutterSpeed.entries.find {
+                        it.displayValue == shutterSpeedStr
+                    }
+                    if (shutterSpeed != null && shutterSpeed != state.shutterSpeed) {
+                        Log.d(TAG, "Updating shutter speed from query: $shutterSpeedStr")
+                        newState = newState.copy(shutterSpeed = shutterSpeed)
+                    }
+                }
+            }
+
+            // Parse aperture
+            (resultMap["aperture"] as? String)?.let { apertureStr ->
+                if (apertureStr.isNotEmpty()) {
+                    // Remove "f/" prefix if present
+                    val apertureValue = apertureStr.removePrefix("f/")
+                    val aperture = Aperture.entries.find {
+                        it.displayValue == apertureValue
+                    }
+                    if (aperture != null && aperture != state.aperture) {
+                        Log.d(TAG, "Updating aperture from query: $apertureStr")
+                        newState = newState.copy(aperture = aperture)
+                    }
+                }
+            }
+
+            // Parse ISO
+            (resultMap["iso"] as? String)?.let { isoStr ->
+                if (isoStr.isNotEmpty()) {
+                    val iso = ISO.entries.find {
+                        it.displayValue == isoStr
+                    }
+                    if (iso != null && iso != state.iso) {
+                        Log.d(TAG, "Updating ISO from query: $isoStr")
+                        newState = newState.copy(iso = iso)
+                    }
+                }
+            }
 
             newState
         }

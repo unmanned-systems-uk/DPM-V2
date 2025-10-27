@@ -37,7 +37,7 @@ data class ResponsePayload(
 data class ErrorInfo(
     val code: Int,
     val message: String,
-    val details: Map<String, Any>? = null
+    val details: Any? = null  // Can be String or Map, depending on Air-Side implementation
 )
 
 /**

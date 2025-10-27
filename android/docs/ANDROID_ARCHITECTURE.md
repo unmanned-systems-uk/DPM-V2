@@ -1,7 +1,7 @@
 # DPM Android Application - Architecture Documentation
 
 **Version**: 1.0
-**Date**: October 25, 2025
+**Date**: October 27, 2025
 **Project**: Drone Payload Manager (DPM) - Ground Station Application
 **Platform**: Android (Kotlin + Jetpack Compose)
 **Package**: `uk.unmannedsystems.dpm_android`
@@ -104,6 +104,12 @@
 - File format selection (JPEG, RAW, JPEG+RAW)
 - Focus mode selection
 - Shutter release command
+- Sony-style overlay UI with auto-hide and parameter adjustment
+- Advanced control screen with collapsible sections
+- Real-time camera property querying (shutter, aperture, ISO)
+- Property query frequency configuration and enable/disable toggle
+- Camera error detection and display (e.g., "Camera not connected")
+- Battery level color coding (orange <50%, red <30%, flashing red <20%)
 
 ✅ **Video Streaming:**
 - RTSP video player with ExoPlayer
@@ -236,6 +242,8 @@ android/
 │   │   │   │   │   ├── CameraControlScreen.kt
 │   │   │   │   │   ├── CameraState.kt
 │   │   │   │   │   ├── CameraViewModel.kt
+│   │   │   │   │   ├── SonyCameraOverlay.kt
+│   │   │   │   │   ├── SonyRemoteControlScreen.kt
 │   │   │   │   │   └── components/
 │   │   │   │   │       ├── CameraButtons.kt
 │   │   │   │   │       └── ExposureControl.kt
@@ -250,7 +258,8 @@ android/
 │   │   │   │   ├── settings/
 │   │   │   │   │   ├── SettingsRepository.kt
 │   │   │   │   │   ├── SettingsScreen.kt
-│   │   │   │   │   └── SettingsViewModel.kt
+│   │   │   │   │   ├── SettingsViewModel.kt
+│   │   │   │   │   └── SettingsManager.kt
 │   │   │   │   ├── system/
 │   │   │   │   │   ├── SystemStatusScreen.kt
 │   │   │   │   │   └── SystemStatusViewModel.kt
@@ -283,6 +292,7 @@ android/
 │   ├── ANDROID_ARCHITECTURE.md (this file)
 │   ├── PROGRESS_AND_TODO.MD
 │   └── RTSP Video Stream.MD
+├── CLAUDE_MEMORY.md
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── gradle.properties
@@ -303,12 +313,14 @@ android/
 
 #### `camera` Package
 - **Package**: `uk.unmannedsystems.dpm_android.camera`
-- **Files**: 3
+- **Files**: 5
 - **Purpose**: Camera control interface and state management
 - **Key Classes**:
   - `CameraControlScreen.kt` - Main camera control composable with video background
-  - `CameraViewModel.kt` - Camera state management and network commands
-  - `CameraState.kt` - Camera state data model
+  - `CameraViewModel.kt` - Camera state management, network commands, and property polling
+  - `CameraState.kt` - Camera state data model with error tracking
+  - `SonyCameraOverlay.kt` - Sony-style parameter overlay with auto-hide (5s timeout)
+  - `SonyRemoteControlScreen.kt` - Advanced control screen with collapsible sections
 
 **Subpackage**: `camera.components`
 - **Files**: 2
@@ -337,12 +349,13 @@ android/
 
 #### `settings` Package
 - **Package**: `uk.unmannedsystems.dpm_android.settings`
-- **Files**: 3
+- **Files**: 4
 - **Purpose**: Settings management and persistence
 - **Key Classes**:
-  - `SettingsScreen.kt` - Settings UI with network and video configuration
+  - `SettingsScreen.kt` - Settings UI with network, video, and property query configuration
   - `SettingsViewModel.kt` - Settings state management
   - `SettingsRepository.kt` - Settings persistence with DataStore
+  - `SettingsManager.kt` - Global settings singleton for non-composable access
 
 #### `system` Package
 - **Package**: `uk.unmannedsystems.dpm_android.system`
@@ -5120,9 +5133,55 @@ defaultConfig {
 
 ### 17.1 Active Issues
 
-**Current Active Issues**: None
+#### 🔴 CRITICAL: No Heartbeat Reception from Air-Side
 
-*This section will be updated as issues are discovered during testing.*
+**Status**: ACTIVE BLOCKER
+**Discovered**: October 27, 2025 05:00 UTC
+**Severity**: Critical
+**Component**: Network Layer / Air-Side Integration
+
+**Description**:
+Ground-Side (Android app) is not receiving UDP heartbeat broadcasts from Air-Side (Raspberry Pi). Connection remains stuck at CONNECTED state and never transitions to OPERATIONAL state.
+
+**Symptoms**:
+- TCP connection successfully established to Air-Side (state: CONNECTED)
+- No UDP heartbeat packets received on port 5556
+- Connection state never transitions from CONNECTED to OPERATIONAL
+- No "Heartbeat" log messages appearing in NetworkClient/NetworkManager
+- Status updates every ~1 second but state remains CONNECTED indefinitely
+
+**Impact**:
+- Property querying disabled (requires OPERATIONAL state as of October 27 change)
+- Connection health monitoring not functional
+- Unable to detect connection degradation
+
+**Root Cause Analysis**:
+- Ground-Side heartbeat receiver is functioning correctly (listening on UDP port 5556)
+- Air-Side heartbeat broadcaster likely not running or not sending packets
+- This is an Air-Side issue, not a Ground-Side issue
+
+**Reproduction**:
+1. Start Android app
+2. App auto-connects to Air-Side
+3. TCP connection succeeds (state: CONNECTED)
+4. Monitor logs: no heartbeat messages appear
+5. State never transitions to OPERATIONAL
+
+**Next Steps**:
+1. Investigate Air-Side heartbeat service on Raspberry Pi
+2. Verify UDP packets are being sent on port 5556 (use tcpdump/wireshark)
+3. Check Air-Side logs for errors in heartbeat broadcaster
+4. Restart Air-Side services if necessary
+
+**Related Changes**:
+- `CameraViewModel.kt:33-52` - Property querying now requires OPERATIONAL state (exposed this issue)
+- See `CLAUDE_MEMORY.md` for complete session details
+
+**Workaround**: None currently available
+
+---
+
+*Last updated: October 27, 2025 05:07 UTC*
 
 ---
 

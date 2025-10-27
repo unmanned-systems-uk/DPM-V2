@@ -122,11 +122,8 @@ class NetworkClient(
                     connectionStartedMs = connectionStartTime
                 )
 
-                updateConnectionState(
-                    ConnectionState.CONNECTED,
-                    logMessage = "Connected to ${settings.targetIp}:${settings.commandPort}",
-                    logLevel = LogLevel.SUCCESS
-                )
+                // Note: Connection state already set to OPERATIONAL by sendHandshake()
+                // Do not overwrite it here
                 Log.i(TAG, "Connected to ${settings.targetIp}")
 
             } catch (e: Exception) {
