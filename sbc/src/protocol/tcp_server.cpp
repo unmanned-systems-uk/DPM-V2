@@ -1,6 +1,8 @@
 #include "protocol/tcp_server.h"
 #include "config.h"
 #include "protocol/messages.h"
+#include "protocol/udp_broadcaster.h"
+#include "protocol/heartbeat.h"
 #include "utils/logger.h"
 #include "utils/system_info.h"
 #include "camera/camera_interface.h"
@@ -18,6 +20,8 @@ TCPServer::TCPServer(int port)
     : server_socket_(-1)
     , port_(port)
     , running_(false)
+    , udp_broadcaster_(nullptr)
+    , heartbeat_(nullptr)
 {
 }
 
@@ -123,6 +127,14 @@ void TCPServer::acceptLoop() {
 
         std::string client_ip = inet_ntoa(client_addr.sin_addr);
         Logger::info("Accepted connection from " + client_ip);
+
+        // Update UDP broadcasters with client IP (dynamic discovery)
+        if (udp_broadcaster_) {
+            udp_broadcaster_->setTargetIP(client_ip);
+        }
+        if (heartbeat_) {
+            heartbeat_->setTargetIP(client_ip);
+        }
 
         // Set client socket options for better handling
         int opt = 1;
@@ -486,7 +498,16 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
     }
 
     // Validate parameters
-    if (!payload.contains("properties")) {
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required parameter: parameters"
+        );
+    }
+
+    json parameters = payload["parameters"];
+    if (!parameters.contains("properties")) {
         return messages::createErrorResponse(
             seq_id, "camera.get_properties",
             messages::ErrorCode::INVALID_JSON,
@@ -494,7 +515,7 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
         );
     }
 
-    json properties_array = payload["properties"];
+    json properties_array = parameters["properties"];
     if (!properties_array.is_array()) {
         return messages::createErrorResponse(
             seq_id, "camera.get_properties",

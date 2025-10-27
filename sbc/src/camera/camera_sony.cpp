@@ -869,7 +869,14 @@ private:
                     // ISO AUTO can be returned as 0xFFFFFFFF (32-bit) or 0xFFFFFF (24-bit)
                     if (raw_value == 0xFFFFFFFF || raw_value == 0xFFFFFF) {
                         result = "auto";
-                    } else {
+                    }
+                    // Extended ISO values have flag 0x10000000 set (e.g., ISO 50, 64, 80, high ISOs)
+                    else if ((raw_value & 0x10000000) != 0) {
+                        // Strip the extended flag and get the actual ISO value
+                        uint32_t iso_value = raw_value & 0x0000FFFF;
+                        result = std::to_string(iso_value);
+                    }
+                    else {
                         result = std::to_string(raw_value);
                     }
                 }
