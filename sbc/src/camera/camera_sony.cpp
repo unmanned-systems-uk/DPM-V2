@@ -866,7 +866,8 @@ private:
                     result = (it != APERTURE_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
                 }
                 else if (property == "iso") {
-                    if (raw_value == 0xFFFFFFFF) {
+                    // ISO AUTO can be returned as 0xFFFFFFFF (32-bit) or 0xFFFFFF (24-bit)
+                    if (raw_value == 0xFFFFFFFF || raw_value == 0xFFFFFF) {
                         result = "auto";
                     } else {
                         result = std::to_string(raw_value);
