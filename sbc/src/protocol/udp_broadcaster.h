@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include "camera/camera_interface.h"
 
 class UDPBroadcaster {
@@ -24,6 +25,9 @@ public:
     // Check if broadcasting
     bool isRunning() const { return running_; }
 
+    // Update target IP address (thread-safe)
+    void setTargetIP(const std::string& target_ip);
+
 private:
     // Broadcast loop
     void broadcastLoop();
@@ -34,6 +38,7 @@ private:
     int socket_fd_;
     int port_;
     std::string target_ip_;
+    mutable std::mutex target_ip_mutex_;
     std::atomic<bool> running_;
     std::thread broadcast_thread_;
     int sequence_id_;

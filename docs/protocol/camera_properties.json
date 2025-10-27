@@ -56,35 +56,26 @@
       "validation": {
         "type": "enum",
         "values": [
-          "auto",
-          "1/8000",
-          "1/4000",
-          "1/2000",
-          "1/1000",
-          "1/500",
-          "1/250",
-          "1/125",
-          "1/60",
-          "1/30",
-          "1/15",
-          "1/8",
-          "1/4",
-          "1/2",
-          "1",
-          "2",
-          "4",
-          "8",
-          "15",
-          "30"
+          "1/8000", "1/6400", "1/5000", "1/4000", "1/3200", "1/2500",
+          "1/2000", "1/1600", "1/1250", "1/1000",
+          "1/800", "1/640", "1/500", "1/400", "1/320", "1/250",
+          "1/200", "1/160", "1/125", "1/100",
+          "1/80", "1/60", "1/50", "1/40", "1/30", "1/25",
+          "1/20", "1/15", "1/13", "1/10", "1/8", "1/6", "1/5", "1/4", "1/3",
+          "0.3\"", "0.4\"", "0.5\"", "0.6\"", "0.8\"", "1.0\"",
+          "1.3\"", "1.6\"", "2.0\"", "2.5\"", "3.0\"", "4.0\"",
+          "5.0\"", "6.0\"", "8.0\"", "10\"", "13\"", "15\"",
+          "20\"", "25\"", "30\""
         ],
-        "default": "auto"
+        "default": "1/125",
+        "notes": "AUTO and BULB modes disabled for UAV safety. Total 56 values: 35 fast (1/8000 to 1/3) + 21 long exposures (0.3\" to 30\")"
       },
       "sony_sdk": {
         "property_code": "CrDeviceProperty_ShutterSpeed",
         "get_function": "GetDeviceProperty",
         "set_function": "SetDeviceProperty",
-        "value_mapping": "Air-side maps human-readable strings to ShutterSpeedValue enum (0x00010001, etc.)",
-        "notes": "Must be in Manual or Shutter Priority mode. Protocol uses human-readable values."
+        "value_mapping": "Two formats: (1) Fast shutter: 0x1XXXX where XXXX=denominator (e.g., 1/2000 = 0x107D0), (2) Long exposure: 0xNNNN000a where NNNN × 0.1 = seconds (e.g., 2.5\" = 0x19000a)",
+        "notes": "Must be in Manual or Shutter Priority mode. AUTO and BULB disabled for UAV safety. Air-side handles conversion from human-readable to Sony SDK format."
       },
       "protocol": {
         "format": "string",
@@ -100,7 +91,7 @@
         "air_side": true,
         "ground_side": true,
         "version": "1.1.0",
-        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+        "notes": "✅ FULLY IMPLEMENTED - Complete value list with long exposures. Spec updated Oct 27, 2025. AUTO/BULB disabled for UAV safety."
       }
     },
     "aperture": {
@@ -111,19 +102,13 @@
       "validation": {
         "type": "enum",
         "values": [
-          "auto",
-          "f/1.4",
-          "f/2",
-          "f/2.8",
-          "f/4",
-          "f/5.6",
-          "f/8",
-          "f/11",
-          "f/16",
-          "f/22"
+          "f/1.4", "f/1.6", "f/2", "f/2.2", "f/2.5", "f/2.8",
+          "f/3.2", "f/4", "f/4.5", "f/5.0", "f/5.6",
+          "f/6.3", "f/7.1", "f/8", "f/9", "f/10", "f/11",
+          "f/13", "f/14", "f/16", "f/18", "f/20", "f/22"
         ],
-        "default": "auto",
-        "notes": "Values depend on attached lens"
+        "default": "f/5.6",
+        "notes": "Available values depend on attached lens. Common full-stop and third-stop f-stops included. AUTO mode not supported for aperture."
       },
       "sony_sdk": {
         "property_code": "CrDeviceProperty_FNumber",
@@ -141,41 +126,33 @@
         "air_side": true,
         "ground_side": true,
         "version": "1.1.0",
-        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+        "notes": "✅ FULLY IMPLEMENTED - Complete f-stop list including third-stops. Spec updated Oct 27, 2025."
       }
     },
     "iso": {
       "display_name": "ISO",
       "category": "exposure",
       "description": "Camera ISO sensitivity",
-      "type": "integer",
+      "type": "string",
       "validation": {
-        "type": "range",
-        "min": 100,
-        "max": 409600,
+        "type": "enum",
         "values": [
           "auto",
-          100,
-          200,
-          400,
-          800,
-          1600,
-          3200,
-          6400,
-          12800,
-          25600,
-          51200,
-          102400
+          "50", "64", "80",
+          "100", "125", "160", "200", "250", "320", "400", "500", "640",
+          "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000",
+          "6400", "8000", "10000", "12800", "16000", "20000", "25600",
+          "32000", "40000", "51200", "64000", "80000", "102400"
         ],
         "default": "auto",
-        "notes": "Extended ISO may require specific camera mode"
+        "notes": "Total 35 values: AUTO + extended low (50/64/80) + full-stop and third-stop values (100-102400). AUTO is allowed (unlike shutter AUTO which is disabled for UAV safety)."
       },
       "sony_sdk": {
         "property_code": "CrDeviceProperty_IsoSensitivity",
         "get_function": "GetDeviceProperty",
         "set_function": "SetDeviceProperty",
-        "value_mapping": "ISO value direct mapping",
-        "notes": "Auto ISO uses special value 0xFFFFFFFF"
+        "value_mapping": "Three formats: (1) Standard ISO: direct decimal (100, 200, etc.), (2) AUTO: 0xFFFFFFFF or 0xFFFFFF, (3) Extended ISO (50/64/80): 0x10000000 | ISO_value",
+        "notes": "Extended ISO values use flag 0x10000000. Air-side handles format detection and conversion."
       },
       "ui_hints": {
         "control_type": "dropdown",
@@ -186,7 +163,7 @@
         "air_side": true,
         "ground_side": true,
         "version": "1.1.0",
-        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+        "notes": "✅ FULLY IMPLEMENTED - Complete ISO range with third-stops and extended ISOs. Spec updated Oct 27, 2025. Extended ISO flag detection working."
       }
     },
     "white_balance": {

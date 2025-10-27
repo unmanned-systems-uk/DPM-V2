@@ -1,6 +1,8 @@
 #include "protocol/tcp_server.h"
 #include "config.h"
 #include "protocol/messages.h"
+#include "protocol/udp_broadcaster.h"
+#include "protocol/heartbeat.h"
 #include "utils/logger.h"
 #include "utils/system_info.h"
 #include "camera/camera_interface.h"
@@ -18,6 +20,8 @@ TCPServer::TCPServer(int port)
     : server_socket_(-1)
     , port_(port)
     , running_(false)
+    , udp_broadcaster_(nullptr)
+    , heartbeat_(nullptr)
 {
 }
 
@@ -123,6 +127,14 @@ void TCPServer::acceptLoop() {
 
         std::string client_ip = inet_ntoa(client_addr.sin_addr);
         Logger::info("Accepted connection from " + client_ip);
+
+        // Update UDP broadcasters with client IP (dynamic discovery)
+        if (udp_broadcaster_) {
+            udp_broadcaster_->setTargetIP(client_ip);
+        }
+        if (heartbeat_) {
+            heartbeat_->setTargetIP(client_ip);
+        }
 
         // Set client socket options for better handling
         int opt = 1;
@@ -339,31 +351,16 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
         );
     }
 
-    // Check if camera is connected, attempt immediate reconnection if needed
+    // Check if camera is connected
+    // Note: We don't attempt immediate reconnection here to avoid blocking the TCP handler thread
+    // The health check thread handles reconnection every 30 seconds
     if (!camera_->isConnected()) {
-        Logger::info("Camera not connected - attempting immediate reconnection for capture command");
-
-        bool reconnected = camera_->connect();
-        if (reconnected) {
-            Logger::info("Camera reconnected successfully!");
-
-            // Send notification about reconnection
-            sendNotification(
-                messages::NotificationLevel::INFO,
-                messages::NotificationCategory::CAMERA,
-                "Camera Connected",
-                "Camera successfully reconnected and ready",
-                "",
-                true
-            );
-        } else {
-            Logger::warning("Camera reconnection failed");
-            return messages::createErrorResponse(
-                seq_id, "camera.capture",
-                messages::ErrorCode::COMMAND_FAILED,
-                "Camera not connected"
-            );
-        }
+        Logger::warning("Camera not connected - cannot capture");
+        return messages::createErrorResponse(
+            seq_id, "camera.capture",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected. Reconnection in progress, please retry in a few seconds."
+        );
     }
 
     // Trigger capture
@@ -397,35 +394,29 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
         );
     }
 
-    // Check if camera is connected, attempt immediate reconnection if needed
+    // Check if camera is connected
+    // Note: We don't attempt immediate reconnection here to avoid blocking the TCP handler thread
+    // The health check thread handles reconnection every 30 seconds
     if (!camera_->isConnected()) {
-        Logger::info("Camera not connected - attempting immediate reconnection for set_property command");
-
-        bool reconnected = camera_->connect();
-        if (reconnected) {
-            Logger::info("Camera reconnected successfully!");
-
-            // Send notification about reconnection
-            sendNotification(
-                messages::NotificationLevel::INFO,
-                messages::NotificationCategory::CAMERA,
-                "Camera Connected",
-                "Camera successfully reconnected and ready",
-                "",
-                true
-            );
-        } else {
-            Logger::warning("Camera reconnection failed");
-            return messages::createErrorResponse(
-                seq_id, "camera.set_property",
-                messages::ErrorCode::COMMAND_FAILED,
-                "Camera not connected"
-            );
-        }
+        Logger::warning("Camera not connected - cannot set property");
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected. Reconnection in progress, please retry in a few seconds."
+        );
     }
 
     // Validate parameters
-    if (!payload.contains("property") || !payload.contains("value")) {
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.set_property",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required 'parameters' object"
+        );
+    }
+
+    const auto& params = payload["parameters"];
+    if (!params.contains("property") || !params.contains("value")) {
         return messages::createErrorResponse(
             seq_id, "camera.set_property",
             messages::ErrorCode::INVALID_JSON,
@@ -433,10 +424,10 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
         );
     }
 
-    std::string property = payload["property"].get<std::string>();
-    std::string value = payload["value"].is_string() ?
-                        payload["value"].get<std::string>() :
-                        std::to_string(payload["value"].get<int>());
+    std::string property = params["property"].get<std::string>();
+    std::string value = params["value"].is_string() ?
+                        params["value"].get<std::string>() :
+                        std::to_string(params["value"].get<int>());
 
     Logger::info("Executing camera.set_property: " + property + " = " + value);
 
@@ -449,6 +440,14 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
             messages::ErrorCode::COMMAND_FAILED,
             "Failed to set camera property: " + property
         );
+    }
+
+    // Read back actual value from camera for verification
+    std::string actual_value = camera_->getProperty(property);
+    if (!actual_value.empty()) {
+        Logger::info("Property comparison - Requested: '" + value + "' → Camera has: '" + actual_value + "'");
+    } else {
+        Logger::warning("Could not read back property value from camera");
     }
 
     // Return success response
@@ -499,7 +498,16 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
     }
 
     // Validate parameters
-    if (!payload.contains("properties")) {
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.get_properties",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required parameter: parameters"
+        );
+    }
+
+    json parameters = payload["parameters"];
+    if (!parameters.contains("properties")) {
         return messages::createErrorResponse(
             seq_id, "camera.get_properties",
             messages::ErrorCode::INVALID_JSON,
@@ -507,7 +515,7 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
         );
     }
 
-    json properties_array = payload["properties"];
+    json properties_array = parameters["properties"];
     if (!properties_array.is_array()) {
         return messages::createErrorResponse(
             seq_id, "camera.get_properties",
