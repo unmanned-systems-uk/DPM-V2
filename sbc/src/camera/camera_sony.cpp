@@ -411,19 +411,31 @@ private:
     int getBatteryLevel() const {
         // Query battery percentage from camera via SDK
         // Property code: CrDeviceProperty_BatteryRemain (0-100%)
+        //
+        // IMPORTANT: This is called from status broadcaster (5 Hz) which shouldn't
+        // block on mutex. Use cached value if mutex unavailable.
 
-        // Get all properties from camera
+        static int cached_battery = 75;
+
+        // Try to acquire lock without blocking
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            // Can't get lock - return cached value
+            return cached_battery;
+        }
+
+        // Got the lock - query fresh battery level
         SDK::CrDeviceProperty* property_list = nullptr;
         int property_count = 0;
 
         auto status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
 
         if (CR_FAILED(status) || property_count == 0 || !property_list) {
-            Logger::debug("Failed to get battery level from camera");
-            return 75; // Return default value if query fails
+            // Query failed - return cached value
+            return cached_battery;
         }
 
-        int battery_percent = 75; // Default value
+        int battery_percent = cached_battery; // Start with cached value
 
         // Search for battery property
         for (int i = 0; i < property_count; i++) {
@@ -445,6 +457,9 @@ private:
         }
 
         SDK::ReleaseDeviceProperties(device_handle_, property_list);
+
+        // Update cache and return
+        cached_battery = battery_percent;
         return battery_percent;
     }
 
