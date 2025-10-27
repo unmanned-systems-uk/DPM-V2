@@ -374,8 +374,8 @@ class NetworkClient(
     private fun startHeartbeatReceiver() {
         heartbeatReceiverJob = scope.launch {
             try {
-                // Bind to a local port to receive heartbeat responses
-                val receivePort = settings.heartbeatPort + 1000  // Use different port for receiving
+                // Bind to port 5002 to receive heartbeats from Air-Side
+                val receivePort = settings.heartbeatPort  // Same port Air-Side sends to
                 heartbeatReceiveSocket = DatagramSocket(receivePort)
                 heartbeatReceiveSocket?.soTimeout = 0  // Non-blocking for continuous receive
 
