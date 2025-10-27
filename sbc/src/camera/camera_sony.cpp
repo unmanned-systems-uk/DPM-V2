@@ -10,6 +10,8 @@
 #include <thread>
 #include <unordered_map>
 #include <future>
+#include <sstream>
+#include <iomanip>
 
 // Sony SDK headers
 #include "CRSDK/CameraRemote_SDK.h"
@@ -17,6 +19,13 @@
 #include "CRSDK/CrCommandData.h"
 
 namespace SDK = SCRSDK;
+
+// Helper function to format values as hex
+static std::string toHexString(uint64_t value) {
+    std::ostringstream oss;
+    oss << "0x" << std::hex << value;
+    return oss.str();
+}
 
 // Sony camera callback handler
 class SonyCameraCallback : public SDK::IDeviceCallback
@@ -781,40 +790,62 @@ private:
                 found = true;
                 uint64_t raw_value = property_list[i].GetCurrentValue();
 
-                Logger::debug("Raw SDK value for " + property + ": 0x" +
-                             std::to_string(raw_value) + " (dec: " + std::to_string(raw_value) + ")");
+                Logger::debug("Raw SDK value for " + property + ": " +
+                             toHexString(raw_value) + " (dec: " + std::to_string(raw_value) + ")");
 
                 if (property == "shutter_speed") {
                     // Reverse lookup in shutter speed map
-                    // CORRECTED VALUES from automated testing (2025-10-25)
+                    // VERIFIED VALUES from automated discovery script (2025-10-27)
+                    // Format for fast shutters: 0x1XXXX where XXXX = denominator of fraction (1/X)
+                    // Format for long exposures: 0xNNNN000a where NNNN (hex) × 0.1 = seconds
                     static const std::unordered_map<uint32_t, std::string> SHUTTER_REVERSE = {
                         {0x00000000, "auto"},
-                        // Verified values:
-                        {0x65539, "1/2000"}, {0x65540, "1/1000"}, {0x65541, "1/500"},
-                        {0x65542, "1/250"}, {0x65544, "1/60"},
-                        // Extrapolated values:
-                        {0x65536, "1/8000"}, {0x65537, "1/4000"}, {0x65543, "1/125"},
-                        {0x65545, "1/30"}, {0x65546, "1/15"}, {0x65547, "1/8"},
-                        {0x65548, "1/4"}, {0x65549, "1/2"}, {0x6554A, "1"},
-                        {0x6554B, "2"}, {0x6554C, "4"}, {0x6554D, "8"},
-                        {0x6554E, "15"}, {0x6554F, "30"}
+                        // Very fast (1/8000 to 1/1000)
+                        {0x11F40, "1/8000"}, {0x11900, "1/6400"}, {0x11388, "1/5000"},
+                        {0x10FA0, "1/4000"}, {0x10C80, "1/3200"}, {0x109C4, "1/2500"},
+                        {0x107D0, "1/2000"}, {0x10640, "1/1600"}, {0x104E2, "1/1250"},
+                        {0x103E8, "1/1000"},
+                        // Fast (1/800 to 1/100)
+                        {0x10320, "1/800"},  {0x10280, "1/640"},  {0x101F4, "1/500"},
+                        {0x10190, "1/400"},  {0x10140, "1/320"},  {0x100FA, "1/250"},
+                        {0x100C8, "1/200"},  {0x100A0, "1/160"},  {0x1007D, "1/125"},
+                        {0x10064, "1/100"},
+                        // Medium (1/80 to 1/10)
+                        {0x10050, "1/80"},   {0x1003C, "1/60"},   {0x10032, "1/50"},
+                        {0x10028, "1/40"},   {0x1001E, "1/30"},   {0x10019, "1/25"},
+                        {0x10014, "1/20"},   {0x1000F, "1/15"},   {0x1000D, "1/13"},
+                        {0x1000A, "1/10"},
+                        // Slow (1/8 to 1/3)
+                        {0x10008, "1/8"},    {0x10006, "1/6"},    {0x10005, "1/5"},
+                        {0x10004, "1/4"},    {0x10003, "1/3"},
+                        // Long exposures (0.3" to 30") - Format: 0xNNNN000a
+                        {0x3000a, "0.3\""},  {0x4000a, "0.4\""},  {0x5000a, "0.5\""},
+                        {0x6000a, "0.6\""},  {0x8000a, "0.8\""},  {0xa000a, "1.0\""},
+                        {0xd000a, "1.3\""},  {0x10000a, "1.6\""}, {0x14000a, "2.0\""},
+                        {0x19000a, "2.5\""}, {0x1e000a, "3.0\""}, {0x28000a, "4.0\""},
+                        {0x32000a, "5.0\""}, {0x3c000a, "6.0\""}, {0x50000a, "8.0\""},
+                        {0x64000a, "10\""},  {0x82000a, "13\""},  {0x96000a, "15\""},
+                        {0xc8000a, "20\""},  {0xfa000a, "25\""},  {0x12c000a, "30\""}
                     };
                     auto it = SHUTTER_REVERSE.find(static_cast<uint32_t>(raw_value));
-                    result = (it != SHUTTER_REVERSE.end()) ? it->second : "unknown(0x" + std::to_string(raw_value) + ")";
+                    result = (it != SHUTTER_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
                 }
                 else if (property == "aperture") {
                     // Reverse lookup in aperture map (f_number × 100)
                     static const std::unordered_map<uint32_t, std::string> APERTURE_REVERSE = {
                         {0x00000000, "auto"},
-                        {0x8C, "f/1.4"},   {0xB4, "f/1.8"},   {0xC8, "f/2.0"},
-                        {0x118, "f/2.8"},  {0x15E, "f/3.5"},  {0x190, "f/4.0"},
-                        {0x230, "f/5.6"},  {0x276, "f/6.3"},  {0x320, "f/8.0"},
-                        {0x384, "f/9.0"},  {0x3E8, "f/10"},   {0x44C, "f/11"},
-                        {0x514, "f/13"},   {0x578, "f/14"},   {0x640, "f/16"},
-                        {0x708, "f/18"},   {0x7D0, "f/20"},   {0x898, "f/22"}
+                        {0x8C, "f/1.4"},   {0xA0, "f/1.6"},   {0xB4, "f/1.8"},
+                        {0xC8, "f/2.0"},   {0xDC, "f/2.2"},   {0xFA, "f/2.5"},
+                        {0x118, "f/2.8"},  {0x140, "f/3.2"},  {0x15E, "f/3.5"},
+                        {0x190, "f/4.0"},  {0x1C2, "f/4.5"},  {0x1F4, "f/5.0"},
+                        {0x230, "f/5.6"},  {0x276, "f/6.3"},  {0x2C6, "f/7.1"},
+                        {0x320, "f/8.0"},  {0x384, "f/9.0"},  {0x3E8, "f/10"},
+                        {0x44C, "f/11"},   {0x514, "f/13"},   {0x578, "f/14"},
+                        {0x640, "f/16"},   {0x708, "f/18"},   {0x7D0, "f/20"},
+                        {0x898, "f/22"}
                     };
                     auto it = APERTURE_REVERSE.find(static_cast<uint32_t>(raw_value));
-                    result = (it != APERTURE_REVERSE.end()) ? it->second : "unknown(0x" + std::to_string(raw_value) + ")";
+                    result = (it != APERTURE_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
                 }
                 else if (property == "iso") {
                     if (raw_value == 0xFFFFFFFF) {
