@@ -584,19 +584,24 @@ private:
         else if (property == "iso") {
             // ISO: map ISO strings to Sony SDK values
             // Sony SDK uses simple decimal values (not complex hex like shutter speed)
-            // Extended ISOs (50, 64, 80, 40000+) may require camera to be in special mode
+            // Sony Alpha 1 supports full stops and third stops
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
             static const std::unordered_map<std::string, uint32_t> ISO_MAP = {
                 {"auto",   0xFFFFFFFF},
                 // Extended low ISO
                 {"50",     50},         {"64",     64},     {"80",     80},
-                // Standard ISO range (full stops)
-                {"100",    100},        {"200",    200},    {"400",    400},
-                {"800",    800},        {"1600",   1600},   {"3200",   3200},
-                {"6400",   6400},       {"12800",  12800},  {"25600",  25600},
-                // Extended high ISO
-                {"40000",  40000},      {"51200",  51200},  {"64000",  64000},
-                {"80000",  80000},      {"102400", 102400}
+                // Standard ISO range - Full stops and third stops (100-102400)
+                {"100",    100},        {"125",    125},    {"160",    160},
+                {"200",    200},        {"250",    250},    {"320",    320},
+                {"400",    400},        {"500",    500},    {"640",    640},
+                {"800",    800},        {"1000",   1000},   {"1250",   1250},
+                {"1600",   1600},       {"2000",   2000},   {"2500",   2500},
+                {"3200",   3200},       {"4000",   4000},   {"5000",   5000},
+                {"6400",   6400},       {"8000",   8000},   {"10000",  10000},
+                {"12800",  12800},      {"16000",  16000},  {"20000",  20000},
+                {"25600",  25600},      {"32000",  32000},  {"40000",  40000},
+                {"51200",  51200},      {"64000",  64000},  {"80000",  80000},
+                {"102400", 102400}
             };
             auto it = ISO_MAP.find(value);
             if (it == ISO_MAP.end()) {
