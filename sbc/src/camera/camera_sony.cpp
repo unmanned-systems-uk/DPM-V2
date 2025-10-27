@@ -226,31 +226,36 @@ public:
     }
 
     messages::CameraStatus getStatus() const override {
-        messages::CameraStatus status;
-
         // Check connection using callback's atomic flag (fast, never blocks)
-        if (isConnected()) {
-            // Camera is connected - acquire lock to query properties
-            std::lock_guard<std::mutex> lock(mutex_);
-            status.connected = true;
-            status.model = camera_model_;
+        bool connected = isConnected();
+
+        // Try to acquire lock without blocking
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+
+        if (lock.owns_lock() && connected) {
+            // We got the lock and camera is connected - query fresh status
+            cached_status_.connected = true;
+            cached_status_.model = camera_model_;
 
             // Query battery level from camera
-            status.battery_percent = getBatteryLevel();
+            cached_status_.battery_percent = getBatteryLevel();
 
             // Query remaining shots from camera
-            status.remaining_shots = getRemainingShotsCount();
+            cached_status_.remaining_shots = getRemainingShotsCount();
 
             // Query current camera properties for UI synchronization
-            // Note: getProperty is const, so we can call it from const getStatus()
-            // These will be sent to ground station for display
-            status.shutter_speed = const_cast<CameraSony*>(this)->getProperty("shutter_speed");
-            status.aperture = const_cast<CameraSony*>(this)->getProperty("aperture");
-            status.iso = const_cast<CameraSony*>(this)->getProperty("iso");
-            status.white_balance = const_cast<CameraSony*>(this)->getProperty("white_balance");
-            status.focus_mode = const_cast<CameraSony*>(this)->getProperty("focus_mode");
-            status.file_format = const_cast<CameraSony*>(this)->getProperty("file_format");
-        } else {
+            cached_status_.shutter_speed = const_cast<CameraSony*>(this)->getProperty("shutter_speed");
+            cached_status_.aperture = const_cast<CameraSony*>(this)->getProperty("aperture");
+            cached_status_.iso = const_cast<CameraSony*>(this)->getProperty("iso");
+            cached_status_.white_balance = const_cast<CameraSony*>(this)->getProperty("white_balance");
+            cached_status_.focus_mode = const_cast<CameraSony*>(this)->getProperty("focus_mode");
+            cached_status_.file_format = const_cast<CameraSony*>(this)->getProperty("file_format");
+
+            return cached_status_;
+        }
+        else if (!connected) {
+            // Camera disconnected - return disconnected status
+            messages::CameraStatus status;
             status.connected = false;
             status.model = "none";
             status.battery_percent = 0;
@@ -261,17 +266,29 @@ public:
             status.white_balance = "";
             status.focus_mode = "";
             status.file_format = "";
+            return status;
         }
-
-        return status;
+        else {
+            // Couldn't get lock - return cached status (never blocks)
+            // Update connection status based on current atomic flag
+            cached_status_.connected = connected;
+            return cached_status_;
+        }
     }
 
     bool capture() override {
+        // Check connection using atomic flag first (fast, never blocks)
+        if (!isConnected()) {
+            Logger::error("Cannot capture: camera not connected");
+            return false;
+        }
+
+        // Try to get device handle without blocking
         SDK::CrDeviceHandle handle;
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (!isConnectedLocked()) {
-                Logger::error("Cannot capture: camera not connected");
+            std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+            if (!lock.owns_lock()) {
+                Logger::warning("Cannot capture: camera busy with another operation");
                 return false;
             }
             handle = device_handle_;  // Copy handle while locked
@@ -413,15 +430,26 @@ private:
     }
 
     bool setProperty(const std::string& property, const std::string& value) override {
-        std::lock_guard<std::mutex> lock(mutex_);
-
-        if (!isConnectedLocked()) {
+        // Check connection using atomic flag first (fast, never blocks)
+        if (!isConnected()) {
             Logger::error("Cannot set property: camera not connected");
             return false;
         }
 
         Logger::info("Setting property: " + property + " = " + value);
 
+        // Get device handle quickly with try_lock
+        SDK::CrDeviceHandle handle;
+        {
+            std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+            if (!lock.owns_lock()) {
+                Logger::warning("Cannot set property: camera busy with another operation");
+                return false;
+            }
+            handle = device_handle_;
+        }
+
+        // Now do property mapping without holding the lock
         SDK::CrDeviceProperty prop;
 
         // Map property name to SDK property code and convert human-readable values
@@ -607,14 +635,11 @@ private:
             return false;
         }
 
-        // Copy handle and property for timeout-protected SDK call
-        SDK::CrDeviceHandle handle = device_handle_;
+        // Copy property for timeout-protected SDK call
         SDK::CrDeviceProperty prop_copy = prop;
 
-        // Release lock before potentially blocking SDK call
-        mutex_.unlock();
-
         // Send property to camera with timeout protection (5 second timeout)
+        // Note: We already have handle and are not holding the lock
         bool success = runWithTimeout([handle, prop_copy]() mutable -> bool {
             auto status = SDK::SetDeviceProperty(handle, &prop_copy);
 
@@ -765,6 +790,9 @@ private:
     std::unique_ptr<SonyCameraCallback> callback_;
     SDK::ICrEnumCameraObjectInfo* camera_list_;
     std::string camera_model_;
+
+    // Cached status for non-blocking getStatus() calls
+    mutable messages::CameraStatus cached_status_;
 };
 
 // Factory function to create camera interface
