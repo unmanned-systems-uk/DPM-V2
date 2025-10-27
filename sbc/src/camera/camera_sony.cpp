@@ -409,10 +409,43 @@ private:
     }
 
     int getBatteryLevel() const {
-        // TODO: Query actual battery level from camera via SDK property
-        // For now, return placeholder value
-        // Property code: CrDeviceProperty_S1BatteryLevel or similar
-        return 75; // Placeholder
+        // Query battery percentage from camera via SDK
+        // Property code: CrDeviceProperty_BatteryRemain (0-100%)
+
+        // Get all properties from camera
+        SDK::CrDeviceProperty* property_list = nullptr;
+        int property_count = 0;
+
+        auto status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
+
+        if (CR_FAILED(status) || property_count == 0 || !property_list) {
+            Logger::debug("Failed to get battery level from camera");
+            return 75; // Return default value if query fails
+        }
+
+        int battery_percent = 75; // Default value
+
+        // Search for battery property
+        for (int i = 0; i < property_count; i++) {
+            if (property_list[i].GetCode() == SDK::CrDevicePropertyCode::CrDeviceProperty_BatteryRemain) {
+                uint64_t raw_value = property_list[i].GetCurrentValue();
+
+                // Check for "untaken" special value (0xFFFF)
+                if (raw_value == 0xFFFF) {
+                    Logger::debug("Battery level not available (untaken)");
+                    battery_percent = 0;
+                } else if (raw_value <= 100) {
+                    battery_percent = static_cast<int>(raw_value);
+                    Logger::debug("Battery level: " + std::to_string(battery_percent) + "%");
+                } else {
+                    Logger::warning("Invalid battery value: " + std::to_string(raw_value));
+                }
+                break;
+            }
+        }
+
+        SDK::ReleaseDeviceProperties(device_handle_, property_list);
+        return battery_percent;
     }
 
     int getRemainingShotsCount() const {
