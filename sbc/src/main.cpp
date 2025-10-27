@@ -183,6 +183,11 @@ int main(int argc, char* argv[]) {
             ground_ip.c_str()
         );
 
+        // Connect TCP server to broadcasters for dynamic IP discovery
+        g_tcp_server->setUDPBroadcaster(g_udp_broadcaster.get());
+        g_tcp_server->setHeartbeat(g_heartbeat.get());
+        Logger::info("Dynamic IP discovery enabled - broadcasters will auto-update when client connects");
+
         // Start all components
         Logger::info("========================================");
         Logger::info("Starting all components...");

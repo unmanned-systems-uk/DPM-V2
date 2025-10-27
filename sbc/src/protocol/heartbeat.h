@@ -4,6 +4,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <mutex>
 #include <chrono>
 
 class Heartbeat {
@@ -23,6 +24,9 @@ public:
     // Get time since last received heartbeat (in seconds)
     double getTimeSinceLastHeartbeat() const;
 
+    // Update target IP address (thread-safe)
+    void setTargetIP(const std::string& target_ip);
+
 private:
     // Send heartbeat loop
     void sendLoop();
@@ -33,6 +37,7 @@ private:
     int socket_fd_;
     int port_;
     std::string target_ip_;
+    mutable std::mutex target_ip_mutex_;
     std::atomic<bool> running_;
     std::thread send_thread_;
     std::thread receive_thread_;

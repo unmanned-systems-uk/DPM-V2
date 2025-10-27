@@ -100,6 +100,14 @@ double Heartbeat::getTimeSinceLastHeartbeat() const {
     return duration.count() / 1000.0;
 }
 
+void Heartbeat::setTargetIP(const std::string& target_ip) {
+    std::lock_guard<std::mutex> lock(target_ip_mutex_);
+    if (target_ip_ != target_ip) {
+        Logger::info("Heartbeat target IP updated: " + target_ip_ + " -> " + target_ip);
+        target_ip_ = target_ip;
+    }
+}
+
 void Heartbeat::sendLoop() {
     Logger::debug("Heartbeat send loop started");
 
@@ -118,10 +126,17 @@ void Heartbeat::sendLoop() {
             // Send to target
             std::string message_str = heartbeat_msg.dump();
 
+            // Get target IP (thread-safe)
+            std::string target_ip;
+            {
+                std::lock_guard<std::mutex> lock(target_ip_mutex_);
+                target_ip = target_ip_;
+            }
+
             struct sockaddr_in target_addr{};
             target_addr.sin_family = AF_INET;
             target_addr.sin_port = htons(port_);
-            inet_pton(AF_INET, target_ip_.c_str(), &target_addr.sin_addr);
+            inet_pton(AF_INET, target_ip.c_str(), &target_addr.sin_addr);
 
             ssize_t bytes_sent = sendto(
                 socket_fd_,

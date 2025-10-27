@@ -12,8 +12,10 @@
 
 using json = nlohmann::json;
 
-// Forward declaration
+// Forward declarations
 class CameraInterface;
+class UDPBroadcaster;
+class Heartbeat;
 
 class TCPServer {
 public:
@@ -31,6 +33,12 @@ public:
 
     // Set camera interface
     void setCamera(std::shared_ptr<CameraInterface> camera) { camera_ = camera; }
+
+    // Set UDP broadcaster (for dynamic IP updates)
+    void setUDPBroadcaster(UDPBroadcaster* broadcaster) { udp_broadcaster_ = broadcaster; }
+
+    // Set heartbeat handler (for dynamic IP updates)
+    void setHeartbeat(Heartbeat* heartbeat) { heartbeat_ = heartbeat; }
 
     // Send notification to all connected clients
     void sendNotification(messages::NotificationLevel level,
@@ -66,6 +74,10 @@ private:
     std::thread accept_thread_;
     std::vector<std::thread> client_threads_;
     std::shared_ptr<CameraInterface> camera_;
+
+    // UDP broadcasters (for dynamic IP updates)
+    UDPBroadcaster* udp_broadcaster_;
+    Heartbeat* heartbeat_;
 
     // Client tracking for notifications
     std::mutex clients_mutex_;
