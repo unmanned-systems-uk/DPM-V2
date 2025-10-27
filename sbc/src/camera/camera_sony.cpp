@@ -479,18 +479,16 @@ private:
 
         Logger::info("Setting property: " + property + " = " + value);
 
-        // Get device handle quickly with try_lock
-        SDK::CrDeviceHandle handle;
-        {
-            std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
-            if (!lock.owns_lock()) {
-                Logger::warning("Cannot set property: camera busy with another operation");
-                return false;
-            }
-            handle = device_handle_;
+        // Acquire lock for entire operation to prevent concurrent SDK access
+        // CRITICAL FIX: Keep lock held during SDK call to avoid race condition
+        // with getProperty() and getBatteryLevel()
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            Logger::warning("Cannot set property: camera busy with another operation");
+            return false;
         }
 
-        // Now do property mapping without holding the lock
+        // Do property mapping while holding lock
         SDK::CrDeviceProperty prop;
 
         // Map property name to SDK property code and convert human-readable values
@@ -680,9 +678,10 @@ private:
         SDK::CrDeviceProperty prop_copy = prop;
 
         // Send property to camera with timeout protection (5 second timeout)
-        // Note: We already have handle and are not holding the lock
-        bool success = runWithTimeout([handle, prop_copy]() mutable -> bool {
-            auto status = SDK::SetDeviceProperty(handle, &prop_copy);
+        // IMPORTANT: We're holding the mutex during this call to prevent
+        // concurrent SDK access from getProperty() or getBatteryLevel()
+        bool success = runWithTimeout([this, prop_copy]() mutable -> bool {
+            auto status = SDK::SetDeviceProperty(device_handle_, &prop_copy);
 
             if (CR_FAILED(status)) {
                 Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
