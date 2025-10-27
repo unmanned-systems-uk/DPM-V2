@@ -178,6 +178,69 @@ set_target_properties(test_shutter PROPERTIES
 message(STATUS "Shutter test program enabled")
 
 # ============================================================
+# Property Mapping Test Program (automated mapping discovery)
+# ============================================================
+
+# Create test_property_mapping executable
+add_executable(test_property_mapping
+    src/test_property_mapping.cpp
+    src/camera/camera_sony.cpp
+    src/utils/logger.cpp
+)
+
+# Add include directories
+target_include_directories(test_property_mapping
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${SONY_SDK_INCLUDE}
+)
+
+# Link Sony SDK libraries and dependencies
+target_link_libraries(test_property_mapping
+    PRIVATE
+        -Wl,--no-as-needed
+        pthread
+        ${SONY_SDK_LIB_DIR}/libCr_Core.so
+        xml2
+        -Wl,--as-needed
+)
+
+# Set RPATH for test_property_mapping
+set_target_properties(test_property_mapping PROPERTIES
+    BUILD_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+    INSTALL_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+)
+
+message(STATUS "Property mapping test program enabled")
+
+# ============================================================
+# Shutter Speed Discovery Tool
+# ============================================================
+
+add_executable(discover_shutter_speeds src/discover_shutter_speeds.cpp)
+
+target_include_directories(discover_shutter_speeds
+    PRIVATE
+        ${SONY_SDK_INCLUDE}
+)
+
+target_link_libraries(discover_shutter_speeds
+    PRIVATE
+        -Wl,--no-as-needed
+        pthread
+        ${SONY_SDK_LIB_DIR}/libCr_Core.so
+        xml2
+        -Wl,--as-needed
+)
+
+set_target_properties(discover_shutter_speeds PROPERTIES
+    BUILD_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+    INSTALL_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+)
+
+message(STATUS "Shutter speed discovery tool enabled")
+
+# ============================================================
 
 # Print build configuration
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")

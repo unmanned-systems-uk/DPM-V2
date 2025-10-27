@@ -28,12 +28,13 @@ COPY CrSDK_v2.00.00_20250805a_Linux64ARMv8 /app/sdk
 # Copy SBC source code
 COPY DPM-V2/sbc /app/sbc
 
-# Build payload_manager (skip test_camera for production)
+# Build payload_manager and test programs
 RUN cd /app/sbc && \
     mkdir -p build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
     cmake --build . --target payload_manager -j4 && \
+    cmake --build . --target test_property_mapping -j4 && \
     mkdir -p CrAdapter && \
     cp -r /app/sdk/external/crsdk/CrAdapter/* CrAdapter/
 

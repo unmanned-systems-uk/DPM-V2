@@ -1,66 +1,73 @@
 # Payload Manager Service - Air Side
 ## DPM Raspberry Pi Service for Camera Control
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Protocol:** 1.0
-**Phase:** 1 - Initial Connectivity (MVP)
-**Platform:** Raspberry Pi (Linux ARM64v8)
+**Phase:** 1 Complete - Camera Integration Operational
+**Platform:** Raspberry Pi 5 (Linux ARM64v8)
 **Language:** C++17
 
 ---
 
 ## Overview
 
-The Payload Manager Service runs on the Raspberry Pi (Air Side) and communicates with the DPM Android app (Ground Side) over Ethernet. This service manages camera control, system monitoring, and network communication.
+The Payload Manager Service runs on the Raspberry Pi 5 (Air Side) and communicates with the DPM Android app (Ground Side) over network. This service manages Sony camera control, system monitoring, and network communication.
 
-**Phase 1 (Current):** Network connectivity only - TCP command server, UDP status broadcasting, and heartbeat exchange. Camera interface is a stub (no Sony SDK integration yet).
+**Phase 1 (COMPLETE):** ✅ Network connectivity + Sony Camera SDK integration
+- TCP command server, UDP status broadcasting, and heartbeat exchange
+- **Dynamic IP discovery** - Auto-detects ground station IP (works on WiFi and Ethernet)
+- Sony Alpha camera control via USB (capture, property control)
+- Automatic camera reconnection with UI notifications
 
-**Phase 2 (Future):** Full Sony Camera SDK integration for actual camera control.
+**Phase 2 (Future):** Gimbal integration, video streaming, content management
 
 ---
 
 ## Features (Phase 1)
 
-- ✅ TCP Command Server (port 5000)
-  - Handshake exchange
-  - system.get_status command
-  - JSON-based protocol
+- ✅ **Network Communication**
+  - TCP Command Server (port 5000) - JSON-based protocol
+  - UDP Status Broadcasting (port 5001, 5 Hz)
+  - UDP Heartbeat (port 5002, 1 Hz bidirectional)
+  - **Dynamic IP discovery** - Auto-detects ground station IP from TCP connection
+  - Works seamlessly on WiFi (10.0.1.x) and Ethernet (192.168.144.x)
 
-- ✅ UDP Status Broadcasting (port 5001)
-  - 5 Hz status updates
-  - System info (CPU, memory, disk, uptime)
-  - Camera status (stub - not connected)
+- ✅ **Sony Camera Integration**
+  - Sony Alpha camera control via USB (tested with ILCE-1)
+  - Camera capture command (shutter release)
+  - Property control (shutter_speed, aperture, iso, white_balance, focus_mode, file_format, drive_mode, wb_temperature)
+  - Automatic camera reconnection (30-second health check)
+  - Camera status monitoring (model, battery, remaining shots)
+  - UI notifications for camera events
 
-- ✅ Heartbeat Exchange (port 5002)
-  - 1 Hz bidirectional heartbeat
-  - Connection health monitoring
-  - Timeout detection
-
-- ✅ Logging System
-  - File-based logging with rotation
-  - Multiple log levels (DEBUG, INFO, WARNING, ERROR)
-  - Thread-safe operation
-
-- ✅ System Monitoring
+- ✅ **System Monitoring**
   - CPU usage tracking
   - Memory usage monitoring
-  - Disk space monitoring
   - Uptime tracking
+  - Real-time telemetry streaming
+
+- ✅ **Logging System**
+  - File-based logging
+  - Multiple log levels (DEBUG, INFO, WARNING, ERROR)
+  - Thread-safe operation
 
 ---
 
 ## Network Configuration
 
 **Air Side (Raspberry Pi):**
-- IP: 192.168.144.20
-- TCP Port: 5000 (command server)
-- UDP Port: 5001 (status broadcast - send)
+- TCP Port: 5000 (command server - listens on 0.0.0.0)
+- UDP Port: 5001 (status broadcast - sends to ground station)
 - UDP Port: 5002 (heartbeat - bidirectional)
 
 **Ground Side (Android App):**
-- IP: 192.168.144.11
+- **Dynamic IP discovery** - Ground station IP is auto-detected from TCP connection
+- WiFi testing: 10.0.1.x (dynamic DHCP)
+- H16 Ethernet: 192.168.144.11 (static, future)
 
-**Connection:** Direct Ethernet cable or network switch
+**Connection:** Ethernet (H16) or WiFi (testing)
+
+**Note:** No manual IP configuration required! The service automatically detects the ground station IP when the Android app connects via TCP.
 
 ---
 
@@ -442,6 +449,6 @@ For issues or questions:
 
 ---
 
-**Last Updated:** October 23, 2025
-**Status:** Phase 1 Implementation Complete ✅
-**Next:** Testing and validation
+**Last Updated:** October 27, 2025
+**Status:** Phase 1 Complete ✅ (Camera integration + Dynamic IP discovery operational)
+**Next:** Phase 2 - Gimbal integration and video streaming

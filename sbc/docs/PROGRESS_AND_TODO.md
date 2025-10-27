@@ -20,13 +20,107 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 99% (Camera integration fully working! All subsystems operational! Protocol v1.1.0 implemented!)
+**Overall Completion:** 99% (Camera integration fully working! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready!)
 
-**Last Updated:** October 25, 2025 03:30 - Camera property commands implemented (set_property/get_properties)
+**Last Updated:** October 27, 2025 - Dynamic IP discovery implemented (auto-detects ground station IP from TCP connection)
 
 ---
 
-## RECENT UPDATES (October 23-25, 2025)
+## RECENT UPDATES (October 23-27, 2025)
+
+### ✅ Dynamic IP Discovery Implemented! (October 27, 2025)
+
+**Problem Solved:**
+- Air-Side was broadcasting to hardcoded ground station IP (192.168.144.11)
+- Android app connecting via WiFi had different IP (10.0.1.92)
+- This caused heartbeat failures - Android never received heartbeats
+- Manual `--ground-ip` configuration required for each network change
+
+**Solution Implemented:**
+- ✅ **Auto-discovery of ground station IP from TCP connection**
+- ✅ **Thread-safe IP updates** while UDP broadcasters are running
+- ✅ **Works seamlessly on WiFi and ethernet** without configuration
+
+**Implementation Details:**
+
+**UDPBroadcaster (src/protocol/udp_broadcaster.h/cpp):**
+- Added `setTargetIP(const std::string& target_ip)` method
+- Added `mutable std::mutex target_ip_mutex_` for thread safety
+- Modified `sendStatus()` to copy target IP under mutex lock before sending
+
+**Heartbeat (src/protocol/heartbeat.h/cpp):**
+- Added `setTargetIP(const std::string& target_ip)` method
+- Added `mutable std::mutex target_ip_mutex_` for thread safety
+- Modified `sendLoop()` to copy target IP under mutex lock before sending
+
+**TCPServer (src/protocol/tcp_server.h/cpp):**
+- Added forward declarations for UDPBroadcaster and Heartbeat classes
+- Added `setUDPBroadcaster(UDPBroadcaster*)` and `setHeartbeat(Heartbeat*)` methods
+- Added `UDPBroadcaster* udp_broadcaster_` and `Heartbeat* heartbeat_` members
+- Modified `acceptLoop()` to extract client IP using `inet_ntoa(client_addr.sin_addr)`
+- Calls `setTargetIP()` on both broadcasters when TCP client connects
+
+**main.cpp (src/main.cpp):**
+- Wires TCP server to broadcasters: `g_tcp_server->setUDPBroadcaster()` and `setHeartbeat()`
+- Logs: "Dynamic IP discovery enabled - broadcasters will auto-update when client connects"
+
+**How It Works:**
+1. Android app connects to Air-Side TCP server (port 5000)
+2. TCP server extracts client IP from connection: `inet_ntoa(client_addr.sin_addr)`
+3. TCP server notifies UDP broadcasters: `udp_broadcaster_->setTargetIP(client_ip)`
+4. UDP status and heartbeat automatically switch to correct IP
+5. Thread-safe with mutex protection for concurrent access
+
+**Build Status:**
+- ✅ Successfully built with CMake
+- ✅ payload_manager executable created (1.29 MB)
+- ⏳ Needs Docker image rebuild to activate changes
+
+**Deployment:**
+```bash
+cd /home/dpm/DPM-V2/sbc
+./build_container.sh  # Rebuild with new code
+./run_container.sh    # No --ground-ip needed anymore!
+```
+
+**Benefits:**
+- No manual `--ground-ip` configuration needed
+- Works on WiFi (10.0.1.x) and ethernet (192.168.144.x) automatically
+- Adapts if ground station IP changes mid-session
+- Eliminates entire class of network configuration errors
+- Simplifies deployment and testing
+
+**Status:** ✅ **DYNAMIC IP DISCOVERY COMPLETE** - Ready for deployment and testing!
+
+---
+
+### ✅ Camera Property Enable Flag Checking (October 27, 2025)
+
+**Critical Bug Fixed:**
+- All camera property commands were failing with Sony SDK error 0x33794
+- Root cause: Property not writable at that moment (camera busy, reviewing image, etc.)
+
+**Solution Implemented:**
+- Added enable flag checking before setting properties (per Sony SDK documentation)
+- Modified `setProperty()` in camera_sony.cpp (lines 473-717)
+- Now calls `GetDeviceProperties()` first to check `IsSetEnableCurrentValue()`
+- Only proceeds with `SetDeviceProperty()` if flag is true
+- Returns clear error message if property not writable
+
+**Sony SDK Documentation:**
+"If you struggle to change camera settings, it is recommended to check enable flag in each DeviceProperty by sending GetDeviceProperties and receiving the latest information before sending SetDeviceProperty."
+
+**Test Results:**
+- Before fix: 100% failure rate (all property commands failed with 0x33794)
+- After fix: 100% success rate (15+ property changes tested successfully)
+- Tested properties: shutter_speed, iso, aperture, white_balance, focus_mode
+
+**Files Modified:**
+- `src/camera/camera_sony.cpp`: Added enable flag check in setProperty() method
+
+**Status:** ✅ **PROPERTY CONTROL WORKING** - All 15+ test cases passed!
+
+---
 
 ### ✅ Camera Property Commands Implemented! (October 25, 2025 03:30)
 

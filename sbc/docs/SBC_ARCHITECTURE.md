@@ -109,7 +109,8 @@
 - ✅ TCP command server (port 5000) - Full duplex JSON protocol
 - ✅ UDP status broadcaster (port 5001, 5Hz) - Real-time telemetry streaming
 - ✅ UDP heartbeat (port 5002, 1Hz) - Connection health monitoring with timeout detection
-- ✅ Dynamic IP configuration via environment variable (DPM_GROUND_IP)
+- ✅ **Dynamic IP discovery** - Auto-detects ground station IP from TCP connection (thread-safe)
+- ✅ Multi-network support - Works seamlessly on WiFi (10.0.1.x) and ethernet (192.168.144.x)
 - ✅ Notification system - Real-time UI alerts for camera events
 
 **Protocol Implementation** (Protocol v1.0):
@@ -156,7 +157,9 @@
 
 **Completion Status**: 99% Phase 1 Complete
 
-**Recent Milestones** (October 23-25, 2025):
+**Recent Milestones** (October 23-27, 2025):
+- ✅ **October 27** - **Dynamic IP discovery** implemented (auto-detects ground station IP)
+- ✅ **October 27** - **Camera property enable flag checking** (fixed Sony SDK error 0x33794)
 - ✅ **October 25, 15:48** - Fixed critical camera lockup bug (shutter release sequence)
 - ✅ **October 25, 14:51** - Implemented camera reconnection system with UI notifications
 - ✅ **October 25, 05:47** - Completed camera property commands (8 Phase 1 properties)
@@ -166,8 +169,9 @@
 - ✅ **October 23, 14:00** - Core network stack operational (TCP/UDP/Heartbeat)
 
 **Current Work**:
+- Deploying dynamic IP discovery (requires Docker image rebuild)
 - Testing camera property control with Android ground station
-- Verifying camera reconnection behavior under production conditions
+- Documenting recent improvements in CLAUDE_MEMORY.md
 
 **Next Milestones**:
 - Phase 2: Gimbal integration (Gremsy T3V3 or SimpleBGC)
@@ -194,9 +198,10 @@
   - Gremsy T3V3 (serial UART connection) OR
   - SimpleBGC-based gimbal (serial UART connection)
 - **Network**: Ethernet to H16 ground station
-  - Default: 192.168.144.x network (R16 Ethernet)
+  - Default: 192.168.144.x network (H16 Ethernet)
   - Alternative: 10.0.1.x network (WiFi testing)
-  - Configurable via DPM_GROUND_IP environment variable
+  - **Dynamic IP discovery**: Auto-detects ground station IP from TCP connection (no manual config required)
+  - Fallback: Configurable via DPM_GROUND_IP environment variable
 - **Flight Controller**: (Future) Ardupilot-based via MAVLink
 
 **Operating Environment**:
@@ -1021,6 +1026,64 @@ Ground Station connects → TCP 3-way handshake
     → Client disconnects or network failure
     → handleClient() removes client from active_clients_
     → Thread exits (detached cleanup)
+```
+
+**Dynamic IP Discovery** (October 27, 2025):
+
+**Problem**: Air-Side needs to send UDP broadcasts to ground station, but ground IP varies:
+- WiFi testing: 10.0.1.x (dynamic DHCP)
+- H16 Ethernet: 192.168.144.11 (static, future)
+- Manual configuration (`--ground-ip`) was error-prone
+
+**Solution**: Auto-detect ground station IP from TCP connection.
+
+**How It Works**:
+```cpp
+// In TCPServer::acceptLoop()
+int client_socket = accept(server_socket_, (struct sockaddr*)&client_addr, &addr_len);
+std::string client_ip = inet_ntoa(client_addr.sin_addr);  // Extract IP from connection
+Logger::info("Accepted connection from " + client_ip);
+
+// Notify UDP broadcasters
+if (udp_broadcaster_) {
+    udp_broadcaster_->setTargetIP(client_ip);  // Thread-safe update
+}
+if (heartbeat_) {
+    heartbeat_->setTargetIP(client_ip);  // Thread-safe update
+}
+```
+
+**Thread-Safe IP Updates**:
+```cpp
+// In UDPBroadcaster and Heartbeat classes
+void setTargetIP(const std::string& target_ip) {
+    std::lock_guard<std::mutex> lock(target_ip_mutex_);
+    if (target_ip_ != target_ip) {
+        Logger::info("UDP broadcaster target IP updated: " + target_ip_ + " -> " + target_ip);
+        target_ip_ = target_ip;
+    }
+}
+
+// In sendStatus() / sendLoop()
+std::string target_ip;
+{
+    std::lock_guard<std::mutex> lock(target_ip_mutex_);
+    target_ip = target_ip_;  // Copy under lock
+}
+// Use target_ip for sendto() outside lock
+```
+
+**Benefits**:
+- Works seamlessly on WiFi (10.0.1.x) and ethernet (192.168.144.x)
+- No manual `--ground-ip` configuration needed
+- Adapts if ground station IP changes mid-session
+- Thread-safe concurrent access during broadcasts
+
+**Wiring** (in main.cpp):
+```cpp
+g_tcp_server->setUDPBroadcaster(g_udp_broadcaster.get());
+g_tcp_server->setHeartbeat(g_heartbeat.get());
+Logger::info("Dynamic IP discovery enabled - broadcasters will auto-update when client connects");
 ```
 
 ### 5.2 UDP Status Broadcaster (protocol/udp_broadcaster.cpp)
