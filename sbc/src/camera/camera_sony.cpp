@@ -674,26 +674,18 @@ private:
             return false;
         }
 
-        // Copy property for timeout-protected SDK call
-        SDK::CrDeviceProperty prop_copy = prop;
+        // Send property to camera - synchronous call while holding mutex
+        // CRITICAL: Must execute in same thread that holds mutex (not async)
+        // Property changes are fast (<50ms typically), so blocking is acceptable
+        auto status = SDK::SetDeviceProperty(device_handle_, &prop);
 
-        // Send property to camera with timeout protection (5 second timeout)
-        // IMPORTANT: We're holding the mutex during this call to prevent
-        // concurrent SDK access from getProperty() or getBatteryLevel()
-        bool success = runWithTimeout([this, prop_copy]() mutable -> bool {
-            auto status = SDK::SetDeviceProperty(device_handle_, &prop_copy);
-
-            if (CR_FAILED(status)) {
-                Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
-                return false;
-            }
-            return true;
-        }, 5000, "camera.set_property." + property);
-
-        if (success) {
-            Logger::info("Property set successfully");
+        if (CR_FAILED(status)) {
+            Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
+            return false;
         }
-        return success;
+
+        Logger::info("Property set successfully");
+        return true;
     }
 
     std::string getProperty(const std::string& property) const override {
