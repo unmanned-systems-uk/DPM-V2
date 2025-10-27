@@ -664,6 +664,44 @@ private:
             return false;
         }
 
+        // IMPORTANT: Check if property is currently writable before attempting to set it
+        // Sony SDK requires checking the enable flag first (per SDK documentation)
+        SDK::CrDeviceProperty* property_list = nullptr;
+        int property_count = 0;
+
+        auto get_status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
+
+        if (CR_FAILED(get_status) || !property_list || property_count == 0) {
+            Logger::error("Failed to get device properties before setting. Status: 0x" + std::to_string(get_status));
+            if (property_list) {
+                SDK::ReleaseDeviceProperties(device_handle_, property_list);
+            }
+            return false;
+        }
+
+        // Find our target property and check if it's writable
+        bool property_is_writable = false;
+        for (int i = 0; i < property_count; i++) {
+            if (property_list[i].GetCode() == prop.GetCode()) {
+                // Check if property is currently writable (enable flag)
+                if (property_list[i].IsSetEnableCurrentValue()) {
+                    property_is_writable = true;
+                    Logger::debug("Property is writable (enable flag is set)");
+                } else {
+                    Logger::warning("Property is NOT writable right now (enable flag is clear)");
+                    Logger::warning("Camera may be: reviewing image, in wrong mode, or property locked");
+                }
+                break;
+            }
+        }
+
+        SDK::ReleaseDeviceProperties(device_handle_, property_list);
+
+        if (!property_is_writable) {
+            Logger::error("Cannot set property: camera is not accepting changes to this property right now");
+            return false;
+        }
+
         // Send property to camera - synchronous call while holding mutex
         // CRITICAL: Must execute in same thread that holds mutex (not async)
         // Property changes are fast (<50ms typically), so blocking is acceptable
