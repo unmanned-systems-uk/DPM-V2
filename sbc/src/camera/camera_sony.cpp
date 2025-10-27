@@ -495,21 +495,23 @@ private:
         // Air-side converts to Sony SDK format (e.g., 0x00010001, 0x01000280)
 
         if (property == "shutter_speed") {
+            // Reject AUTO/BULB mode - not suitable for UAV operations
+            if (value == "auto" || value == "bulb") {
+                Logger::error("Cannot set shutter_speed to '" + value + "' - AUTO/BULB modes are disabled for UAV flight operations");
+                return false;
+            }
+
             // Shutter speed: map human-readable strings to Sony SDK values
             //
-            // FORMAT (from Sony SDK documentation):
-            // Upper 2 bytes = Numerator, Lower 2 bytes = Denominator
+            // FORMAT (from automated discovery 2025-10-27):
+            // Fast shutters (1/X): Upper 2 bytes = 0x0001, Lower 2 bytes = X (denominator in hex)
+            //   Example: 1/2000 = 0x0001 (numerator) + 0x07D0 (2000 in hex) = 0x000107D0
             //
-            // Fraction speeds (1/X): Numerator = 0x0001, Denominator = X (in hex)
-            //   Example: 1/1000 = 0x0001 (numerator) + 0x03E8 (1000 in hex) = 0x000103E8
+            // Long exposures (X.X"): Format 0xNNNN000A where NNNN × 0.1 = seconds
+            //   Example: 2.5" = 0x0019 (25 tenths) + 0x000A = 0x0019000A
             //
-            // Long exposures (X.X"): Numerator = X×10, Denominator = 0x000A (10)
-            //   Example: 1.5" = 0x000F (15) + 0x000A (10) = 0x000F000A
-            //
-            // NOTE: Complete Sony Alpha 1 range (59 speeds)
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
             static const std::unordered_map<std::string, uint32_t> SHUTTER_MAP = {
-                {"auto",   0x00000000},
                 // Fast shutter speeds (1/8000 to 1/1000)
                 {"1/8000", 0x00011F40}, {"1/6400", 0x00011900}, {"1/5000", 0x00011388},
                 {"1/4000", 0x00010FA0}, {"1/3200", 0x00010C80}, {"1/2500", 0x000109C4},
@@ -525,12 +527,15 @@ private:
                 {"1/40",   0x00010028}, {"1/30",   0x0001001E}, {"1/25",   0x00010019},
                 {"1/20",   0x00010014}, {"1/15",   0x0001000F}, {"1/13",   0x0001000D},
                 {"1/10",   0x0001000A}, {"1/8",    0x00010008}, {"1/6",    0x00010006},
-                {"1/5",    0x00010005}, {"1/4",    0x00010004}, {"1/3",    0x00010003}
-                // NOTE: Long exposures (below 1/2 second) are NOT supported in Manual mode
-                // These require Bulb mode or a different camera setting
-                // Tested range: 1/8000 to 1/3 (35 speeds total)
-                //
-                // BULB mode: Use dedicated capture command, not shutter_speed property
+                {"1/5",    0x00010005}, {"1/4",    0x00010004}, {"1/3",    0x00010003},
+                // Long exposures (0.3" to 30")
+                {"0.3\"",  0x0003000A}, {"0.4\"",  0x0004000A}, {"0.5\"",  0x0005000A},
+                {"0.6\"",  0x0006000A}, {"0.8\"",  0x0008000A}, {"1.0\"",  0x000A000A},
+                {"1.3\"",  0x000D000A}, {"1.6\"",  0x0010000A}, {"2.0\"",  0x0014000A},
+                {"2.5\"",  0x0019000A}, {"3.0\"",  0x001E000A}, {"4.0\"",  0x0028000A},
+                {"5.0\"",  0x0032000A}, {"6.0\"",  0x003C000A}, {"8.0\"",  0x0050000A},
+                {"10\"",   0x0064000A}, {"13\"",   0x0082000A}, {"15\"",   0x0096000A},
+                {"20\"",   0x00C8000A}, {"25\"",   0x00FA000A}, {"30\"",   0x012C000A}
             };
             auto it = SHUTTER_MAP.find(value);
             if (it == SHUTTER_MAP.end()) {
@@ -578,12 +583,20 @@ private:
         }
         else if (property == "iso") {
             // ISO: map ISO strings to Sony SDK values
+            // Sony SDK uses simple decimal values (not complex hex like shutter speed)
+            // Extended ISOs (50, 64, 80, 40000+) may require camera to be in special mode
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
             static const std::unordered_map<std::string, uint32_t> ISO_MAP = {
-                {"auto",   0xFFFFFFFF}, {"100",    100},    {"200",    200},
-                {"400",    400},        {"800",    800},    {"1600",   1600},
-                {"3200",   3200},       {"6400",   6400},   {"12800",  12800},
-                {"25600",  25600},      {"51200",  51200},  {"102400", 102400}
+                {"auto",   0xFFFFFFFF},
+                // Extended low ISO
+                {"50",     50},         {"64",     64},     {"80",     80},
+                // Standard ISO range (full stops)
+                {"100",    100},        {"200",    200},    {"400",    400},
+                {"800",    800},        {"1600",   1600},   {"3200",   3200},
+                {"6400",   6400},       {"12800",  12800},  {"25600",  25600},
+                // Extended high ISO
+                {"40000",  40000},      {"51200",  51200},  {"64000",  64000},
+                {"80000",  80000},      {"102400", 102400}
             };
             auto it = ISO_MAP.find(value);
             if (it == ISO_MAP.end()) {
