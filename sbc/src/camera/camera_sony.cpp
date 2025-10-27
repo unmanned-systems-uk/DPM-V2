@@ -276,62 +276,52 @@ public:
             return false;
         }
 
-        // Try to get device handle without blocking
-        SDK::CrDeviceHandle handle;
-        {
-            std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
-            if (!lock.owns_lock()) {
-                Logger::warning("Cannot capture: camera busy with another operation");
-                return false;
-            }
-            handle = device_handle_;  // Copy handle while locked
+        // Acquire lock for entire operation to prevent concurrent SDK access
+        // CRITICAL FIX: Keep lock held during SDK calls to avoid race condition
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            Logger::warning("Cannot capture: camera busy with another operation");
+            return false;
         }
 
         Logger::info("Triggering shutter release...");
 
-        // Wrap SDK call in timeout protection (5 second timeout)
-        bool success = runWithTimeout([handle]() -> bool {
-            // Send shutter button DOWN (press)
-            auto status_down = SDK::SendCommand(
-                handle,
-                SDK::CrCommandId_Release,
-                SDK::CrCommandParam_Down
-            );
+        // Send shutter button DOWN (press) - synchronous call while holding mutex
+        auto status_down = SDK::SendCommand(
+            device_handle_,
+            SDK::CrCommandId_Release,
+            SDK::CrCommandParam_Down
+        );
 
-            if (CR_FAILED(status_down)) {
-                Logger::error("Failed to send shutter DOWN command. Status: 0x" +
-                             std::to_string(status_down));
-                return false;
-            }
-
-            Logger::debug("Shutter DOWN command sent");
-
-            // Small delay to allow shutter press to register
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-            // Send shutter button UP (release)
-            auto status_up = SDK::SendCommand(
-                handle,
-                SDK::CrCommandId_Release,
-                SDK::CrCommandParam_Up
-            );
-
-            if (CR_FAILED(status_up)) {
-                Logger::error("Failed to send shutter UP command. Status: 0x" +
-                             std::to_string(status_up));
-                // Try to recover by sending UP again
-                SDK::SendCommand(handle, SDK::CrCommandId_Release, SDK::CrCommandParam_Up);
-                return false;
-            }
-
-            Logger::debug("Shutter UP command sent");
-            return true;
-        }, 5000, "camera.capture");
-
-        if (success) {
-            Logger::info("Shutter release sequence completed successfully");
+        if (CR_FAILED(status_down)) {
+            Logger::error("Failed to send shutter DOWN command. Status: 0x" +
+                         std::to_string(status_down));
+            return false;
         }
-        return success;
+
+        Logger::debug("Shutter DOWN command sent");
+
+        // Small delay to allow shutter press to register
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Send shutter button UP (release)
+        auto status_up = SDK::SendCommand(
+            device_handle_,
+            SDK::CrCommandId_Release,
+            SDK::CrCommandParam_Up
+        );
+
+        if (CR_FAILED(status_up)) {
+            Logger::error("Failed to send shutter UP command. Status: 0x" +
+                         std::to_string(status_up));
+            // Try to recover by sending UP again
+            SDK::SendCommand(device_handle_, SDK::CrCommandId_Release, SDK::CrCommandParam_Up);
+            return false;
+        }
+
+        Logger::debug("Shutter UP command sent");
+        Logger::info("Shutter release sequence completed successfully");
+        return true;
     }
 
 private:
