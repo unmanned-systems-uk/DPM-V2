@@ -1,36 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git restore:*)",
-      "Bash(./sbc/run_container.sh:*)",
-      "Bash(unzip:*)",
-      "Read(//usr/include/**)",
-      "Bash(sudo docker ps:*)",
-      "Bash(docker run:*)",
-      "Bash(docker *:*)",
-      "Bash(git *:*)",
-      "Bash(ls *:*)",
-      "Bash(cat *:*)",
-      "Bash(grep *:*)",
-      "Bash(find *:*)",
-      "Bash(jq *:*)",
-      "Bash(cd *:*)",
-      "Bash(pwd:*)",
-      "Bash(which *:*)",
-      "Bash(test *:*)",
-      "Bash(echo *:*)",
-      "Bash(mkdir *:*)",
-      "Bash(cp *:*)",
-      "Bash(mv *:*)",
-      "Bash(chmod *:*)",
-      "Bash(make *:*)",
-      "Bash(cmake *:*)",
-      "Bash(./gradlew *:*)",
-      "Bash(adb *:*)",
-      "Bash(valgrind *:*)",
-      "Bash(python3 *:*)",
-      "Bash(node *:*)",
-      "Bash(npm *:*)"
+      "Bash(git pull:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
