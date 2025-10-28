@@ -408,7 +408,19 @@ private:
                     std::string values_str = "";
                     for (CrInt32u j = 0; j < num_values && j < 50; ++j) {  // Limit to 50 to avoid huge logs
                         CrInt32u val = values[j];
-                        std::string str_val = (val == 0xFFFFFFFF || val == 0xFFFFFF) ? "auto" : std::to_string(val);
+                        std::string str_val;
+
+                        if (val == 0xFFFFFFFF || val == 0xFFFFFF) {
+                            str_val = "auto";
+                        } else if ((val & 0x10000000) != 0) {
+                            // Extended ISO (low 50/64/80 or high 40000+) - strip flag
+                            CrInt32u iso_value = val & 0x0FFFFFFF;
+                            str_val = std::to_string(iso_value) + " (extended)";
+                        } else {
+                            // Standard ISO
+                            str_val = std::to_string(val);
+                        }
+
                         if (j > 0) values_str += ", ";
                         values_str += str_val;
                     }
