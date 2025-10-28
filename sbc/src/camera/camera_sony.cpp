@@ -396,16 +396,18 @@ private:
                 Logger::info("ISO DIAGNOSTIC: Writable = " + std::string(iso_prop.IsSetEnableCurrentValue() ? "YES" : "NO"));
 
                 // Available values
-                CrInt32u num_values = iso_prop.GetValueSize();
+                CrInt32u value_size_bytes = iso_prop.GetValueSize();
+                CrInt32u num_values = value_size_bytes / sizeof(CrInt32u);  // ISO values are 32-bit
+                Logger::info("ISO DIAGNOSTIC: Value size (bytes) = " + std::to_string(value_size_bytes));
                 Logger::info("ISO DIAGNOSTIC: Available values count = " + std::to_string(num_values));
 
                 if (num_values > 0) {
                     CrInt8u* values_ptr = iso_prop.GetValues();
-                    CrInt64u* values = reinterpret_cast<CrInt64u*>(values_ptr);
+                    CrInt32u* values = reinterpret_cast<CrInt32u*>(values_ptr);  // ISO = 32-bit
 
                     std::string values_str = "";
                     for (CrInt32u j = 0; j < num_values && j < 50; ++j) {  // Limit to 50 to avoid huge logs
-                        CrInt64u val = values[j];
+                        CrInt32u val = values[j];
                         std::string str_val = (val == 0xFFFFFFFF || val == 0xFFFFFF) ? "auto" : std::to_string(val);
                         if (j > 0) values_str += ", ";
                         values_str += str_val;
