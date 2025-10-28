@@ -25,116 +25,7 @@ Integration:           ████████████████░░░
 
 **Overall Completion:** 65% (Phase 1 MVP)
 
-**Last Updated:** October 27, 2025 - Camera enhancements and critical heartbeat issue discovered
-
----
-
-## RECENT UPDATES
-
-### 🚨 CRITICAL: Heartbeat Not Received - Air-Side Issue (October 27, 2025) 🔴
-
-**BLOCKER DISCOVERED:**
-- Ground-Side (Android) not receiving UDP heartbeat broadcasts from Air-Side
-- Connection stuck at CONNECTED state, never reaches OPERATIONAL
-- Property querying disabled (requires OPERATIONAL state)
-- No heartbeat messages in logs
-- Air-Side heartbeat broadcaster likely not sending on port 5556
-
-**Impact:**
-- Camera property queries not working
-- Connection state incomplete
-- User experience degraded
-
-**Action Required:**
-- ❗ Investigate Air-Side heartbeat broadcaster service
-- ❗ Check if UDP packets being sent on port 5556
-- ❗ Review Air-Side logs for errors
-
-**Status:** 🔴 ACTIVE BLOCKER - Needs immediate Air-Side investigation
-
----
-
-### ✅ Camera Error Handling (October 27, 2025) ✅
-
-**Feature Complete:**
-- ✅ Added cameraError field to CameraState
-- ✅ Enhanced error parsing in CameraViewModel
-  * Detects error code 5005 "Camera not connected"
-  * Extracts error details from protocol responses
-  * Clears errors on successful queries
-- ✅ Added prominent error banner UI in CameraControlScreen
-  * Displays at top of screen with warning icon
-  * Shows error message to user
-  * Includes "Please check camera connectivity" instruction
-  * Uses Material3 error colors
-
-**Files Modified:**
-- `CameraState.kt` - Added cameraError field
-- `CameraViewModel.kt` - Enhanced queryAndUpdateProperties()
-- `CameraControlScreen.kt` - Added error banner UI
-
-**Impact:**
-- Users now see clear error messages when camera operations fail
-- Better UX for diagnosing camera connection issues
-
----
-
-### ✅ Battery Level Color Coding (October 27, 2025) ✅
-
-**Feature Complete:**
-- ✅ Color-coded battery warnings:
-  * Battery ≥50%: White (normal)
-  * Battery <50%: Orange (#FF9800)
-  * Battery <30%: Red
-  * Battery <20%: Flashing red (infinite animation, 500ms cycle)
-- ✅ Added textColor parameter to SonyParameter composable
-- ✅ Smooth alpha animation for critical battery levels
-
-**Files Modified:**
-- `SonyCameraOverlay.kt` - Added color logic and animation
-
-**Impact:**
-- Users get clear visual warnings for low battery
-- Critical battery levels (<20%) are impossible to miss with flashing
-
----
-
-### ✅ Property Query Controls (October 27, 2025) ✅
-
-**Features Complete:**
-1. **Heartbeat-Based Property Querying**
-   - Property queries now ONLY work in OPERATIONAL state (heartbeat required)
-   - Prevents queries when connection established but no heartbeat
-   - Files Modified: `CameraViewModel.kt`
-
-2. **Diagnostic Toggle for Property Queries**
-   - Added "Enable Property Querying" toggle in Settings
-   - Allows disabling queries for diagnostics
-   - Persisted via DataStore
-   - Visual feedback when enabled/disabled
-   - Files Modified: `SettingsRepository.kt`, `SettingsViewModel.kt`, `SettingsManager.kt`, `CameraViewModel.kt`, `SettingsScreen.kt`
-
-**Impact:**
-- Better control over when property queries happen
-- Diagnostic capability for troubleshooting
-- Exposed the heartbeat issue
-
----
-
-### ✅ Mode Panel Removal (October 27, 2025) ✅
-
-**Changes Made:**
-- Removed Mode indicator from camera overlay top bar
-- Removed Mode collapsible section from advanced control screen
-- Removed Mode indicator from Main Settings exposure triangle
-
-**Reason:**
-- Camera modes (Manual/Av/Tv/P/Auto) not useful for this application
-- Simplified UI
-
-**Files Modified:**
-- `SonyCameraOverlay.kt` - Removed mode from top bar
-- `SonyRemoteControlScreen.kt` - Removed Mode section and indicator
+**Last Updated:** October 25, 2025 - System Status screen added
 
 ---
 
@@ -669,12 +560,9 @@ Integration:           ████████████████░░░
 ## NEXT STEPS
 
 ### Immediate Tasks
-1. 🔴 **CRITICAL** - Investigate Air-Side heartbeat broadcaster (BLOCKER)
-   - Check if service is running on Raspberry Pi
-   - Verify UDP packets being sent on port 5556
-   - Review Air-Side logs for errors
-2. ⏳ Test system.get_status end-to-end with air-side (after heartbeat fixed)
-3. ⏳ Test camera.capture end-to-end with air-side (after heartbeat fixed)
+1. ✅ ~~Implement system.get_status command~~ **COMPLETE**
+2. ⏳ Test system.get_status end-to-end with air-side
+3. ⏳ Test camera.capture end-to-end with air-side
 4. ⏳ Verify WiFi connectivity with dynamic IP
 5. ⏳ Test on physical H16 hardware (when available)
 
@@ -697,7 +585,7 @@ Integration:           ████████████████░░░
 
 ## BUILD STATUS
 
-**Last Build:** October 27, 2025
+**Last Build:** October 25, 2025
 **Status:** ✅ SUCCESS
 **Command:** `./gradlew assembleDebug`
 **Build Time:** 41 seconds
@@ -717,16 +605,9 @@ Integration:           ████████████████░░░
 
 **Current Branch:** main
 **Remote:** https://github.com/unmanned-systems-uk/DPM-V2.git
-**Last Commit:** (to be updated at end of session)
-**Status:** ⚠️ Changes not yet committed
-**Uncommitted Changes:** Multiple files (session in progress)
-
-**Session Changes (October 27, 2025):**
-1. Camera error handling implementation
-2. Battery level color coding with flashing animation
-3. Property query controls and diagnostics toggle
-4. Mode panel removal
-5. CLAUDE_MEMORY.md created for session continuity
+**Last Commit:** 3132d2b - [FEATURE] System Status implementation
+**Status:** ✅ Clean (all changes committed and pushed)
+**Uncommitted Changes:** 0
 
 **Recent Commits:**
 1. `3132d2b` - [FEATURE] System Status: Implemented system.get_status with new UI
@@ -754,13 +635,7 @@ Integration:           ████████████████░░░
 ## KNOWN ISSUES
 
 ### Active Issues
-
-**🔴 CRITICAL: No Heartbeat Reception (October 27, 2025)**
-- **Status**: ACTIVE BLOCKER
-- **Issue**: Ground-Side not receiving UDP heartbeat broadcasts from Air-Side
-- **Impact**: Connection stuck at CONNECTED, property querying disabled
-- **Root Cause**: Air-Side heartbeat broadcaster not sending on port 5556
-- **Action**: Investigate Air-Side service
+*None currently identified*
 
 ### Resolved Issues
 - ✅ Settings screen status not updating on first connect → Fixed with NetworkManager
@@ -880,7 +755,6 @@ android/
 ├── docs/
 │   ├── PROGRESS_AND_TODO.MD ✅ (this file)
 │   └── CC_READ_THIS_FIRST.md ✅
-├── CLAUDE_MEMORY.md ✅ NEW! (Session continuity notes)
 └── gradle/
     └── libs.versions.toml ✅
 ```
