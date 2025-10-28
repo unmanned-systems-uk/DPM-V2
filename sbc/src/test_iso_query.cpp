@@ -20,6 +20,7 @@ class DiagnosticCallback : public SDK::IDeviceCallback
 {
 public:
     DiagnosticCallback() : connected_(false) {}
+    virtual ~DiagnosticCallback() = default;
 
     void OnConnected(SDK::DeviceConnectionVersioin version) override {
         connected_ = true;
@@ -184,13 +185,14 @@ int main() {
                 std::cout << std::endl;
 
                 // Available values
-                if (iso_prop.IsGetEnableAvailableValue()) {
-                    CrInt32u num_values = iso_prop.GetAvailableValueCount();
+                CrInt32u num_values = iso_prop.GetValueSize();
+                if (num_values > 0) {
                     std::cout << "  Available ISO Values (" << num_values << " total):" << std::endl;
                     std::cout << "  -----------------------------------------------------------" << std::endl;
 
+                    CrInt64u* values = iso_prop.GetValues();
                     for (CrInt32u j = 0; j < num_values; ++j) {
-                        uint32_t value = iso_prop.GetAvailableValue(j);
+                        uint32_t value = static_cast<uint32_t>(values[j]);
                         std::string str_value = isoValueToString(value);
 
                         // Check if this value is in our specification
