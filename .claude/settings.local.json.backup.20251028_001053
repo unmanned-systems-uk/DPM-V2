@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(docker build:*)",
+      "Bash(/home/dpm/DPM-V2/sbc/build_container.sh)",
+      "Bash(/home/dpm/DPM-V2/sbc/run_container.sh:*)",
+      "Bash(git merge:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
