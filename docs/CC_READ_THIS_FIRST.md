@@ -2,8 +2,7 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025  
-**Last Updated:** October 27, 2025 - Added Specification-First Enforcement  
-**Version:** 2.1 (Combined Air-Side + Ground-Side + Spec Enforcement)  
+**Version:** 2.1 (Added Sony SDK HTML Documentation Reference)  
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -23,91 +22,6 @@
 - 🔹 **Protocol/Documentation?** → Working in `docs/` directory
   - Read Common Rules below
   - Focus on Protocol Synchronization section
-
----
-
-## 🚨 SPECIFICATION-FIRST ENFORCEMENT
-
-**CRITICAL RULE: The specification files are the SINGLE SOURCE OF TRUTH.**
-
-### The Problem We're Solving
-
-**Past Issue (Oct 2025):**
-```
-camera_properties.json (12 ISO values) ← OUTDATED SPEC
-        ✗                    ✗
-  Air-Side (C++)      Ground-Side (Android)
-  HARDCODED 35 ISOs   HARDCODED ??? ISOs
-  
-  → DIVERGENCE! Spec didn't match implementations
-```
-
-**Correct Architecture:**
-```
-camera_properties.json (COMPLETE - 35 ISO values)
-        ↓                    ↓
-  Air-Side (C++)      Ground-Side (Android)
-  Reads/generates     Reads/generates
-  from spec           from spec
-  
-  → SYNCHRONIZED! Spec is single source of truth
-```
-
-### Forbidden Actions
-
-❌ **NEVER hardcode camera property values** in Air-Side or Ground-Side code  
-❌ **NEVER implement a property without reading** `camera_properties.json` first  
-❌ **NEVER assume values** - always derive from specification  
-❌ **NEVER add values to implementation** without updating specification first  
-❌ **NEVER commit code with hardcoded property arrays/maps** (exceptions: generated code)
-
-### Required Workflow for Camera Properties
-
-```
-1. User identifies need for new property value (e.g., ISO 102400)
-   ↓
-2. CC STOPS and asks: "Should I update camera_properties.json first?"
-   ↓
-3. User confirms or CC updates camera_properties.json
-   ↓
-4. COMMIT the spec change: [PROTOCOL] Add ISO 102400 to camera_properties.json
-   ↓
-5. PULL latest (in case other side updated)
-   ↓
-6. NOW implement in Air-Side C++ (read from JSON or use code generation)
-   ↓
-7. BUILD and TEST thoroughly
-   ↓
-8. COMMIT Air-Side: [FEATURE] Implement ISO 102400 support
-   ↓
-9. Update camera_properties.json: "air_side": true
-   ↓
-10. COMMIT: [PROTOCOL] Mark ISO implementation complete on air-side
-    ↓
-11. Ground-Side CC pulls, sees new ISO value, asks user about UI
-    ↓
-12. Implement in Android (load from spec, don't hardcode)
-    ↓
-13. Update "ground_side": true
-    ↓
-14. COMMIT: [PROTOCOL] Mark ISO implementation complete on ground-side
-```
-
-### Specification Update Triggers
-
-🔴 **STOP and update spec FIRST if you discover:**
-- New valid camera property value (e.g., additional ISO value)
-- New Sony SDK property code
-- New enum value for existing property
-- Missing validation rule
-- Incorrect type definition
-- Any mismatch between spec and reality
-
-**Process:**
-1. STOP coding immediately
-2. Update `camera_properties.json`
-3. Commit spec update
-4. THEN implement in code
 
 ---
 
@@ -132,37 +46,7 @@ camera_properties.json (COMPLETE - 35 ISO values)
 4. **Wait** for user to resolve or give instructions
 5. **DO NOT** attempt to resolve conflicts without user approval
 
-### 3. Run Protocol Synchronization Audit (NEW!)
-
-**MANDATORY: Run audit script at start of EVERY session**
-
-```bash
-# If audit script exists, run it
-if [ -f tools/audit_protocol_sync.sh ]; then
-    ./tools/audit_protocol_sync.sh
-else
-    echo "⚠️  Audit script not found - manual check required"
-fi
-```
-
-**Manual checks if script doesn't exist:**
-
-```bash
-# Check for recent spec updates
-git log --oneline --since="1 day ago" -- docs/protocol/
-
-# Check YOUR platform's implementation status
-# Air-Side:
-jq '.properties | to_entries[] | select(.value.implemented.air_side == false) | .key' \
-  docs/protocol/camera_properties.json
-
-# Ground-Side:
-jq '.properties | to_entries[] | select(.value.implemented.ground_side == false) | .key' \
-  docs/protocol/camera_properties.json
-```
-
-### 4. Check Protocol Synchronization
-
+### 3. Check Protocol Synchronization
 - ✅ **MANDATORY** - Check `docs/protocol/commands.json` for new commands
 - ✅ **MANDATORY** - Check `docs/protocol/camera_properties.json` for new properties
 - ✅ Check if the other platform has implemented things you need to implement
@@ -187,21 +71,7 @@ cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.ground_side == false) | .key'
 ```
 
-### 5. Check for Hardcoded Values (NEW!)
-
-**Search for specification violations:**
-
-```bash
-# Air-Side: Search for hardcoded property arrays
-grep -rn "std::vector.*ISO\|ISO.*{" sbc/src/ | grep -v generated | grep -v "\/\/"
-
-# Ground-Side: Search for hardcoded property arrays  
-grep -rn "arrayOf.*ISO\|listOf.*ISO" android/app/src/ | grep -v generated | grep -v "\/\/"
-
-# If you find ANY hardcoded arrays, STOP and report to user
-```
-
-### 6. Check Current Status
+### 4. Check Current Status
 - ✅ Read the appropriate `PROGRESS_AND_TODO.md`:
   - **Air-side:** `sbc/docs/PROGRESS_AND_TODO.md`
   - **Ground-side:** `android/docs/PROGRESS_AND_TODO.md`
@@ -211,7 +81,7 @@ grep -rn "arrayOf.*ISO\|listOf.*ISO" android/app/src/ | grep -v generated | grep
   - What's currently blocked
   - What to work on next
 
-### 7. Read Relevant Technical Docs (If Needed)
+### 5. Read Relevant Technical Docs (If Needed)
 - ⚠️ **DO NOT** read `Project_Summary_and_Action_Plan.md` unless explicitly asked
 - ⚠️ **DO NOT** re-read technical specs you've already reviewed in this session
 - ✅ **DO** read specific technical docs when starting new features
@@ -220,7 +90,7 @@ grep -rn "arrayOf.*ISO\|listOf.*ISO" android/app/src/ | grep -v generated | grep
 - `sbc/docs/BUILD_AND_IMPLEMENTATION_PLAN.md` - When implementing new components
 - `sbc/docs/DOCKER_SETUP.md` - When working with Docker or Sony SDK
 - Protocol specs - When implementing protocol features
-- Sony SDK docs - When working on camera integration
+- **Sony SDK HTML Documentation** - When working on camera integration (see Air-Side section)
 
 **Ground-Side Docs:**
 - `docs/Command_Protocol_Specification_v1.0.md` - When implementing protocol features
@@ -229,7 +99,7 @@ grep -rn "arrayOf.*ISO\|listOf.*ISO" android/app/src/ | grep -v generated | grep
 - `docs/Updated_System_Architecture_H16.md` - System architecture
 - Android-specific guides when implementing UI/networking
 
-### 8. Understand Git Status
+### 6. Understand Git Status
 - ✅ Run `git status` to check for uncommitted changes
 - ✅ Identify what needs to be committed
 - ✅ Check current branch (should be `main`)
@@ -335,7 +205,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    └─ [PROTOCOL] Implemented [command.name] UI
 ```
 
-#### Camera Properties Workflow (SPECIFICATION-FIRST!)
+#### Camera Properties Workflow
 
 **Key Insight:** `camera.set_property` is ONE command that sets MANY properties.
 
@@ -345,35 +215,19 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 **When implementing camera properties:**
 
-1. **READ camera_properties.json FIRST:**
-   ```bash
-   cat docs/protocol/camera_properties.json | jq '.properties."property_name"'
-   ```
-
-2. **Check which properties are Phase 1:**
+1. **Check which properties are Phase 1:**
    ```bash
    cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.properties[]'
    ```
 
-3. **Verify values in specification:**
-   - Check `validation.values[]` array
-   - These are the ONLY valid values
-   - Do NOT add values not in spec
-   - If you find new valid values, update spec FIRST
-
-4. **Pick ONE property to implement at a time:**
+2. **Pick ONE property to implement at a time:**
    - Start with high-priority (exposure triangle: shutter, aperture, ISO)
-   - Implement air-side Sony SDK call (using spec values)
-   - Add ground-side UI control (using spec values)
+   - Implement air-side Sony SDK call
+   - Add ground-side UI control
    - Test thoroughly
    - Mark property as implemented
 
-5. **Implementation approach (choose one):**
-   - **Option A (Recommended):** Code generation from JSON
-   - **Option B:** Runtime JSON loading
-   - **Option C (FORBIDDEN):** Hardcoding values
-
-6. **UI considerations (ground-side):**
+3. **UI considerations (ground-side):**
    - Check `ui_hints` in camera_properties.json:
      - `dropdown` → Spinner/Dropdown
      - `slider` → SeekBar
@@ -381,28 +235,21 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    - Different properties need different controls
    - Some properties depend on others (e.g., WB temperature requires WB mode = "temperature")
 
-7. **Example: Implementing shutter_speed:**
+4. **Example: Implementing shutter_speed:**
    ```
    Air-Side:
-   - READ camera_properties.json for shutter_speed values
-   - Generate or load mapping to Sony SDK ShutterSpeedValue enum
    - Add to handleCameraSetProperty()
+   - Map value to Sony SDK ShutterSpeedValue enum
    - Call SDK::SetDeviceProperty(CrDeviceProperty_ShutterSpeed, value)
    - Test with real camera
-   - Mark "air_side": true in JSON
-   - COMMIT: [FEATURE] Implement shutter_speed property
-   - COMMIT: [PROTOCOL] Mark shutter_speed air-side complete
+   - Mark "air_side": true
    
    Ground-Side:
-   - READ camera_properties.json for shutter_speed values
-   - Load values from JSON (don't hardcode!)
-   - Add Spinner with values from specification
+   - Add Spinner with values from validation.values in JSON
    - Wire to networkClient.setCameraProperty("shutter_speed", value)
    - Implement validation
    - Test end-to-end
-   - Mark "ground_side": true in JSON
-   - COMMIT: [FEATURE] Implement shutter_speed UI
-   - COMMIT: [PROTOCOL] Mark shutter_speed ground-side complete
+   - Mark "ground_side": true
    ```
 
 #### Protocol Sync Rules
@@ -416,8 +263,6 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 - Keep JSON as single source of truth
 - Implement incrementally (one command/property at a time)
 - Test thoroughly before marking as implemented
-- Run audit script to detect divergence
-- Read spec before implementing any property
 
 ❌ **DON'T:**
 - Implement commands/properties not in JSON files
@@ -426,9 +271,6 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 - Skip protocol check at session start
 - Implement multiple things at once
 - Send commands/properties the other side can't handle
-- **Hardcode property values in source code**
-- **Add values to code without updating spec first**
-- **Assume spec is complete - verify against reality**
 
 ### Rule #1: Update PROGRESS_AND_TODO.md After Every Significant Change
 
@@ -464,7 +306,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 **Format Example:**
 ```markdown
-**Last Updated:** October 27, 2025 15:30 - After fixing specification divergence
+**Last Updated:** October 25, 2025 15:30 - After implementing shutter_speed property
 ```
 
 ### Rule #2: Commit to Git Regularly
@@ -476,7 +318,6 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    - ✅ Bug fixed and verified
    - ✅ New component created
    - ✅ Documentation updated significantly
-   - ✅ **Specification updated**
 
 2. **Time-based minimum:**
    - ✅ Commit at least every 30-60 minutes of active work
@@ -502,7 +343,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 **Valid TYPE prefixes:**
 - `[FEATURE]` - New functionality
 - `[FIX]` - Bug fix
-- `[PROTOCOL]` - Protocol implementation or specification update
+- `[PROTOCOL]` - Protocol implementation
 - `[DOCS]` - Documentation update
 - `[REFACTOR]` - Code restructuring
 - `[TEST]` - Testing additions
@@ -511,25 +352,25 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 **Good Examples:**
 ```bash
-[PROTOCOL] Camera: Add complete ISO value range to specification
+[PROTOCOL] Camera: Implemented shutter_speed property
 
-- Added all 35 ISO values from 50 to 102400
-- Discovered from Sony A1 camera capabilities
-- Air-side and ground-side will now sync from this spec
-- Prevents future divergence
+- Air-side: Sony SDK CrDeviceProperty_ShutterSpeed integration
+- Ground-side: Dropdown UI with standard shutter speeds
+- Validation: Enum values from camera_properties.json
+- Testing: Verified with Sony A1 camera
 
-[FIX] Air-Side: Remove hardcoded ISO values, load from spec
+[FIX] Docker: Resolved CrAdapter dynamic loading issue
 
-- Refactored sony_camera.cpp to load ISO from JSON
-- Added PropertyLoader class for runtime JSON loading
-- Removed hardcoded ISO map
-- Tested with complete ISO range
+- Root cause: Adapters statically linked in CMakeLists.txt
+- Solution: Only link libCr_Core.so, copy CrAdapter/ to build dir
+- Result: SDK now loads adapters dynamically
 
-[PROTOCOL] Camera: Mark shutter_speed complete on both sides
+[FEATURE] Android: Added camera control screen
 
-- Air-side: Implemented and tested
-- Ground-side: UI implemented and tested
-- End-to-end integration verified
+- Implemented CameraControlFragment with MVVM pattern
+- Added exposure controls (shutter, aperture, ISO)
+- Connected to NetworkClient for command sending
+- Tested on emulator and H16 hardware
 ```
 
 **Bad Examples:**
@@ -634,11 +475,127 @@ cd android
    # Should exist and contain CMake files
    ```
 
-4. **Check for hardcoded values (NEW!):**
-   ```bash
-   grep -rn "std::vector.*ISO\|ISO.*{" sbc/src/ | grep -v generated | grep -v "\/\/"
-   # Should return NOTHING or only generated files
-   ```
+### 📚 Sony SDK Documentation Reference
+
+**🔴 CRITICAL: ALWAYS CHECK SDK DOCUMENTATION BEFORE IMPLEMENTING CAMERA FUNCTIONS! 🔴**
+
+The Sony Camera Remote SDK includes comprehensive HTML documentation that MUST be consulted when working with camera functions. Many past issues have occurred from assuming how SDK functions work rather than checking the documentation.
+
+**Primary Documentation Location:**
+```
+CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/function_list/function_list.html
+```
+
+**When to Consult SDK Documentation:**
+
+✅ **ALWAYS before:**
+- Implementing any new camera property
+- Calling any SDK function for the first time
+- Making assumptions about function behavior
+- Implementing error handling for SDK calls
+- Working with SDK callback objects
+- Handling SDK enumerations or constants
+
+❌ **NEVER:**
+- Assume SDK function behavior without checking docs
+- Guess at parameter requirements
+- Implement without verifying return value meanings
+- Copy code patterns without understanding them
+
+**Key SDK Documentation Sections:**
+
+1. **Function List** (`function_list.html`)
+   - Complete list of all SDK functions
+   - Function signatures and parameters
+   - Return value descriptions
+   - Usage notes and requirements
+
+2. **Camera Property Codes** 
+   - `CrDeviceProperty_*` enum values
+   - Valid values for each property
+   - Property dependencies and restrictions
+
+3. **Callback Interfaces**
+   - `ICrCameraObjectInfo` - Camera enumeration callbacks
+   - `CrDevicePropertyCallback` - Property change notifications
+   - Object lifetime requirements (CRITICAL!)
+
+4. **Error Codes**
+   - `CrError_*` enum definitions
+   - Error condition meanings
+   - Proper error handling patterns
+
+**Documentation Access Methods:**
+
+```bash
+# Open in browser (if running on Pi with desktop)
+firefox ~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/function_list/function_list.html
+
+# Or copy to development machine for browsing
+scp -r pi@192.168.x.x:~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/ ./sony_sdk_docs/
+```
+
+**Example Workflow - Adding New Camera Property:**
+
+```
+1. Check camera_properties.json for property name and validation
+   └─ Example: "shutter_speed" with values ["1/8000", "1/4000", ...]
+
+2. Open SDK HTML documentation
+   └─ Search for "ShutterSpeed" or browse property list
+
+3. Find CrDeviceProperty_ShutterSpeed in docs
+   ├─ Read property description
+   ├─ Check valid values (CrShutterSpeed enum)
+   ├─ Note any dependencies or restrictions
+   └─ Review example usage if provided
+
+4. Implement in C++ with verified information
+   ├─ Map JSON values to SDK enum values
+   ├─ Use exact SDK function signature from docs
+   ├─ Handle all documented error codes
+   └─ Follow documented callback requirements
+
+5. Test with real camera
+   └─ Verify behavior matches documentation
+```
+
+**Common SDK Documentation Gotchas:**
+
+⚠️ **Callback Object Lifetime**
+- Documentation specifies callback object lifetime requirements
+- Stack-allocated callbacks may cause connection failures
+- Always check object lifetime requirements in docs
+
+⚠️ **Property Dependencies**
+- Some properties require specific camera modes
+- Some properties depend on other property values
+- Documentation lists these dependencies explicitly
+
+⚠️ **Asynchronous Operations**
+- Many SDK operations are asynchronous
+- Documentation specifies when callbacks are used
+- Response timing varies by operation
+
+⚠️ **Thread Safety**
+- Documentation indicates which functions are thread-safe
+- Some operations require specific thread context
+- Always verify thread safety requirements
+
+**Quick Reference Commands:**
+
+```bash
+# Search SDK documentation for specific property
+grep -r "CrDeviceProperty_ShutterSpeed" ~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/
+
+# List all device properties in SDK headers
+grep "CrDeviceProperty_" ~/sony_sdk/include/CrDefines.h
+
+# Find error code definitions
+grep "CrError_" ~/sony_sdk/include/CrError.h
+```
+
+**Remember:** The Sony SDK HTML documentation has been instrumental in resolving past issues (like the callback object lifetime problem diagnosed at 90% confidence). Taking 5 minutes to read the documentation can save hours of debugging!
 
 ### C++ Build System
 
@@ -662,68 +619,6 @@ make install           # Install to system (optional)
 **Build Output:**
 - Executables: `sbc/build/`
 - Libraries: `sbc/build/lib/`
-
-### Specification-Compliant Implementation (Air-Side)
-
-**Preferred Approach: Code Generation**
-
-If `tools/generate_property_code.py` exists:
-
-```cmake
-# In CMakeLists.txt
-add_custom_command(
-    OUTPUT ${CMAKE_SOURCE_DIR}/src/camera/generated_properties.cpp
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/../tools/generate_property_code.py 
-            > ${CMAKE_SOURCE_DIR}/src/camera/generated_properties.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/../docs/protocol/camera_properties.json
-    COMMENT "Generating camera property code from specification"
-)
-
-add_custom_target(generate_properties ALL
-    DEPENDS ${CMAKE_SOURCE_DIR}/src/camera/generated_properties.cpp
-)
-```
-
-**Alternative: Runtime JSON Loading**
-
-```cpp
-// camera_property_loader.h
-#include <nlohmann/json.hpp>
-#include <unordered_map>
-#include <string>
-
-class PropertyLoader {
-public:
-    static std::unordered_map<std::string, CrInt64u> loadIsoValues();
-    static std::unordered_map<std::string, CrInt64u> loadShutterValues();
-    // ... other properties
-    
-private:
-    static json loadSpecification();
-    static CrInt64u mapIsoToSonySDK(const std::string& iso);
-};
-
-// Usage in sony_camera.cpp
-void SonyCamera::initialize() {
-    iso_map_ = PropertyLoader::loadIsoValues();
-    // Now iso_map_ contains values from specification
-}
-```
-
-**NEVER do this:**
-```cpp
-// ❌ FORBIDDEN - Hardcoded values
-const std::vector<std::string> ISO_VALUES = {
-    "50", "64", "80", "100", // ...
-};
-
-// ❌ FORBIDDEN - Hardcoded map
-const std::unordered_map<std::string, CrInt64u> ISO_MAP = {
-    {"50", CrISO_50},
-    {"64", CrISO_64},
-    // ...
-};
-```
 
 ### Docker Workflow (If Applicable)
 
@@ -881,9 +776,7 @@ sbc/
 │   ├── protocol/
 │   │   └── message_handler.cpp  # JSON message processing
 │   ├── camera/
-│   │   ├── sony_camera.cpp      # Sony SDK wrapper
-│   │   ├── property_loader.cpp  # Load properties from JSON
-│   │   └── generated_properties.cpp  # Generated from spec (if using code gen)
+│   │   └── sony_camera.cpp  # Sony SDK wrapper
 │   └── gimbal/
 │       └── gimbal_interface.cpp  # Gimbal control
 ├── include/
@@ -946,17 +839,17 @@ cat /etc/udev/rules.d/99-sony-camera.rules
 # - Break circular references with weak_ptr
 ```
 
-**Issue: "Hardcoded values detected"**
+**Issue: "SDK function not working as expected"**
 ```bash
-# Search for violations
-grep -rn "std::vector.*ISO\|ISO.*{" sbc/src/ | grep -v generated
+# FIRST: Check the Sony SDK HTML documentation!
+# Location: CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/
 
-# If found:
-# 1. STOP implementing
-# 2. Refactor to use PropertyLoader or code generation
-# 3. Verify camera_properties.json has correct values
-# 4. Update spec if needed
-# 5. Re-implement using spec
+# Then verify:
+# 1. Function signature matches documentation
+# 2. Parameters are correct type and order
+# 3. Return value is being checked properly
+# 4. Callback requirements are met
+# 5. Thread safety requirements are satisfied
 ```
 
 ---
@@ -984,12 +877,6 @@ grep -rn "std::vector.*ISO\|ISO.*{" sbc/src/ | grep -v generated
    adb connect 192.168.144.11:5555
    ```
 
-4. **Check for hardcoded values (NEW!):**
-   ```bash
-   grep -rn "arrayOf.*ISO\|listOf.*ISO" android/app/src/ | grep -v generated | grep -v "\/\/"
-   # Should return NOTHING or only generated files
-   ```
-
 ### Android Build System
 
 **Gradle Build:**
@@ -1015,75 +902,6 @@ cd android
 **Build Output:**
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
 - Release APK: `app/build/outputs/apk/release/app-release.apk`
-
-### Specification-Compliant Implementation (Ground-Side)
-
-**Copy specification to assets:**
-
-```
-android/app/src/main/assets/camera_properties.json
-# Copy from docs/protocol/camera_properties.json
-```
-
-**Load at runtime:**
-
-```kotlin
-// PropertyLoader.kt
-object PropertyLoader {
-    fun loadIsoValues(context: Context): List<String> {
-        val json = context.assets.open("camera_properties.json")
-            .bufferedReader()
-            .use { it.readText() }
-        
-        val spec = JSONObject(json)
-        val isoArray = spec.getJSONObject("properties")
-            .getJSONObject("iso")
-            .getJSONObject("validation")
-            .getJSONArray("values")
-        
-        return (0 until isoArray.length()).map { isoArray.getString(it) }
-    }
-    
-    fun loadShutterValues(context: Context): List<String> {
-        // Similar implementation
-    }
-    
-    // ... other properties
-}
-
-// In your Fragment/ViewModel
-class CameraControlFragment : Fragment() {
-    private lateinit var isoValues: List<String>
-    
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        // Load from specification, NOT hardcoded
-        isoValues = PropertyLoader.loadIsoValues(requireContext())
-    }
-    
-    private fun setupIsoSpinner() {
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_spinner_item,
-            isoValues  // From spec, not hardcoded!
-        )
-        binding.isoSpinner.adapter = adapter
-    }
-}
-```
-
-**NEVER do this:**
-```kotlin
-// ❌ FORBIDDEN - Hardcoded values
-val isoValues = arrayOf(
-    "50", "64", "80", "100", // ...
-)
-
-// ❌ FORBIDDEN - Hardcoded list
-val isoValues = listOf(
-    "50", "64", "80", "100", // ...
-)
-```
 
 ### APK Deployment
 
@@ -1162,7 +980,6 @@ class NetworkClient {
    - Uncomment the method
    - Add ViewModel method
    - Add UI elements to call it
-   - **Load property values from spec, don't hardcode**
    - Test end-to-end
    - Update `commands.json` to `"ground_side": true`
 
@@ -1265,8 +1082,6 @@ android/
 │   ├── build.gradle
 │   └── src/main/
 │       ├── AndroidManifest.xml
-│       ├── assets/
-│       │   └── camera_properties.json  # Copy of spec!
 │       ├── java/com/dpm/groundstation/
 │       │   ├── MainActivity.kt
 │       │   ├── ui/
@@ -1280,7 +1095,6 @@ android/
 │       │   │   ├── NetworkSettings.kt
 │       │   │   └── ProtocolMessages.kt
 │       │   └── util/
-│       │       ├── PropertyLoader.kt  # NEW - Loads from spec
 │       │       └── Extensions.kt
 │       └── res/
 │           ├── layout/
@@ -1335,7 +1149,6 @@ adb logcat | grep AndroidRuntime
 # 2. Null pointer exception → Check initialization
 # 3. Network on main thread → Use coroutines
 # 4. Resource not found → Clean and rebuild
-# 5. Missing camera_properties.json in assets
 ```
 
 **Issue: "Network connection failing"**
@@ -1349,18 +1162,6 @@ adb logcat | grep DPM
 # 3. Correct ports (5000 TCP, 5001/5002 UDP)
 # 4. Air-side service running
 # 5. Firewall not blocking
-```
-
-**Issue: "Property values don't match air-side"**
-```bash
-# Check specification
-cat docs/protocol/camera_properties.json | jq '.properties.iso'
-
-# Verify assets file is up to date
-# 1. Compare assets/camera_properties.json with docs/protocol/camera_properties.json
-# 2. If different, copy latest version
-# 3. Rebuild app
-# 4. Clear app data and reinstall
 ```
 
 ---
@@ -1425,25 +1226,6 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 # 4. Camera is in correct mode (some properties restricted by mode)
 ```
 
-**Issue: "Specification divergence detected"**
-```bash
-# Run audit
-./tools/audit_protocol_sync.sh
-
-# If divergence found:
-# 1. STOP all implementation work
-# 2. Identify which is correct: spec or implementation?
-# 3. If implementation is correct:
-#    - Update specification first
-#    - Commit: [PROTOCOL] Update spec with correct values
-# 4. If specification is correct:
-#    - Refactor implementation to match spec
-#    - Remove hardcoded values
-#    - Commit: [FIX] Remove hardcoded values, use spec
-# 5. Verify sync with audit script
-# 6. Resume normal work
-```
-
 ---
 
 ## 📝 SUMMARY - THE GOLDEN RULES
@@ -1452,42 +1234,29 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 
 1. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
 2. 🔴 **ALWAYS pull latest from Git before starting work**
-3. 🔴 **ALWAYS run protocol audit script (if available)**
-4. 🔴 **ALWAYS check protocol synchronization (commands.json + camera_properties.json)**
-5. 🔴 **ALWAYS read specification before implementing properties**
-6. 🔴 **NEVER hardcode camera property values**
-7. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
-8. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-9. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-10. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
-11. 🔴 **ALWAYS verify build succeeds before committing**
-12. 🔴 **ALWAYS commit before ending session**
-13. 🔴 **ALWAYS work incrementally (one thing at a time)**
-
-### Specification-First Rules (CRITICAL!)
-
-14. 🔴 **ALWAYS update specification BEFORE implementing new property values**
-15. 🔴 **ALWAYS load property values from JSON (or generate from JSON)**
-16. 🔴 **NEVER assume specification is complete - verify and update**
-17. 🔴 **ALWAYS commit spec updates separately from implementation**
-18. 🔴 **ALWAYS run audit checks for hardcoded values before committing**
+3. 🔴 **ALWAYS check protocol synchronization (commands.json + camera_properties.json)**
+4. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
+5. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
+6. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+7. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
+8. 🔴 **ALWAYS verify build succeeds before committing**
+9. 🔴 **ALWAYS commit before ending session**
+10. 🔴 **ALWAYS work incrementally (one thing at a time)**
 
 ### Platform-Specific Rules
 
 **Air-Side (C++):**
+- 🟡 **ALWAYS check Sony SDK HTML documentation before implementing camera functions**
 - 🟡 Run valgrind regularly for memory leak detection
 - 🟡 Use smart pointers, avoid raw new/delete
 - 🟡 Check Sony SDK return values
 - 🟡 Test with Docker if applicable
-- 🟡 Use PropertyLoader or code generation for camera properties
 
 **Ground-Side (Android):**
 - 🟡 Follow MVVM architecture pattern
 - 🟡 Use Coroutines for async operations
 - 🟡 Check commented-out methods in NetworkClient.kt
 - 🟡 Test on device/emulator before committing
-- 🟡 Copy camera_properties.json to assets/ directory
-- 🟡 Use PropertyLoader to load values from assets
 
 ---
 
@@ -1500,22 +1269,19 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 3. ✅ Read appropriate PROGRESS_AND_TODO.md thoroughly
 4. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
 5. ✅ Read protocol documentation (commands.json, camera_properties.json)
-6. ✅ **Run audit script (if available)**
-7. ✅ **Check for hardcoded values in codebase**
-8. ✅ Check `git log --oneline -20` (understand recent history)
-9. ✅ Identify current phase and next task
-10. ✅ Start working!
+6. ✅ Check `git log --oneline -20` (understand recent history)
+7. ✅ Identify current phase and next task
+8. ✅ **[Air-Side Only]** Bookmark Sony SDK HTML documentation location
+9. ✅ Start working!
 
 ### Subsequent Sessions:
 
 1. ✅ Read this file (CC_READ_THIS_FIRST.md)
 2. ✅ Pull latest from Git
-3. ✅ **Run audit script**
-4. ✅ Check protocol synchronization
-5. ✅ **Search for hardcoded values**
-6. ✅ Read appropriate PROGRESS_AND_TODO.md
-7. ✅ Check `git status` and `git log --oneline -5`
-8. ✅ Continue work
+3. ✅ Check protocol synchronization
+4. ✅ Read appropriate PROGRESS_AND_TODO.md
+5. ✅ Check `git status` and `git log --oneline -5`
+6. ✅ Continue work
 
 ---
 
@@ -1530,8 +1296,6 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 - [ ] "Last Updated" timestamp is current
 - [ ] Issue Tracker reflects current bugs/blockers
 - [ ] Protocol JSON files updated if implemented commands/properties
-- [ ] **Specification updated if discovered new property values**
-- [ ] **No hardcoded property values in new code**
 - [ ] All code changes are committed
 - [ ] All commits have descriptive messages with [TYPE] prefix
 - [ ] All commits pushed to origin/main
@@ -1540,73 +1304,15 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 - [ ] Memory leaks checked (air-side with valgrind)
 - [ ] No orphaned documentation
 - [ ] No [WIP] commits unless work is genuinely incomplete
-- [ ] **Audit script passes (if available)**
 
 **If all checked: You're good! 🎉**
 
 ---
 
-## 🔧 TOOLS AND SCRIPTS
-
-### Available Tools (Check if they exist)
-
-**Protocol Audit Script:**
-```bash
-# Location: tools/audit_protocol_sync.sh
-# Purpose: Check for specification divergence
-# Run at: Every session start
-
-./tools/audit_protocol_sync.sh
-```
-
-**Property Code Generator (Future):**
-```bash
-# Location: tools/generate_property_code.py
-# Purpose: Generate C++ code from camera_properties.json
-# Run: Automatically via CMake
-
-python3 tools/generate_property_code.py > sbc/src/camera/generated_properties.cpp
-```
-
-**Pre-Commit Hook:**
-```bash
-# Location: .git/hooks/pre-commit
-# Purpose: Prevent committing hardcoded property values
-# Runs: Automatically on git commit
-
-# If not installed, check .git/hooks/ directory
-```
-
-### Creating Missing Tools
-
-If audit script doesn't exist, create it:
-
-```bash
-#!/bin/bash
-# tools/audit_protocol_sync.sh
-
-echo "======================================"
-echo "PROTOCOL SYNCHRONIZATION CHECK"
-echo "======================================"
-
-# Check camera_properties.json
-echo "📋 Checking camera_properties.json..."
-jq -r '.properties.iso.validation.values[]?' docs/protocol/camera_properties.json | sort -n
-
-echo ""
-echo "⚠️  NOW MANUALLY CHECK:"
-echo "  Air-Side:  grep -rn 'ISO.*{' sbc/src/ | grep -v generated"
-echo "  Ground-Side: grep -rn 'arrayOf.*ISO' android/app/src/ | grep -v generated"
-echo ""
-```
-
----
-
-**Document Status:** ✅ Active - Combined Air-Side & Ground-Side + Spec Enforcement  
-**Version:** 2.1  
-**Last Updated:** October 27, 2025  
+**Document Status:** ✅ Active - Combined Air-Side & Ground-Side  
+**Version:** 2.1 - Added Sony SDK HTML Documentation Reference  
+**Last Updated:** October 28, 2025  
 **Location:** Project root (DPM-V2/CC_READ_THIS_FIRST.md)  
 **Maintained By:** Human oversight, enforced by Claude Code
 
 **🔴 REMEMBER: Read this document at the start of EVERY session! 🔴**
-**🔴 REMEMBER: Specification is SINGLE SOURCE OF TRUTH! 🔴**
