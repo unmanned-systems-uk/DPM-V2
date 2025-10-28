@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git restore:*)",
-      "Bash(./sbc/run_container.sh:*)"
+      "Bash(./sbc/run_container.sh:*)",
+      "Bash(unzip:*)"
     ],
     "deny": [],
     "ask": []
