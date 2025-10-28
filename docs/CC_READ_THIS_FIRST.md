@@ -1,8 +1,8 @@
 # Claude Code - READ THIS FIRST
 ## DPM Payload Manager Project Rules & Workflow
 
-**Date Created:** October 25, 2025  
-**Version:** 2.1 (Added Sony SDK HTML Documentation Reference)  
+**Date Created:** October 25, 2025
+**Version:** 2.2 (CRITICAL: Protocol Files Location - ~/DPM-V2/protocol/ NOT docs/)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -22,6 +22,67 @@
 - 🔹 **Protocol/Documentation?** → Working in `docs/` directory
   - Read Common Rules below
   - Focus on Protocol Synchronization section
+
+---
+
+## 🔴 CRITICAL: PROTOCOL FILE LOCATION
+
+**BOTH Air-Side AND Ground-Side Claude Code instances MUST understand this:**
+
+### Protocol Files Location
+
+**✅ CORRECT Location for Communal Protocol Files:**
+```
+~/DPM-V2/protocol/
+  ├── camera_properties.json    ← Shared by BOTH Air-Side and Ground-Side
+  ├── commands.json              ← Shared by BOTH Air-Side and Ground-Side
+  └── [other protocol specs]     ← Shared specification files
+```
+
+**❌ WRONG - Protocol files are NOT in docs/ folder:**
+```
+~/DPM-V2/docs/protocol/   ← ❌ OLD LOCATION - DO NOT USE
+```
+
+### Key Rules for Protocol Files
+
+1. **🔴 Protocol files MUST be at `~/DPM-V2/protocol/`**
+   - These are RUNTIME specification files
+   - NOT documentation files
+   - Shared by both platforms
+
+2. **🔴 NEVER hard-code camera property values**
+   - Air-Side C++: PropertyLoader loads from `protocol/camera_properties.json`
+   - Ground-Side Android: PropertyLoader loads from `assets/camera_properties.json` (bundled copy)
+   - Android must sync assets file from root protocol/ directory
+
+3. **🔴 Single Source of Truth**
+   - `~/DPM-V2/protocol/camera_properties.json` is the master
+   - Air-Side reads directly from protocol/
+   - Ground-Side must copy to assets/ before building APK
+
+4. **🔴 Never commit if protocol files are missing**
+   - Check that `protocol/camera_properties.json` exists
+   - Verify PropertyLoader can load it
+   - Test before committing
+
+### Documentation Location
+
+**Documentation files (not protocol specs) go in docs/:**
+```
+~/DPM-V2/docs/
+  ├── CC_READ_THIS_FIRST.md          ← You are here
+  ├── CAMERA_PROPERTIES_FIX_TRACKING.md
+  ├── ISO_AUTO_FIX_SUMMARY.md
+  └── protocol/                      ← Protocol DOCUMENTATION (not specs)
+      ├── PROTOCOL_VALUE_MAPPING.md
+      ├── README_protocol.md
+      └── [other protocol docs]
+```
+
+**Summary:**
+- **Protocol SPECS** (JSON files) → `~/DPM-V2/protocol/`
+- **Protocol DOCS** (markdown explanations) → `~/DPM-V2/docs/protocol/`
 
 ---
 
@@ -47,27 +108,30 @@
 5. **DO NOT** attempt to resolve conflicts without user approval
 
 ### 3. Check Protocol Synchronization
-- ✅ **MANDATORY** - Check `docs/protocol/commands.json` for new commands
-- ✅ **MANDATORY** - Check `docs/protocol/camera_properties.json` for new properties
+- ✅ **MANDATORY** - Check `protocol/commands.json` for new commands
+- ✅ **MANDATORY** - Check `protocol/camera_properties.json` for new properties
 - ✅ Check if the other platform has implemented things you need to implement
 - ✅ **ASK USER** about any new commands/properties before implementing
 - ⚠️ **CRITICAL** - Protocol sync MUST happen every session
+
+**🔴 CRITICAL: Protocol files are at ~/DPM-V2/protocol/ NOT in docs/ folder! 🔴**
+**These are shared specification files used by BOTH Air-Side and Ground-Side**
 
 **Run these checks:**
 
 ```bash
 # For AIR-SIDE: Check what you need to implement
-cat docs/protocol/commands.json | jq -r '.commands | to_entries[] |
+cat protocol/commands.json | jq -r '.commands | to_entries[] |
   select(.value.implemented.air_side == false) | .key'
 
-cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
+cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.air_side == false) | .key'
 
-# For GROUND-SIDE: Check what you need to implement  
-cat docs/protocol/commands.json | jq -r '.commands | to_entries[] |
+# For GROUND-SIDE: Check what you need to implement
+cat protocol/commands.json | jq -r '.commands | to_entries[] |
   select(.value.implemented.ground_side == false) | .key'
 
-cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
+cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.ground_side == false) | .key'
 ```
 
@@ -118,12 +182,12 @@ cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
 **Commands Check:**
 ```bash
 # Check for new commands
-cat docs/protocol/commands.json | jq -r '.commands | to_entries[] |
+cat protocol/commands.json | jq -r '.commands | to_entries[] |
   select(.value.implemented.SIDE_side == false) | .key'
 # Replace SIDE with 'air' or 'ground'
 
 # Check what the OTHER side has implemented
-cat docs/protocol/commands.json | jq -r '.commands | to_entries[] |
+cat protocol/commands.json | jq -r '.commands | to_entries[] |
   select(.value.implemented.OTHER_side == true and
          .value.implemented.YOUR_side == false) | .key'
 # These are ready to implement - the other side can already handle them!
@@ -132,16 +196,16 @@ cat docs/protocol/commands.json | jq -r '.commands | to_entries[] |
 **Camera Properties Check:**
 ```bash
 # Check for new properties
-cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
+cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.SIDE_side == false) | .key'
 
 # Check what the OTHER side has implemented
-cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] |
+cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.OTHER_side == true and
          .value.implemented.YOUR_side == false) | .key'
 
 # Check Phase 1 priority properties
-cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.properties[]'
+cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.properties[]'
 ```
 
 **If you see ANY commands OR properties listed:**
@@ -159,7 +223,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 **Air-Side Flow:**
 ```
-1. User adds command to docs/protocol/commands.json
+1. User adds command to protocol/commands.json
    └─ Sets "air_side": false, "ground_side": might be true
 
 2. CC detects new command at session start
@@ -172,7 +236,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    ├─ Add any new error codes to messages.h
    └─ Test implementation
 
-4. CC updates commands.json
+4. CC updates protocol/commands.json
    └─ Set "air_side": true
 
 5. CC updates sbc/docs/PROGRESS_AND_TODO.md
@@ -183,7 +247,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 **Ground-Side Flow:**
 ```
-1. User adds command to docs/protocol/commands.json
+1. User adds command to protocol/commands.json
    └─ May add commented-out method to NetworkClient.kt
 
 2. CC detects new command at session start
@@ -196,7 +260,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    ├─ Add error handling
    └─ Test with air-side (if available)
 
-4. CC updates commands.json
+4. CC updates protocol/commands.json
    └─ Set "ground_side": true
 
 5. CC updates android/docs/PROGRESS_AND_TODO.md
@@ -217,7 +281,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
 
 1. **Check which properties are Phase 1:**
    ```bash
-   cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.properties[]'
+   cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.properties[]'
    ```
 
 2. **Pick ONE property to implement at a time:**
@@ -228,7 +292,7 @@ cat docs/protocol/camera_properties.json | jq '.implementation_phases.phase_1.pr
    - Mark property as implemented
 
 3. **UI considerations (ground-side):**
-   - Check `ui_hints` in camera_properties.json:
+   - Check `ui_hints` in protocol/camera_properties.json:
      - `dropdown` → Spinner/Dropdown
      - `slider` → SeekBar
      - `segmented_control` → RadioGroup/ToggleButton
@@ -1204,10 +1268,10 @@ git commit              # Commit again
 ```bash
 # Debugging steps:
 # 1. Check protocol versions match
-cat docs/protocol/protocol_v1.0.json | jq '.constants.protocol_version'
+cat protocol/protocol_v1.0.json | jq '.constants.protocol_version'
 
 # 2. Check command is implemented on both sides
-cat docs/protocol/commands.json | jq '.commands."command.name".implemented'
+cat protocol/commands.json | jq '.commands."command.name".implemented'
 
 # 3. Check for typos in command names
 # 4. Verify JSON syntax is correct
@@ -1217,7 +1281,7 @@ cat docs/protocol/commands.json | jq '.commands."command.name".implemented'
 **Issue: "Property validation failing"**
 ```bash
 # Check property definition:
-cat docs/protocol/camera_properties.json | jq '.properties."property_name".validation'
+cat protocol/camera_properties.json | jq '.properties."property_name".validation'
 
 # Verify:
 # 1. Value is in allowed values list
@@ -1233,15 +1297,17 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 ### Universal Rules (Both Platforms)
 
 1. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
-2. 🔴 **ALWAYS pull latest from Git before starting work**
-3. 🔴 **ALWAYS check protocol synchronization (commands.json + camera_properties.json)**
-4. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
-5. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-6. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-7. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
-8. 🔴 **ALWAYS verify build succeeds before committing**
-9. 🔴 **ALWAYS commit before ending session**
-10. 🔴 **ALWAYS work incrementally (one thing at a time)**
+2. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
+3. 🔴 **ALWAYS pull latest from Git before starting work**
+4. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
+5. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
+6. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
+7. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+8. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
+9. 🔴 **ALWAYS verify build succeeds before committing**
+10. 🔴 **ALWAYS commit before ending session**
+11. 🔴 **ALWAYS work incrementally (one thing at a time)**
+12. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
 
 ### Platform-Specific Rules
 
@@ -1309,10 +1375,10 @@ cat docs/protocol/camera_properties.json | jq '.properties."property_name".valid
 
 ---
 
-**Document Status:** ✅ Active - Combined Air-Side & Ground-Side  
-**Version:** 2.1 - Added Sony SDK HTML Documentation Reference  
-**Last Updated:** October 28, 2025  
-**Location:** Project root (DPM-V2/CC_READ_THIS_FIRST.md)  
+**Document Status:** ✅ Active - Combined Air-Side & Ground-Side
+**Version:** 2.2 - CRITICAL: Protocol Files Location Clarification
+**Last Updated:** October 28, 2025
+**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)
 **Maintained By:** Human oversight, enforced by Claude Code
 
 **🔴 REMEMBER: Read this document at the start of EVERY session! 🔴**

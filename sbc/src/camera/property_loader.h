@@ -10,7 +10,7 @@
  * PropertyLoader - Loads camera property valid values from specification JSON
  *
  * This class implements the specification-first architecture by loading camera
- * property values from docs/protocol/camera_properties.json at runtime.
+ * property values from ~/DPM-V2/protocol/camera_properties.json at runtime.
  *
  * Background:
  * Previously, property values (ISO, shutter speed, aperture) were hardcoded
@@ -18,15 +18,19 @@
  * failures. This class ensures both sides use identical value lists from a
  * single source of truth.
  *
+ * CRITICAL: This file MUST be at ~/DPM-V2/protocol/camera_properties.json
+ *           NOT in docs/ folder - it is a runtime specification file
+ *           shared by both Air-Side and Ground-Side implementations.
+ *
  * Usage:
- *   PropertyLoader::initialize("../docs/protocol/camera_properties.json");
+ *   PropertyLoader::initialize("protocol/camera_properties.json");
  *   if (!PropertyLoader::isInitialized()) {
  *       // Handle error
  *   }
  *   auto iso_values = PropertyLoader::getIsoValues();
  *
  * See: docs/CAMERA_PROPERTIES_FIX_TRACKING.md for complete context
- * See: docs/CC_READ_THIS_FIRST.md lines 29-111 for specification-first rules
+ * See: docs/CC_READ_THIS_FIRST.md for specification-first rules
  */
 class PropertyLoader {
 public:
@@ -38,8 +42,10 @@ public:
      *
      * This should be called once at application startup, before any camera
      * operations. Logs detailed error messages on failure.
+     *
+     * Default path: "protocol/camera_properties.json" (relative to build dir)
      */
-    static bool initialize(const std::string& json_path = "docs/protocol/camera_properties.json");
+    static bool initialize(const std::string& json_path = "protocol/camera_properties.json");
 
     /**
      * Check if PropertyLoader has been successfully initialized

@@ -25,7 +25,8 @@ bool PropertyLoader::initialize(const std::string& json_path) {
         std::ifstream file(json_path);
         if (!file.is_open()) {
             Logger::error("PropertyLoader: Failed to open " + json_path);
-            Logger::error("PropertyLoader: Make sure camera_properties.json exists in docs/protocol/");
+            Logger::error("PropertyLoader: Make sure camera_properties.json exists at ~/DPM-V2/protocol/");
+            Logger::error("PropertyLoader: This is a shared specification file - NEVER in docs/ folder!");
             return false;
         }
 
