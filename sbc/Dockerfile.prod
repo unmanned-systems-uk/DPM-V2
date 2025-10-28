@@ -28,6 +28,9 @@ COPY CrSDK_v2.00.00_20250805a_Linux64ARMv8 /app/sdk
 # Copy SBC source code
 COPY DPM-V2/sbc /app/sbc
 
+# Copy docs directory for camera_properties.json specification
+COPY DPM-V2/docs /app/docs
+
 # Build payload_manager and test programs
 RUN cd /app/sbc && \
     mkdir -p build && \

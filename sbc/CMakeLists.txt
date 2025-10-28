@@ -50,6 +50,7 @@ set(SOURCES
     src/protocol/udp_broadcaster.cpp
     src/protocol/heartbeat.cpp
     src/camera/camera_sony.cpp
+    src/camera/property_loader.cpp
 )
 
 # Create executable
@@ -185,6 +186,7 @@ message(STATUS "Shutter test program enabled")
 add_executable(test_property_mapping
     src/test_property_mapping.cpp
     src/camera/camera_sony.cpp
+    src/camera/property_loader.cpp
     src/utils/logger.cpp
 )
 

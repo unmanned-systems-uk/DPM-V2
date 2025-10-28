@@ -1,0 +1,536 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Camera Properties",
+  "description": "Sony camera property definitions with validation and implementation tracking",
+  "version": "1.0.0",
+  "protocol_design": {
+    "value_format": "human_readable",
+    "rationale": "Protocol uses human-readable string values (e.g., '1/8000') not Sony SDK raw values (e.g., 0x00010001). Air-side handles conversion to Sony SDK format. This keeps the protocol camera-agnostic, debuggable, and testable.",
+    "see_also": "docs/protocol/PROTOCOL_VALUE_MAPPING.md"
+  },
+  "property_categories": {
+    "exposure": [
+      "shutter_speed",
+      "aperture",
+      "iso",
+      "exposure_compensation",
+      "metering_mode"
+    ],
+    "focus": [
+      "focus_mode",
+      "focus_area",
+      "manual_focus_position"
+    ],
+    "white_balance": [
+      "white_balance",
+      "white_balance_temperature",
+      "tint"
+    ],
+    "file_format": [
+      "file_format",
+      "image_quality",
+      "aspect_ratio"
+    ],
+    "video": [
+      "video_resolution",
+      "video_framerate",
+      "video_format"
+    ],
+    "drive_mode": [
+      "drive_mode",
+      "burst_count",
+      "self_timer"
+    ],
+    "advanced": [
+      "picture_profile",
+      "color_mode",
+      "dynamic_range"
+    ]
+  },
+  "properties": {
+    "shutter_speed": {
+      "display_name": "Shutter Speed",
+      "category": "exposure",
+      "description": "Camera shutter speed control",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "1/8000", "1/6400", "1/5000", "1/4000", "1/3200", "1/2500",
+          "1/2000", "1/1600", "1/1250", "1/1000",
+          "1/800", "1/640", "1/500", "1/400", "1/320", "1/250",
+          "1/200", "1/160", "1/125", "1/100",
+          "1/80", "1/60", "1/50", "1/40", "1/30", "1/25",
+          "1/20", "1/15", "1/13", "1/10", "1/8", "1/6", "1/5", "1/4", "1/3",
+          "0.3\"", "0.4\"", "0.5\"", "0.6\"", "0.8\"", "1.0\"",
+          "1.3\"", "1.6\"", "2.0\"", "2.5\"", "3.0\"", "4.0\"",
+          "5.0\"", "6.0\"", "8.0\"", "10\"", "13\"", "15\"",
+          "20\"", "25\"", "30\""
+        ],
+        "default": "1/125",
+        "notes": "AUTO and BULB modes disabled for UAV safety. Total 56 values: 35 fast (1/8000 to 1/3) + 21 long exposures (0.3\" to 30\")"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_ShutterSpeed",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "Two formats: (1) Fast shutter: 0x1XXXX where XXXX=denominator (e.g., 1/2000 = 0x107D0), (2) Long exposure: 0xNNNN000a where NNNN × 0.1 = seconds (e.g., 2.5\" = 0x19000a)",
+        "notes": "Must be in Manual or Shutter Priority mode. AUTO and BULB disabled for UAV safety. Air-side handles conversion from human-readable to Sony SDK format."
+      },
+      "protocol": {
+        "format": "string",
+        "example": "1/8000",
+        "notes": "Always send human-readable values in protocol messages. Air-side handles conversion to Sony SDK format."
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Exposure Triangle",
+        "priority": "high"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Complete value list with long exposures. Spec updated Oct 27, 2025. AUTO/BULB disabled for UAV safety."
+      }
+    },
+    "aperture": {
+      "display_name": "Aperture",
+      "category": "exposure",
+      "description": "Lens aperture (f-stop) control",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "f/1.4", "f/1.6", "f/2", "f/2.2", "f/2.5", "f/2.8",
+          "f/3.2", "f/4", "f/4.5", "f/5.0", "f/5.6",
+          "f/6.3", "f/7.1", "f/8", "f/9", "f/10", "f/11",
+          "f/13", "f/14", "f/16", "f/18", "f/20", "f/22"
+        ],
+        "default": "f/5.6",
+        "notes": "Available values depend on attached lens. Common full-stop and third-stop f-stops included. AUTO mode not supported for aperture."
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_FNumber",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "FNumberValue enum",
+        "notes": "Must query lens capabilities first"
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Exposure Triangle",
+        "priority": "high"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Complete f-stop list including third-stops. Spec updated Oct 27, 2025."
+      }
+    },
+    "iso": {
+      "display_name": "ISO",
+      "category": "exposure",
+      "description": "Camera ISO sensitivity",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "auto",
+          "50", "64", "80",
+          "100", "125", "160", "200", "250", "320", "400", "500", "640",
+          "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000",
+          "6400", "8000", "10000", "12800", "16000", "20000", "25600",
+          "32000", "40000", "51200", "64000", "80000", "102400"
+        ],
+        "default": "auto",
+        "notes": "Total 35 values: AUTO + extended low (50/64/80) + full-stop and third-stop values (100-102400). AUTO is allowed (unlike shutter AUTO which is disabled for UAV safety)."
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_IsoSensitivity",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "Three formats: (1) Standard ISO: direct decimal (100, 200, etc.), (2) AUTO: 0xFFFFFFFF or 0xFFFFFF, (3) Extended ISO (50/64/80): 0x10000000 | ISO_value",
+        "notes": "Extended ISO values use flag 0x10000000. Air-side handles format detection and conversion."
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Exposure Triangle",
+        "priority": "high"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Complete ISO range with third-stops and extended ISOs. Spec updated Oct 27, 2025. Extended ISO flag detection working."
+      }
+    },
+    "white_balance": {
+      "display_name": "White Balance",
+      "category": "white_balance",
+      "description": "Color temperature preset",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "auto",
+          "daylight",
+          "shade",
+          "cloudy",
+          "tungsten",
+          "fluorescent_warm",
+          "fluorescent_cool",
+          "fluorescent_day",
+          "fluorescent_daylight",
+          "flash",
+          "underwater",
+          "custom",
+          "temperature"
+        ],
+        "default": "auto"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_WhiteBalance",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "WhiteBalanceValue enum",
+        "notes": "Use white_balance_temperature for manual K value"
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Color",
+        "priority": "medium"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+      }
+    },
+    "white_balance_temperature": {
+      "display_name": "White Balance Temperature",
+      "category": "white_balance",
+      "description": "Manual color temperature in Kelvin",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 2500,
+        "max": 9900,
+        "step": 100,
+        "default": 5500,
+        "notes": "Only valid when white_balance is 'temperature'"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_ColorTemperature",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "Direct Kelvin value",
+        "notes": "Must set white_balance to 'temperature' first"
+      },
+      "ui_hints": {
+        "control_type": "slider",
+        "group": "Color",
+        "priority": "low",
+        "enabled_when": "white_balance == 'temperature'"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.0.0",
+        "notes": "Phase 1 requirement"
+      }
+    },
+    "focus_mode": {
+      "display_name": "Focus Mode",
+      "category": "focus",
+      "description": "Autofocus or manual focus mode",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "af_s",
+          "af_c",
+          "af_a",
+          "dmf",
+          "manual"
+        ],
+        "default": "af_s",
+        "notes": "af_s=Single, af_c=Continuous, af_a=Auto, dmf=Direct Manual"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_FocusMode",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "FocusModeValue enum",
+        "notes": "Some modes may not be available in all shooting modes"
+      },
+      "ui_hints": {
+        "control_type": "segmented_control",
+        "group": "Focus",
+        "priority": "high"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+      }
+    },
+    "file_format": {
+      "display_name": "File Format",
+      "category": "file_format",
+      "description": "Image file format",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "jpeg",
+          "raw",
+          "jpeg_raw"
+        ],
+        "default": "jpeg",
+        "notes": "RAW format depends on camera model"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_FileType",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "FileTypeValue enum",
+        "notes": "Some combinations may require specific mode dial position"
+      },
+      "ui_hints": {
+        "control_type": "segmented_control",
+        "group": "Recording",
+        "priority": "medium"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED - Air-side and Ground-side both complete Oct 25, 2025. Protocol uses human-readable values."
+      }
+    },
+    "drive_mode": {
+      "display_name": "Drive Mode",
+      "category": "drive_mode",
+      "description": "Single shot, continuous, bracket, etc.",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "single",
+          "continuous_lo",
+          "continuous_hi",
+          "self_timer_10s",
+          "self_timer_2s",
+          "bracket"
+        ],
+        "default": "single"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_DriveMode",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "DriveModeValue enum",
+        "notes": "Continuous modes affected by buffer and card speed"
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Capture",
+        "priority": "medium"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.0.0",
+        "notes": "Phase 1 requirement"
+      }
+    },
+    "picture_profile": {
+      "display_name": "Picture Profile",
+      "category": "advanced",
+      "description": "Color and tone profile preset",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "off",
+          "pp1",
+          "pp2",
+          "pp3",
+          "pp4",
+          "pp5",
+          "pp6",
+          "pp7",
+          "pp8",
+          "pp9",
+          "pp10"
+        ],
+        "default": "off",
+        "notes": "Only available on certain camera models (e.g., A7 series)"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_PictureProfile",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "PictureProfileValue enum",
+        "notes": "Feature availability varies by camera model"
+      },
+      "ui_hints": {
+        "control_type": "dropdown",
+        "group": "Advanced",
+        "priority": "low",
+        "requires_camera_features": [
+          "picture_profiles"
+        ]
+      },
+      "implemented": {
+        "air_side": false,
+        "ground_side": false,
+        "version": "2.0.0",
+        "notes": "Deferred to Phase 3 per project plan"
+      }
+    },
+    "exposure_compensation": {
+      "display_name": "Exposure Compensation",
+      "category": "exposure",
+      "description": "Exposure adjustment in stops",
+      "type": "number",
+      "validation": {
+        "type": "range",
+        "min": -5.0,
+        "max": 5.0,
+        "step": 0.3,
+        "default": 0.0,
+        "notes": "Increments typically in 1/3 stops"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_ExposureBiasCompensation",
+        "get_function": "GetDeviceProperty",
+        "set_function": "SetDeviceProperty",
+        "value_mapping": "Fixed point: value * 1000 (e.g., +1.0 = 1000)",
+        "notes": "Not available in Manual (M) mode"
+      },
+      "ui_hints": {
+        "control_type": "slider",
+        "group": "Exposure",
+        "priority": "medium"
+      },
+      "implemented": {
+        "air_side": false,
+        "ground_side": false,
+        "version": "1.1.0",
+        "notes": ""
+      }
+    }
+  },
+  "property_dependencies": {
+    "white_balance_temperature": {
+      "requires": {
+        "white_balance": "temperature"
+      },
+      "description": "Temperature slider only active when WB mode is manual"
+    },
+    "burst_count": {
+      "requires": {
+        "drive_mode": [
+          "continuous_lo",
+          "continuous_hi",
+          "bracket"
+        ]
+      },
+      "description": "Burst count only relevant in continuous modes"
+    }
+  },
+  "camera_mode_restrictions": {
+    "manual_mode": {
+      "allowed": [
+        "shutter_speed",
+        "aperture",
+        "iso",
+        "white_balance",
+        "focus_mode",
+        "file_format"
+      ],
+      "disabled": [
+        "exposure_compensation"
+      ],
+      "notes": "Full manual control, no auto exposure compensation"
+    },
+    "aperture_priority": {
+      "allowed": [
+        "aperture",
+        "iso",
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode"
+      ],
+      "auto": [
+        "shutter_speed"
+      ],
+      "notes": "Camera controls shutter speed automatically"
+    },
+    "shutter_priority": {
+      "allowed": [
+        "shutter_speed",
+        "iso",
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode"
+      ],
+      "auto": [
+        "aperture"
+      ],
+      "notes": "Camera controls aperture automatically"
+    },
+    "program_auto": {
+      "allowed": [
+        "exposure_compensation",
+        "white_balance",
+        "focus_mode",
+        "file_format"
+      ],
+      "auto": [
+        "shutter_speed",
+        "aperture",
+        "iso"
+      ],
+      "notes": "Camera controls exposure triangle"
+    }
+  },
+  "implementation_phases": {
+    "phase_1": {
+      "properties": [
+        "shutter_speed",
+        "aperture",
+        "iso",
+        "white_balance",
+        "white_balance_temperature",
+        "focus_mode",
+        "file_format",
+        "drive_mode"
+      ],
+      "target": "Week 3-10"
+    },
+    "phase_2": {
+      "properties": [
+        "exposure_compensation",
+        "metering_mode",
+        "image_quality",
+        "video_resolution",
+        "video_framerate"
+      ],
+      "target": "Week 11-15"
+    },
+    "phase_3": {
+      "properties": [
+        "picture_profile",
+        "color_mode",
+        "dynamic_range"
+      ],
+      "target": "Post Phase 1"
+    }
+  }
+}
