@@ -680,9 +680,9 @@ private:
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
             static const std::unordered_map<std::string, uint32_t> ISO_MAP = {
                 {"auto",   0xFFFFFFFF},
-                // Extended low ISO
-                {"50",     50},         {"64",     64},     {"80",     80},
-                // Standard ISO range - Full stops and third stops (100-102400)
+                // Extended low ISO (need 0x10000000 flag)
+                {"50",     0x10000032},    {"64",     0x10000040},    {"80",     0x10000050},
+                // Standard ISO range - Full stops and third stops (100-32000)
                 {"100",    100},        {"125",    125},    {"160",    160},
                 {"200",    200},        {"250",    250},    {"320",    320},
                 {"400",    400},        {"500",    500},    {"640",    640},
@@ -691,9 +691,11 @@ private:
                 {"3200",   3200},       {"4000",   4000},   {"5000",   5000},
                 {"6400",   6400},       {"8000",   8000},   {"10000",  10000},
                 {"12800",  12800},      {"16000",  16000},  {"20000",  20000},
-                {"25600",  25600},      {"32000",  32000},  {"40000",  40000},
-                {"51200",  51200},      {"64000",  64000},  {"80000",  80000},
-                {"102400", 102400}
+                {"25600",  25600},      {"32000",  32000},
+                // Extended high ISO (need 0x10000000 flag)
+                {"40000",  0x10009C40},   {"51200",  0x1000C800},
+                {"64000",  0x1000FA00},   {"80000",  0x10013880},
+                {"102400", 0x10019000}
             };
             auto it = ISO_MAP.find(value);
             if (it == ISO_MAP.end()) {
@@ -965,7 +967,7 @@ private:
                     // Extended ISO values have flag 0x10000000 set (e.g., ISO 50, 64, 80, high ISOs)
                     else if ((raw_value & 0x10000000) != 0) {
                         // Strip the extended flag and get the actual ISO value
-                        uint32_t iso_value = raw_value & 0x0000FFFF;
+                        uint32_t iso_value = raw_value & 0x0FFFFFFF;  // Strip top 4 bits
                         result = std::to_string(iso_value);
                     }
                     else {
