@@ -60,7 +60,8 @@
       "Bash(sudo -S sh -c 'echo \"\"\"\"cfg80211.ieee80211_regdom=GB usbcore.usbfs_memory_mb=150\"\"\"\" > /boot/firmware/cmdline.txt')",
       "Bash(lsblk:*)",
       "Bash(git pull:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
