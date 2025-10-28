@@ -1,60 +1,54 @@
 // test_iso_query.cpp - Diagnostic tool to query camera for available ISO values
-// This tool helps diagnose why extended ISO values (AUTO, 50, 64, 80, etc.) might not be working
+// Based on test_camera.cpp structure
 
-#include "utils/logger.h"
-#include "camera/property_loader.h"
 #include <iostream>
 #include <iomanip>
-#include <thread>
-#include <chrono>
-
-// Sony SDK headers
+#include <string>
 #include "CRSDK/CameraRemote_SDK.h"
 #include "CRSDK/IDeviceCallback.h"
+#include "CRSDK/CrDefines.h"
 #include "CRSDK/CrDeviceProperty.h"
+#include "camera/property_loader.h"
 
 namespace SDK = SCRSDK;
 
 // Simple callback for connection events
-class DiagnosticCallback : public SDK::IDeviceCallback
+class TestCameraCallback : public SDK::IDeviceCallback
 {
 public:
-    DiagnosticCallback() : connected_(false) {}
-    virtual ~DiagnosticCallback() = default;
-
     void OnConnected(SDK::DeviceConnectionVersioin version) override {
-        connected_ = true;
-        std::cout << "[CONNECTED] Camera connected successfully" << std::endl;
-        (void)version;
+        std::cout << "[OK] Camera connected (version " << std::hex << version << ")" << std::endl;
     }
 
     void OnDisconnected(CrInt32u error) override {
-        connected_ = false;
-        if (error != 0) {
-            std::cout << "[DISCONNECTED] Error: 0x" << std::hex << error << std::dec << std::endl;
-        } else {
-            std::cout << "[DISCONNECTED] Camera disconnected" << std::endl;
+        if (error) {
+            std::cout << "[WARNING] Camera disconnected with error: 0x" << std::hex << error << std::endl;
         }
     }
 
     void OnPropertyChanged() override {}
     void OnLvPropertyChanged() override {}
-    void OnCompleteDownload(CrChar* filename) override { (void)filename; }
-    void OnNotifyContentsTransfer(CrInt32u notify, SDK::CrContentHandle content_handle, CrChar* filename) override {
-        (void)notify; (void)content_handle; (void)filename;
+    void OnNotifyContentsTransfer(CrInt32u notify, SDK::CrContentHandle contentHandle, CrChar* filename) override {
+        (void)notify; (void)contentHandle; (void)filename;
     }
     void OnWarning(CrInt32u warning) override { (void)warning; }
     void OnError(CrInt32u error) override { (void)error; }
-
-    bool isConnected() const { return connected_; }
-
-private:
-    bool connected_;
 };
 
-// Map Sony SDK hex values back to our string format
-std::string isoValueToString(uint32_t value) {
-    if (value == 0xFFFFFFFF) return "auto";
+// Convert ISO SDK value to string
+std::string isoValueToString(CrInt64u value) {
+    // Check for AUTO
+    if (value == 0xFFFFFFFF || value == 0xFFFFFF) {
+        return "auto";
+    }
+
+    // Check for extended ISO (flag 0x10000000)
+    if ((value & 0x10000000) != 0) {
+        // Extended ISO - strip the flag
+        return std::to_string(value & 0x0FFFFFFF);
+    }
+
+    // Standard ISO
     return std::to_string(value);
 }
 
@@ -76,7 +70,7 @@ int main() {
 
     // Initialize Sony SDK
     std::cout << "[INIT] Initializing Sony Camera Remote SDK..." << std::endl;
-    auto init_result = SDK::Init();
+    auto init_result = SDK::Init(0);
     if (!init_result) {
         std::cerr << "[ERROR] Failed to initialize Sony SDK" << std::endl;
         return 1;
@@ -87,8 +81,8 @@ int main() {
     // Enumerate cameras
     std::cout << "[SCAN] Searching for connected cameras..." << std::endl;
     SDK::ICrEnumCameraObjectInfo* camera_list = nullptr;
-    auto enum_status = SDK::EnumCameraObjects(&camera_list);
-    if (!enum_status || !camera_list) {
+    auto enum_status = SDK::EnumCameraObjects(&camera_list, 5);
+    if (CR_FAILED(enum_status) || !camera_list) {
         std::cerr << "[ERROR] No cameras found" << std::endl;
         SDK::Release();
         return 1;
@@ -107,30 +101,26 @@ int main() {
     // Use first camera
     auto camera_info = camera_list->GetCameraObjectInfo(0);
     std::cout << "[INFO] Camera Model: " << camera_info->GetModel() << std::endl;
-    std::cout << "[INFO] Camera ID: " << camera_info->GetId() << std::endl;
     std::cout << std::endl;
 
     // Connect to camera
     std::cout << "[CONNECT] Connecting to camera..." << std::endl;
-    auto callback = new DiagnosticCallback();
-    SDK::CrDeviceHandle device_handle = nullptr;
+    TestCameraCallback callback;
+    SDK::CrDeviceHandle device_handle;
 
-    auto connect_status = SDK::Connect(camera_info, callback, &device_handle);
-    if (!connect_status || !device_handle) {
+    auto* non_const_camera_info = const_cast<SDK::ICrCameraObjectInfo*>(camera_info);
+
+    auto connect_status = SDK::Connect(
+        non_const_camera_info,
+        &callback,
+        &device_handle,
+        SDK::CrSdkControlMode_Remote,
+        SDK::CrReconnecting_ON
+    );
+
+    if (CR_FAILED(connect_status)) {
         std::cerr << "[ERROR] Failed to connect to camera" << std::endl;
-        delete callback;
-        camera_list->Release();
-        SDK::Release();
-        return 1;
-    }
-
-    // Wait for connection callback
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    if (!callback->isConnected()) {
-        std::cerr << "[ERROR] Connection timeout - camera did not connect" << std::endl;
-        SDK::Disconnect(device_handle);
-        delete callback;
+        std::cerr << "Error code: 0x" << std::hex << connect_status << std::endl;
         camera_list->Release();
         SDK::Release();
         return 1;
@@ -146,11 +136,11 @@ int main() {
     std::cout << std::endl;
 
     // Get device properties
-    CrInt32u num_props = 0;
     SDK::CrDeviceProperty* prop_list = nullptr;
+    int num_props = 0;
     auto prop_status = SDK::GetDeviceProperties(device_handle, &prop_list, &num_props);
 
-    if (!prop_status || !prop_list) {
+    if (CR_FAILED(prop_status) || !prop_list) {
         std::cerr << "[ERROR] Failed to get device properties" << std::endl;
     } else {
         std::cout << "[INFO] Camera reports " << num_props << " total properties" << std::endl;
@@ -158,7 +148,7 @@ int main() {
 
         // Find ISO property
         bool found_iso = false;
-        for (CrInt32u i = 0; i < num_props; ++i) {
+        for (int i = 0; i < num_props; ++i) {
             if (prop_list[i].GetCode() == SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity) {
                 found_iso = true;
                 auto& iso_prop = prop_list[i];
@@ -168,7 +158,7 @@ int main() {
 
                 // Current value
                 if (iso_prop.IsGetEnableCurrentValue()) {
-                    uint32_t current = iso_prop.GetCurrentValue();
+                    CrInt64u current = iso_prop.GetCurrentValue();
                     std::cout << "  Current Value: " << isoValueToString(current)
                               << " (0x" << std::hex << current << std::dec << ")" << std::endl;
                 } else {
@@ -190,10 +180,11 @@ int main() {
                     std::cout << "  Available ISO Values (" << num_values << " total):" << std::endl;
                     std::cout << "  -----------------------------------------------------------" << std::endl;
 
-                    CrInt64u* values = iso_prop.GetValues();
+                    CrInt8u* values_ptr = iso_prop.GetValues();
+                    CrInt64u* values = reinterpret_cast<CrInt64u*>(values_ptr);
+
                     for (CrInt32u j = 0; j < num_values; ++j) {
-                        uint32_t value = static_cast<uint32_t>(values[j]);
-                        std::string str_value = isoValueToString(value);
+                        std::string str_value = isoValueToString(values[j]);
 
                         // Check if this value is in our specification
                         bool in_spec = PropertyLoader::isValidValue("iso", str_value);
@@ -201,7 +192,7 @@ int main() {
                         std::cout << "  [" << std::setw(2) << j << "] "
                                   << std::setw(8) << std::left << str_value
                                   << " (0x" << std::hex << std::setw(8) << std::setfill('0')
-                                  << value << std::dec << std::setfill(' ') << ")";
+                                  << values[j] << std::dec << std::setfill(' ') << ")";
 
                         if (in_spec) {
                             std::cout << " ✓ IN SPEC";
@@ -248,7 +239,6 @@ int main() {
     // Cleanup
     std::cout << "[CLEANUP] Disconnecting..." << std::endl;
     SDK::Disconnect(device_handle);
-    delete callback;
     camera_list->Release();
     SDK::Release();
 
