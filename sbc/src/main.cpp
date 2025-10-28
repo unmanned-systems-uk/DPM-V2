@@ -10,6 +10,7 @@
 #include "protocol/udp_broadcaster.h"
 #include "protocol/heartbeat.h"
 #include "camera/camera_interface.h"
+#include "camera/property_loader.h"
 
 // Global components for signal handler access
 std::unique_ptr<TCPServer> g_tcp_server;
@@ -144,6 +145,17 @@ int main(int argc, char* argv[]) {
         std::signal(SIGINT, signalHandler);
         std::signal(SIGTERM, signalHandler);
         Logger::info("Signal handlers registered (SIGINT, SIGTERM)");
+
+        // Initialize PropertyLoader (specification-first architecture)
+        Logger::info("Loading camera property specifications from camera_properties.json...");
+        if (!PropertyLoader::initialize()) {
+            Logger::error("Failed to initialize PropertyLoader - check camera_properties.json exists");
+            return 1;
+        }
+        Logger::info("PropertyLoader initialized successfully");
+        Logger::info("Loaded properties: ISO=" + std::to_string(PropertyLoader::getValueCount("iso")) +
+                    ", Shutter=" + std::to_string(PropertyLoader::getValueCount("shutter_speed")) +
+                    ", Aperture=" + std::to_string(PropertyLoader::getValueCount("aperture")));
 
         // Create camera interface (Sony SDK integration)
         Logger::info("Creating camera interface (Sony SDK)...");

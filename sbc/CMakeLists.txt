@@ -50,6 +50,7 @@ set(SOURCES
     src/protocol/udp_broadcaster.cpp
     src/protocol/heartbeat.cpp
     src/camera/camera_sony.cpp
+    src/camera/property_loader.cpp
 )
 
 # Create executable
@@ -185,6 +186,7 @@ message(STATUS "Shutter test program enabled")
 add_executable(test_property_mapping
     src/test_property_mapping.cpp
     src/camera/camera_sony.cpp
+    src/camera/property_loader.cpp
     src/utils/logger.cpp
 )
 
@@ -212,6 +214,37 @@ set_target_properties(test_property_mapping PROPERTIES
 )
 
 message(STATUS "Property mapping test program enabled")
+
+# ============================================================
+# ISO Query Diagnostic Tool
+# ============================================================
+
+add_executable(test_iso_query
+    src/test_iso_query.cpp
+    src/camera/property_loader.cpp
+    src/utils/logger.cpp
+)
+
+target_include_directories(test_iso_query
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${SONY_SDK_INCLUDE}
+)
+
+target_link_libraries(test_iso_query
+    PRIVATE
+        -Wl,--no-as-needed
+        pthread
+        ${SONY_SDK_LIB_DIR}/libCr_Core.so
+        -Wl,--as-needed
+)
+
+set_target_properties(test_iso_query PROPERTIES
+    BUILD_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+    INSTALL_RPATH "${SONY_SDK_LIB_DIR}:${SONY_SDK_ADAPTER_DIR}"
+)
+
+message(STATUS "ISO query diagnostic tool enabled")
 
 # ============================================================
 # Shutter Speed Discovery Tool

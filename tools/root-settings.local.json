@@ -1,36 +1,6 @@
 {
-  "permissions": {
-    "allow": [
-      "Read(//usr/include/**)",
-      "Bash(sudo docker ps:*)",
-      "Bash(docker run:*)",
-      "Bash(docker *:*)",
-      "Bash(git *:*)",
-      "Bash(ls *:*)",
-      "Bash(cat *:*)",
-      "Bash(grep *:*)",
-      "Bash(find *:*)",
-      "Bash(jq *:*)",
-      "Bash(cd *:*)",
-      "Bash(pwd:*)",
-      "Bash(which *:*)",
-      "Bash(test *:*)",
-      "Bash(echo *:*)",
-      "Bash(mkdir *:*)",
-      "Bash(cp *:*)",
-      "Bash(mv *:*)",
-      "Bash(chmod *:*)",
-      "Bash(make *:*)",
-      "Bash(cmake *:*)",
-      "Bash(./gradlew *:*)",
-      "Bash(adb *:*)",
-      "Bash(valgrind *:*)",
-      "Bash(python3 *:*)",
-      "Bash(node *:*)",
-      "Bash(npm *:*)"
-    ]
-  },
   "customInstructions": "# DPM Root Level - Claude Code Session Instructions\n\n## CRITICAL: Execute BEFORE Every Task\n\n**MANDATORY SESSION START PROCEDURE:**\n\n1. **Read Workflow Guidelines** (FIRST ACTION):\n   ```bash\n   view CC_READ_THIS_FIRST.md\n   ```\n   This contains critical specification-first architecture rules.\n\n2. **Execute Git Pull**:\n   ```bash\n   bash_tool git pull origin main\n   ```\n   If conflicts occur, STOP and notify user.\n\n3. **Run Protocol Audit** (if available):\n   ```bash\n   bash_tool test -f tools/audit_protocol_sync.sh && ./tools/audit_protocol_sync.sh || echo 'Manual checks required'\n   ```\n\n4. **Check Protocol Synchronization Status**:\n   ```bash\n   # Check Air-Side status\n   bash_tool cat docs/protocol/commands.json | jq -r '.commands | to_entries[] | select(.value.implemented.air_side == false) | .key'\n   \n   # Check Ground-Side status\n   bash_tool cat docs/protocol/commands.json | jq -r '.commands | to_entries[] | select(.value.implemented.ground_side == false) | .key'\n   \n   # Check property implementation status\n   bash_tool cat docs/protocol/camera_properties.json | jq -r '.properties | to_entries[] | select(.value.implemented.air_side == false or .value.implemented.ground_side == false) | .key'\n   ```\n\n5. **Check Both Sides for Hardcoded Values**:\n   ```bash\n   # Air-Side check\n   bash_tool grep -rn 'std::vector.*ISO\\|ISO.*{' sbc/src/ 2>/dev/null | grep -v generated | grep -v '//' || echo 'Air-Side: No violations'\n   \n   # Ground-Side check\n   bash_tool grep -rn 'arrayOf.*ISO\\|listOf.*ISO' android/app/src/ 2>/dev/null | grep -v generated | grep -v '//' || echo 'Ground-Side: No violations'\n   ```\n   If violations found on either side, STOP and report.\n\n6. **Report Completion**:\n   Provide summary:\n   - Platform: Root/Documentation/Protocol\n   - Git status\n   - Protocol sync on both sides\n   - Hardcoded values check on both sides\n   - Current work area\n\n## CRITICAL RULES - PROTOCOL/DOCUMENTATION WORK\n\n### Specification-First Architecture\n\n**Golden Rule:** `docs/protocol/camera_properties.json` is SINGLE SOURCE OF TRUTH\n\nWhen updating protocol files:\n\n1. **Adding New Commands**:\n   - Add to `docs/protocol/commands.json`\n   - Set `\"air_side\": false, \"ground_side\": false`\n   - Commit: `[PROTOCOL] Add new command: command.name`\n   - THEN notify both Air-Side and Ground-Side teams\n\n2. **Adding Camera Properties**:\n   - Add to `docs/protocol/camera_properties.json`\n   - Include ALL valid values in `validation.values[]`\n   - Set `\"air_side\": false, \"ground_side\": false`\n   - Include `ui_hints` for Ground-Side\n   - Commit: `[PROTOCOL] Add new property: property_name`\n   - THEN implementations can begin\n\n3. **Updating Property Values**:\n   - When discovering new valid values (e.g., additional ISO)\n   - Update `validation.values[]` in camera_properties.json\n   - Commit: `[PROTOCOL] Update property_name with complete value range`\n   - Both sides must pull and update their implementations\n\n### Documentation Updates\n\n- Update `CC_READ_THIS_FIRST.md` when workflow changes\n- Keep `Project_Summary_and_Action_Plan.md` current with phases\n- Update both `sbc/docs/PROGRESS_AND_TODO.md` and `android/docs/PROGRESS_AND_TODO.md` when cross-cutting changes occur\n\n### Protocol Change Workflow\n\n```\n1. Identify need for protocol change\n   ↓\n2. Update specification JSON files\n   ↓\n3. Commit protocol change: [PROTOCOL] Description\n   ↓\n4. Notify both teams (comment in commit or separate notification)\n   ↓\n5. Wait for both sides to implement\n   ↓\n6. Both sides update implemented: true\n   ↓\n7. Feature is complete\n```\n\n### Commit Workflow\n\n- Protocol changes: `[PROTOCOL] Description`\n- Documentation: `[DOCS] Description`\n- Format: `[TYPE] Component: Description\\n\\n- Detail 1\\n- Detail 2`\n- ALWAYS ensure JSON syntax is valid before committing\n- ALWAYS verify both platforms can parse the JSON\n\n## When User First Contacts You\n\nIf user gives a task without session start:\n\n```\nBefore I start, I need to execute the mandatory root-level session start checklist.\nThis ensures protocol synchronization across Air-Side and Ground-Side.\n\n[Execute all 6 steps above]\n\n✅ Session start complete. Now working on: [user's request]\n```\n\n## Past Issue Context\n\n**October 2025 Specification Divergence:**\n- camera_properties.json had 12 ISO values (outdated specification)\n- Air-Side C++ had 35 ISO values (hardcoded in implementation)\n- Ground-Side Android had unknown count (hardcoded in implementation)\n- Root cause: Specification was not updated when new values discovered\n- Result: Synchronization failures between platforms\n\n**Prevention:**\n- Specification MUST be updated FIRST\n- Implementations MUST read from specification\n- NO hardcoding of property values\n\n## JSON Validation\n\nBefore committing protocol changes:\n\n```bash\n# Validate JSON syntax\nbash_tool cat docs/protocol/commands.json | jq '.' > /dev/null && echo 'commands.json: Valid' || echo 'commands.json: INVALID'\nbash_tool cat docs/protocol/camera_properties.json | jq '.' > /dev/null && echo 'camera_properties.json: Valid' || echo 'camera_properties.json: INVALID'\n```\n\n## References\n\n- Workflow guide: `CC_READ_THIS_FIRST.md`\n- Protocol specs: `docs/protocol/`\n- Air-Side status: `sbc/docs/PROGRESS_AND_TODO.md`\n- Ground-Side status: `android/docs/PROGRESS_AND_TODO.md`\n- Project summary: `docs/Project_Summary_and_Action_Plan.md`",
+  
   "autoSave": true,
   "gitAutoCommit": false
 }

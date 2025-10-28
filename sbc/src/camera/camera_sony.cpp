@@ -2,6 +2,7 @@
 // Implements CameraInterface for Sony Alpha cameras via USB
 
 #include "camera/camera_interface.h"
+#include "camera/property_loader.h"
 #include "utils/logger.h"
 #include <memory>
 #include <atomic>
@@ -501,6 +502,13 @@ private:
                 return false;
             }
 
+            // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
+            if (!PropertyLoader::isValidValue("shutter_speed", value)) {
+                Logger::error("Invalid shutter_speed value '" + value + "' - not in specification (camera_properties.json)");
+                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                return false;
+            }
+
             // Shutter speed: map human-readable strings to Sony SDK values
             //
             // FORMAT (from automated discovery 2025-10-27):
@@ -546,6 +554,13 @@ private:
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
         else if (property == "aperture") {
+            // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
+            if (!PropertyLoader::isValidValue("aperture", value)) {
+                Logger::error("Invalid aperture value '" + value + "' - not in specification (camera_properties.json)");
+                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                return false;
+            }
+
             // Aperture: map f-stop strings to Sony SDK values
             // Note: Values stored as 0x0100xxxx but only lower 16 bits (0xxxxx) sent to camera
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
@@ -582,6 +597,13 @@ private:
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
         }
         else if (property == "iso") {
+            // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
+            if (!PropertyLoader::isValidValue("iso", value)) {
+                Logger::error("Invalid ISO value '" + value + "' - not in specification (camera_properties.json)");
+                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                return false;
+            }
+
             // ISO: map ISO strings to Sony SDK values
             // Sony SDK uses simple decimal values (not complex hex like shutter speed)
             // Sony Alpha 1 supports full stops and third stops

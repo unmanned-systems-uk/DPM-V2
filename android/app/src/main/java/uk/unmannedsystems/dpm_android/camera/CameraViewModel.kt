@@ -364,10 +364,19 @@ class CameraViewModel : ViewModel() {
 
     /**
      * Send property command to air-side
+     * Validates property values against JSON specification before sending
      */
     private fun sendPropertyCommand(property: String, value: String) {
         viewModelScope.launch {
             try {
+                // Validate property value against JSON specification
+                if (!PropertyLoader.isValidValue(property, value)) {
+                    Log.e(TAG, "Invalid $property value '$value' - not in specification (camera_properties.json)")
+                    Log.e(TAG, "Valid values are defined in assets/camera_properties.json")
+                    // TODO: Notify user via UI about invalid property value
+                    return@launch
+                }
+
                 Log.d(TAG, "Setting camera property: $property = $value")
                 val result = NetworkManager.getClient()?.setCameraProperty(property, value)
                 result?.fold(

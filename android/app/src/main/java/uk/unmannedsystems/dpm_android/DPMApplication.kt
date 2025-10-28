@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import uk.unmannedsystems.dpm_android.camera.PropertyLoader
 import uk.unmannedsystems.dpm_android.network.NetworkManager
 import uk.unmannedsystems.dpm_android.settings.SettingsManager
 import uk.unmannedsystems.dpm_android.settings.SettingsRepository
@@ -28,6 +29,18 @@ class DPMApplication : Application() {
 
         // Initialize SettingsManager
         SettingsManager.initialize(this)
+
+        // Initialize PropertyLoader (specification-first architecture)
+        Log.d(TAG, "Loading camera property specifications from camera_properties.json...")
+        if (!PropertyLoader.initialize(this)) {
+            Log.e(TAG, "Failed to initialize PropertyLoader - camera property validation unavailable")
+            // Continue anyway - app can still function, but property validation will fail
+        } else {
+            Log.d(TAG, "PropertyLoader initialized successfully")
+            Log.d(TAG, "Loaded properties: ISO=${PropertyLoader.getValueCount("iso")}, " +
+                    "Shutter=${PropertyLoader.getValueCount("shutter_speed")}, " +
+                    "Aperture=${PropertyLoader.getValueCount("aperture")}")
+        }
 
         // Initialize network on app startup
         applicationScope.launch {
