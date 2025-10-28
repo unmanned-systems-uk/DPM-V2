@@ -194,6 +194,9 @@ public:
             // The callback might still fire, and the connection might still work
         } else {
             Logger::info("Camera fully connected and ready!");
+
+            // DIAGNOSTIC: Query and log available ISO values
+            logAvailableIsoValues();
         }
 
         return callback_->isConnected();
@@ -363,6 +366,59 @@ private:
             SDK::Release();
             sdk_initialized_ = false;
         }
+    }
+
+    void logAvailableIsoValues() {
+        Logger::info("=== ISO DIAGNOSTIC: Querying available ISO values ===");
+
+        SDK::CrDeviceProperty* prop_list = nullptr;
+        int num_props = 0;
+        auto prop_status = SDK::GetDeviceProperties(device_handle_, &prop_list, &num_props);
+
+        if (CR_FAILED(prop_status) || !prop_list) {
+            Logger::error("ISO DIAGNOSTIC: Failed to get device properties");
+            return;
+        }
+
+        // Find ISO property
+        for (int i = 0; i < num_props; ++i) {
+            if (prop_list[i].GetCode() == SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity) {
+                auto& iso_prop = prop_list[i];
+
+                // Current value
+                if (iso_prop.IsGetEnableCurrentValue()) {
+                    CrInt64u current = iso_prop.GetCurrentValue();
+                    std::string current_str = (current == 0xFFFFFFFF || current == 0xFFFFFF) ? "auto" : std::to_string(current);
+                    Logger::info("ISO DIAGNOSTIC: Current = " + current_str + " (0x" + toHexString(current) + ")");
+                }
+
+                // Writable flag
+                Logger::info("ISO DIAGNOSTIC: Writable = " + std::string(iso_prop.IsSetEnableCurrentValue() ? "YES" : "NO"));
+
+                // Available values
+                CrInt32u num_values = iso_prop.GetValueSize();
+                Logger::info("ISO DIAGNOSTIC: Available values count = " + std::to_string(num_values));
+
+                if (num_values > 0) {
+                    CrInt8u* values_ptr = iso_prop.GetValues();
+                    CrInt64u* values = reinterpret_cast<CrInt64u*>(values_ptr);
+
+                    std::string values_str = "";
+                    for (CrInt32u j = 0; j < num_values && j < 50; ++j) {  // Limit to 50 to avoid huge logs
+                        CrInt64u val = values[j];
+                        std::string str_val = (val == 0xFFFFFFFF || val == 0xFFFFFF) ? "auto" : std::to_string(val);
+                        if (j > 0) values_str += ", ";
+                        values_str += str_val;
+                    }
+                    Logger::info("ISO DIAGNOSTIC: Available = [" + values_str + "]");
+                }
+
+                break;
+            }
+        }
+
+        SDK::ReleaseDeviceProperties(device_handle_, prop_list);
+        Logger::info("=== ISO DIAGNOSTIC: Complete ===");
     }
 
     bool isConnectedLocked() const {
