@@ -151,8 +151,13 @@ enum class Aperture(val displayValue: String, val fNumber: Float) {
 
 /**
  * ISO sensitivity values - Sony Alpha 1 full range with third-stop increments
+ * Matches camera_properties.json specification (35 values total)
  */
 enum class ISO(val displayValue: String, val value: Int) {
+    ISO_AUTO("auto", 0),           // AUTO mode
+    ISO_50("50", 50),               // Extended low
+    ISO_64("64", 64),               // Extended low
+    ISO_80("80", 80),               // Extended low
     ISO_100("100", 100),
     ISO_125("125", 125),
     ISO_160("160", 160),
@@ -180,7 +185,10 @@ enum class ISO(val displayValue: String, val value: Int) {
     ISO_25600("25600", 25600),
     ISO_32000("32000", 32000),
     ISO_40000("40000", 40000),
-    ISO_51200("51200", 51200);
+    ISO_51200("51200", 51200),
+    ISO_64000("64000", 64000),      // Extended high
+    ISO_80000("80000", 80000),      // Extended high
+    ISO_102400("102400", 102400);   // Extended high
 
     companion object {
         fun fromOrdinal(ordinal: Int): ISO {
