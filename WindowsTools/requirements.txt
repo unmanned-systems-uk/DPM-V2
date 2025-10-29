@@ -1,0 +1,16 @@
+# DPM Diagnostic Tool - Python Dependencies
+# Windows 11 Platform
+# Python 3.8+
+
+# SSH and Docker log access
+paramiko>=3.4.0
+
+# Data visualization
+matplotlib>=3.8.0
+
+# No additional packages needed for:
+# - tkinter (built-in)
+# - socket (built-in)
+# - asyncio (built-in)
+# - threading (built-in)
+# - json (built-in)
