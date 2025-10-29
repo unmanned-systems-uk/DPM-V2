@@ -216,8 +216,8 @@ inline json createStatusMessage(int seq_id, const SystemStatus& system,
     };
 }
 
-// Create heartbeat message
-inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_t uptime) {
+// Create heartbeat message (v1.1.0 - includes client_id)
+inline json createHeartbeatMessage(int seq_id, const std::string& sender, const std::string& client_id, int64_t uptime) {
     return {
         {"protocol_version", "1.0"},
         {"message_type", "heartbeat"},
@@ -225,6 +225,7 @@ inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_
         {"timestamp", std::time(nullptr)},
         {"payload", {
             {"sender", sender},
+            {"client_id", client_id},
             {"uptime_seconds", uptime}
         }}
     };

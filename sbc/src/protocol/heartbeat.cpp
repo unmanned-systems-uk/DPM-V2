@@ -115,11 +115,12 @@ void Heartbeat::sendLoop() {
 
     while (running_) {
         try {
-            // Create heartbeat message
+            // Create heartbeat message (v1.1.0 - includes client_id)
             int64_t uptime = SystemInfo::getStatus().uptime_seconds;
             json heartbeat_msg = messages::createHeartbeatMessage(
                 sequence_id_++,
                 "air",
+                "RPi-Air",
                 uptime
             );
 
