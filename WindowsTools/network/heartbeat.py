@@ -13,7 +13,10 @@ from network.protocol import protocol_msg
 
 
 class HeartbeatSender:
-    """Sends UDP heartbeat messages to Air-Side"""
+    """Sends UDP heartbeat messages to Air-Side
+
+    Compliant with protocol/heartbeat_spec.json v1.1.0
+    """
 
     def __init__(self, target_ip: str, target_port: int = 5002):
         self.target_ip = target_ip
@@ -22,6 +25,9 @@ class HeartbeatSender:
         self.socket: Optional[socket.socket] = None
         self.running = False
         self.send_thread: Optional[threading.Thread] = None
+
+        # Uptime tracking (required by heartbeat_spec.json v1.1.0)
+        self.start_time = time.time()
 
         # Statistics
         self.heartbeats_sent = 0
@@ -65,11 +71,21 @@ class HeartbeatSender:
         logger.info("Heartbeat: Sender stopped")
 
     def _send_loop(self):
-        """Background thread to send heartbeats at 1 Hz"""
+        """Background thread to send heartbeats at 1 Hz
+
+        Compliant with protocol/heartbeat_spec.json v1.1.0:
+        - Sends at 1 Hz (1000ms interval)
+        - Includes uptime_seconds in each heartbeat
+        - Uses client_id = "WPC" (Windows PC)
+        - Uses sender = "ground"
+        """
         while self.running:
             try:
-                # Create heartbeat message
-                message = protocol_msg.create_heartbeat()
+                # Calculate uptime in seconds
+                uptime_seconds = int(time.time() - self.start_time)
+
+                # Create heartbeat message (spec v1.1.0 compliant)
+                message = protocol_msg.create_heartbeat(uptime_seconds)
 
                 # Send to Air-Side
                 self.socket.sendto(
@@ -81,9 +97,9 @@ class HeartbeatSender:
                 self.heartbeats_sent += 1
                 self.last_sent_time = time.time()
 
-                logger.debug(f"Heartbeat: Sent #{self.heartbeats_sent}")
+                logger.debug(f"Heartbeat: Sent #{self.heartbeats_sent} (uptime: {uptime_seconds}s)")
 
-                # Wait 1 second (1 Hz)
+                # Wait 1 second (1 Hz as per spec)
                 time.sleep(1.0)
 
             except Exception as e:

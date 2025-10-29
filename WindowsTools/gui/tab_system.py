@@ -8,6 +8,7 @@ from tkinter import ttk
 from typing import Dict, Any
 
 from utils.logger import logger
+from version import get_version_string, get_full_version_info
 
 
 class SystemMonitorTab(ttk.Frame):
@@ -118,6 +119,32 @@ class SystemMonitorTab(ttk.Frame):
         ttk.Label(storage_detail_frame, text="Total:").pack(side=tk.LEFT, padx=(20, 5))
         self.storage_total_label = ttk.Label(storage_detail_frame, text="N/A GB")
         self.storage_total_label.pack(side=tk.LEFT, padx=5)
+
+        # Application Version Info
+        version_frame = ttk.LabelFrame(resources_frame, text="Application Version", padding=10)
+        version_frame.pack(fill=tk.X, pady=5)
+
+        version_info = get_full_version_info()
+
+        # Version and build date
+        version_row = ttk.Frame(version_frame)
+        version_row.pack(fill=tk.X, pady=2)
+
+        ttk.Label(version_row, text="Version:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        ttk.Label(version_row, text=version_info['version'], font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(version_row, text="Build Date:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(20, 5))
+        ttk.Label(version_row, text=version_info['build_date'], font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
+
+        # Protocol version and build time
+        protocol_row = ttk.Frame(version_frame)
+        protocol_row.pack(fill=tk.X, pady=2)
+
+        ttk.Label(protocol_row, text="Protocol:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        ttk.Label(protocol_row, text=f"v{version_info['protocol_version']}", font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(protocol_row, text="Build Time:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(20, 5))
+        ttk.Label(protocol_row, text=version_info['build_datetime'], font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
 
         # Bottom: Controls
         control_frame = ttk.Frame(self)

@@ -74,6 +74,14 @@ class ConfigTab(ttk.Frame):
         self.h16_ip = LabeledEntry(frame, "H16 IP:", width=15)
         self.h16_ip.pack(fill=tk.X, pady=2)
 
+        self.client_id = LabeledEntry(frame, "Client ID (Heartbeat):", width=15)
+        self.client_id.pack(fill=tk.X, pady=2)
+
+        # Add info label for client_id
+        info_label = ttk.Label(frame, text="ℹ️ Identifies this client in heartbeat messages (default: WPC)",
+                              font=('Arial', 8), foreground='gray')
+        info_label.pack(fill=tk.X, padx=20, pady=(0, 5))
+
         self.timeout = LabeledSpinbox(frame, "Timeout (ms):", 1000, 60000, width=10)
         self.timeout.pack(fill=tk.X, pady=2)
 
@@ -150,6 +158,7 @@ class ConfigTab(ttk.Frame):
         self.status_port.set(config.get("network", "udp_status_port", 5001))
         self.heartbeat_port.set(config.get("network", "udp_heartbeat_port", 5002))
         self.h16_ip.set(config.get("network", "h16_ip", "10.0.1.92"))
+        self.client_id.set(config.get("network", "client_id", "WPC"))
         self.timeout.set(config.get("network", "connection_timeout_ms", 5000))
 
         # SSH
@@ -177,6 +186,7 @@ class ConfigTab(ttk.Frame):
         config.set("network", "udp_status_port", self.status_port.get())
         config.set("network", "udp_heartbeat_port", self.heartbeat_port.get())
         config.set("network", "h16_ip", self.h16_ip.get())
+        config.set("network", "client_id", self.client_id.get())
         config.set("network", "connection_timeout_ms", self.timeout.get())
 
         # SSH

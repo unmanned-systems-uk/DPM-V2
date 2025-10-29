@@ -337,7 +337,7 @@ class NetworkClient(
                         timestamp = System.currentTimeMillis() / 1000,
                         payload = HeartbeatPayload(
                             sender = "ground",
-                            clientId = "H16",
+                            clientId = "H16",  // SkyDroid H16 Ground Station identifier
                             uptimeSeconds = (System.currentTimeMillis() - startTime) / 1000
                         )
                     )
