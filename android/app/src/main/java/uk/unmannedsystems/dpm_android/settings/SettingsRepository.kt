@@ -48,6 +48,9 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_RECONNECT_ENABLED = booleanPreferencesKey("auto_reconnect_enabled")
         private val AUTO_RECONNECT_INTERVAL_SECONDS = intPreferencesKey("auto_reconnect_interval_seconds")
 
+        // Protocol settings keys
+        private val CLIENT_ID = stringPreferencesKey("client_id")
+
         // Default values
         private val DEFAULT_SETTINGS = NetworkSettings()
         private val DEFAULT_VIDEO_SETTINGS = VideoStreamSettings()
@@ -56,6 +59,7 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_AUTO_CONNECT_ENABLED = true
         private const val DEFAULT_AUTO_RECONNECT_ENABLED = true
         private const val DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS = 5 // 5 seconds between reconnect attempts
+        private const val DEFAULT_CLIENT_ID = "H16" // SkyDroid H16 Ground Station identifier
     }
 
     /**
@@ -246,4 +250,26 @@ class SettingsRepository(private val context: Context) {
      * Get default auto-reconnect interval
      */
     fun getDefaultAutoReconnectInterval(): Int = DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS
+
+    /**
+     * Flow of client ID (protocol identifier)
+     */
+    val clientIdFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[CLIENT_ID] ?: DEFAULT_CLIENT_ID
+        }
+
+    /**
+     * Save client ID
+     */
+    suspend fun saveClientId(clientId: String) {
+        context.dataStore.edit { preferences ->
+            preferences[CLIENT_ID] = clientId
+        }
+    }
+
+    /**
+     * Get default client ID
+     */
+    fun getDefaultClientId(): String = DEFAULT_CLIENT_ID
 }

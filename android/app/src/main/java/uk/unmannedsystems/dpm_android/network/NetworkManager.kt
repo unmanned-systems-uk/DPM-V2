@@ -39,17 +39,23 @@ object NetworkManager {
     private var reconnectJob: kotlinx.coroutines.Job? = null
     private var isManualDisconnect = false
 
+    // Client ID for protocol identification
+    private var currentClientId = "H16"  // Default
+
     /**
      * Initialize or reinitialize network client with new settings
      */
-    fun initialize(settings: NetworkSettings) {
-        Log.d(TAG, "Initializing with settings: ${settings.targetIp}:${settings.commandPort}")
+    fun initialize(settings: NetworkSettings, clientId: String = "H16") {
+        Log.d(TAG, "Initializing with settings: ${settings.targetIp}:${settings.commandPort}, clientId: $clientId")
 
         // Disconnect and cleanup old client
         networkClient?.close()
 
-        // Create new client
-        networkClient = NetworkClient(settings)
+        // Store client ID
+        currentClientId = clientId
+
+        // Create new client with client ID
+        networkClient = NetworkClient(settings, clientId)
         _currentSettings.value = settings
 
         // Forward connection status to our stable StateFlow

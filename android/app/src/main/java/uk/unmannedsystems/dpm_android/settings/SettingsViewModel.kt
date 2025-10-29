@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uk.unmannedsystems.dpm_android.network.NetworkManager
@@ -67,6 +68,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = settingsRepository.getDefaultAutoReconnectInterval()
         )
 
+    val clientId: StateFlow<String> = settingsRepository.clientIdFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = settingsRepository.getDefaultClientId()
+        )
+
     // Use NetworkManager's stable StateFlow
     val networkStatus: StateFlow<NetworkStatus> = NetworkManager.connectionStatus
 
@@ -74,10 +82,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         // Monitor settings changes and reinitialize NetworkManager when settings change
         // Note: Auto-connect happens in DPMApplication.onCreate(), not here
         viewModelScope.launch {
-            settingsRepository.networkSettingsFlow.collect { savedSettings ->
+            settingsRepository.networkSettingsFlow.combine(settingsRepository.clientIdFlow) { savedSettings, savedClientId ->
+                Pair(savedSettings, savedClientId)
+            }.collect { (savedSettings, savedClientId) ->
                 // Reinitialize NetworkManager when settings change
-                // (This happens after user saves new settings)
-                NetworkManager.initialize(savedSettings)
+                // (This happens after user saves new settings or client ID)
+                NetworkManager.initialize(savedSettings, savedClientId)
             }
         }
     }
@@ -174,6 +184,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.saveAutoReconnectInterval(intervalSeconds)
             // Update NetworkManager configuration
             NetworkManager.configureAutoReconnect(autoReconnectEnabled.value, intervalSeconds)
+        }
+    }
+
+    /**
+     * Update client ID and persist it
+     * Note: Requires reconnection to take effect
+     */
+    fun updateClientId(clientId: String) {
+        viewModelScope.launch {
+            settingsRepository.saveClientId(clientId)
         }
     }
 }

@@ -25,131 +25,11 @@ Integration:           ████████████████░░░
 
 **Overall Completion:** 65% (Phase 1 MVP)
 
-**Last Updated:** October 29, 2025 - Internal ethernet communications OPERATIONAL
+**Last Updated:** October 25, 2025 - System Status screen added
 
 ---
 
 ## RECENT UPDATES
-
-### 🎉 MILESTONE: Internal Ethernet Communications Operational (October 29, 2025) ✅
-
-**MAJOR ACHIEVEMENT:**
-- ✅ Successfully established communication via H16 internal ethernet
-- ✅ No external WiFi required for Air-Side ↔ Ground-Side communication
-- ✅ Production deployment configuration complete
-- ✅ System fully operational on first test
-
-**Network Configuration:**
-- Air-Side Pi: 192.168.144.10 (eth0)
-- Ground-Side H16: 192.168.144.11 (auto-assigned)
-- Protocol: TCP port 5000, UDP ports 5001/5002/6002
-- Connection: Stable, low latency (<20ms typical)
-
-**Implementation Details:**
-- Fixed Pi dual-interface routing (WiFi for internet, Ethernet for H16)
-- Updated Android app default IP from 192.168.144.20 → 192.168.144.10
-- Configured netplan on Pi for static ethernet IP
-- Verified full protocol stack working over ethernet
-
-**Testing Results:**
-- Handshake: ✅ Successful
-- Heartbeat: ✅ Bidirectional, 1 Hz
-- Status broadcasts: ✅ Receiving at 5 Hz
-- Camera control: ✅ All properties working
-- System status: ✅ Real-time updates
-- Connection state: ✅ OPERATIONAL achieved immediately
-
-**Significance:**
-- **Production-ready deployment** - System operates independently of external networks
-- **Secure communications** - Isolated from external WiFi/internet
-- **Reliable connectivity** - Wired ethernet provides stable, low-latency link
-- **Simplified deployment** - No WiFi configuration needed in field
-
----
-
-### ✅ Camera Error Handling (October 27, 2025) ✅
-
-**Feature Complete:**
-- ✅ Added cameraError field to CameraState
-- ✅ Enhanced error parsing in CameraViewModel
-  * Detects error code 5005 "Camera not connected"
-  * Extracts error details from protocol responses
-  * Clears errors on successful queries
-- ✅ Added prominent error banner UI in CameraControlScreen
-  * Displays at top of screen with warning icon
-  * Shows error message to user
-  * Includes "Please check camera connectivity" instruction
-  * Uses Material3 error colors
-
-**Files Modified:**
-- `CameraState.kt` - Added cameraError field
-- `CameraViewModel.kt` - Enhanced queryAndUpdateProperties()
-- `CameraControlScreen.kt` - Added error banner UI
-
-**Impact:**
-- Users now see clear error messages when camera operations fail
-- Better UX for diagnosing camera connection issues
-
----
-
-### ✅ Battery Level Color Coding (October 27, 2025) ✅
-
-**Feature Complete:**
-- ✅ Color-coded battery warnings:
-  * Battery ≥50%: White (normal)
-  * Battery <50%: Orange (#FF9800)
-  * Battery <30%: Red
-  * Battery <20%: Flashing red (infinite animation, 500ms cycle)
-- ✅ Added textColor parameter to SonyParameter composable
-- ✅ Smooth alpha animation for critical battery levels
-
-**Files Modified:**
-- `SonyCameraOverlay.kt` - Added color logic and animation
-
-**Impact:**
-- Users get clear visual warnings for low battery
-- Critical battery levels (<20%) are impossible to miss with flashing
-
----
-
-### ✅ Property Query Controls (October 27, 2025) ✅
-
-**Features Complete:**
-1. **Heartbeat-Based Property Querying**
-   - Property queries now ONLY work in OPERATIONAL state (heartbeat required)
-   - Prevents queries when connection established but no heartbeat
-   - Files Modified: `CameraViewModel.kt`
-
-2. **Diagnostic Toggle for Property Queries**
-   - Added "Enable Property Querying" toggle in Settings
-   - Allows disabling queries for diagnostics
-   - Persisted via DataStore
-   - Visual feedback when enabled/disabled
-   - Files Modified: `SettingsRepository.kt`, `SettingsViewModel.kt`, `SettingsManager.kt`, `CameraViewModel.kt`, `SettingsScreen.kt`
-
-**Impact:**
-- Better control over when property queries happen
-- Diagnostic capability for troubleshooting
-- Exposed the heartbeat issue
-
----
-
-### ✅ Mode Panel Removal (October 27, 2025) ✅
-
-**Changes Made:**
-- Removed Mode indicator from camera overlay top bar
-- Removed Mode collapsible section from advanced control screen
-- Removed Mode indicator from Main Settings exposure triangle
-
-**Reason:**
-- Camera modes (Manual/Av/Tv/P/Auto) not useful for this application
-- Simplified UI
-
-**Files Modified:**
-- `SonyCameraOverlay.kt` - Removed mode from top bar
-- `SonyRemoteControlScreen.kt` - Removed Mode section and indicator
-
----
 
 ### 📊 System Status Screen Implementation (October 25, 2025) ✅
 
@@ -555,19 +435,19 @@ Integration:           ████████████████░░░
   * Ground-side: Implemented and integrated
   * Protocol sync: ✅ Complete
 
-- ✅ **camera.set_property** - Set camera property
+- ⏸️ **camera.set_property** - Set camera property
   * NetworkClient method: setCameraProperty(property, value)
   * UI: Camera control sliders/selectors
-  * Air-side: Implemented (v1.1.0)
-  * Ground-side: Implemented and integrated
-  * Protocol sync: ✅ Complete
+  * Air-side: Not implemented (planned v1.1)
+  * Ground-side: Implemented, awaiting air-side
+  * Protocol sync: ⚠️ Waiting for air-side
 
-- ✅ **camera.get_properties** - Query camera properties
+- ⏸️ **camera.get_properties** - Query camera properties
   * NetworkClient method: getCameraProperties(properties)
-  * UI: Integrated with polling system
-  * Air-side: Implemented (v1.1.0)
-  * Ground-side: Implemented and integrated
-  * Protocol sync: ✅ Complete
+  * UI: Not yet integrated
+  * Air-side: Not implemented (planned v1.1)
+  * Ground-side: Implemented, awaiting air-side
+  * Protocol sync: ⚠️ Waiting for air-side
 
 **System Commands:**
 - ✅ **system.get_status** - Query system status
@@ -622,8 +502,6 @@ Integration:           ████████████████░░░
 ### ✅ What's Working
 
 **Network & Protocol:**
-- ✅ **Internal ethernet communications** (H16 ↔ Pi via 192.168.144.x) 🎉
-- ✅ **Production-ready deployment** - No external WiFi required
 - ✅ TCP command channel (port 5000)
 - ✅ UDP status receiver (port 5001) - 5 Hz updates
 - ✅ UDP heartbeat sender (port 5002) - 1 Hz
@@ -660,9 +538,9 @@ Integration:           ████████████████░░░
 
 ### ⏸️ What's Pending
 
-**Phase 1 Remaining:**
-- ⏸️ white_balance_temperature UI (air-side ready)
-- ⏸️ drive_mode UI (air-side ready)
+**Air-Side Dependencies:**
+- ⏸️ camera.set_property (waiting for air-side implementation)
+- ⏸️ camera.get_properties (waiting for air-side implementation)
 
 **Planned Features:**
 - ⏸️ Downloads screen (content management)
@@ -682,21 +560,18 @@ Integration:           ████████████████░░░
 ## NEXT STEPS
 
 ### Immediate Tasks
-1. 🎯 **Implement white_balance_temperature UI** - Phase 1 property (air-side ready)
-   - Slider control: 2500-9900K, step 100
-   - Only active when white_balance = "temperature"
-2. 🎯 **Implement drive_mode UI** - Phase 1 property (air-side ready)
-   - Dropdown: single/continuous_lo/continuous_hi/self_timer/bracket
-3. ⏳ End-to-end testing with real camera hardware
-4. ⏳ Field testing in operational environment
-5. ⏳ Performance optimization and tuning
+1. ✅ ~~Implement system.get_status command~~ **COMPLETE**
+2. ⏳ Test system.get_status end-to-end with air-side
+3. ⏳ Test camera.capture end-to-end with air-side
+4. ⏳ Verify WiFi connectivity with dynamic IP
+5. ⏳ Test on physical H16 hardware (when available)
 
 ### Short Term (Next Session)
-1. Complete Phase 1 camera property implementations
-2. Add exposure_compensation UI (Phase 2 property)
-3. Add error handling for edge cases
-4. Performance testing and optimization
-5. End-to-end testing with real hardware
+1. Wait for air-side to implement camera.set_property
+2. Wait for air-side to implement camera.get_properties
+3. Integrate property commands when air-side ready
+4. Add error handling for unsupported commands
+5. Performance testing and optimization
 
 ### Medium Term (Phase 2)
 1. Implement Downloads screen
@@ -760,10 +635,9 @@ Integration:           ████████████████░░░
 ## KNOWN ISSUES
 
 ### Active Issues
-- None currently identified
+*None currently identified*
 
 ### Resolved Issues
-- ✅ No heartbeat reception → Fixed (Air-Side heartbeat broadcaster now working)
 - ✅ Settings screen status not updating on first connect → Fixed with NetworkManager
 - ✅ Camera screen heartbeat not showing → Fixed with NetworkManager
 - ✅ Auto-connect only from Settings screen → Fixed with DPMApplication
@@ -801,38 +675,32 @@ Integration:           ████████████████░░░
 - ✅ Network client initialization
 - ✅ StateFlow updates
 
-### ✅ Completed Tests
-- ✅ **Internal ethernet connectivity** (H16 ↔ Pi) - PASSED FIRST TIME! 🎉
-- ✅ Protocol stack over ethernet (TCP + UDP)
-- ✅ Handshake over ethernet
-- ✅ Heartbeat bidirectional over ethernet
-- ✅ Status broadcasts over ethernet
-- ✅ H16 hardware deployment with wired connection
-
 ### ⏳ Pending Tests
 - ⏳ End-to-end camera.capture with real camera
-- ⏳ Connection stability over extended time
+- ⏳ End-to-end system.get_status with real air-side
+- ⏳ Connection stability over time
 - ⏳ Reconnection after network loss
-- ⏳ Battery consumption profiling
+- ⏳ WiFi connectivity (dynamic IP)
+- ⏳ H16 hardware deployment
+- ⏳ Battery consumption
 - ⏳ Memory usage profiling
-- ⏳ Field operations testing
 
 ---
 
 ## TEAM NOTES
 
 ### For Next Session
-1. Complete Phase 1 property UI implementations (white_balance_temperature, drive_mode)
-2. Consider adding logging levels (verbose/debug for development)
-3. May want to add network quality indicator (latency, packet loss)
-4. End-to-end testing with real camera hardware
+1. System.get_status ready for end-to-end testing
+2. camera.set_property and camera.get_properties need air-side implementation
+3. Consider adding logging levels (verbose/debug for development)
+4. May want to add network quality indicator (latency, packet loss)
 
 ### Protocol Sync Status
 - ✅ Handshake: Both sides implemented
 - ✅ camera.capture: Both sides implemented
-- ✅ camera.set_property: Both sides implemented
-- ✅ camera.get_properties: Both sides implemented
 - ✅ system.get_status: Both sides implemented
+- ⚠️ camera.set_property: Ground-side ready, waiting for air-side
+- ⚠️ camera.get_properties: Ground-side ready, waiting for air-side
 
 ### Workflow Notes
 - Following CC_READ_THIS_FIRST.md workflow rules

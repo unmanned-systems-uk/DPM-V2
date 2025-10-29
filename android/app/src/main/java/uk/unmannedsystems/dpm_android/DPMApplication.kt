@@ -51,13 +51,14 @@ class DPMApplication : Application() {
                 val autoConnectEnabled = settingsRepository.autoConnectEnabledFlow.first()
                 val autoReconnectEnabled = settingsRepository.autoReconnectEnabledFlow.first()
                 val autoReconnectInterval = settingsRepository.autoReconnectIntervalFlow.first()
+                val clientId = settingsRepository.clientIdFlow.first()
 
-                Log.d(TAG, "Loaded settings: ${savedSettings.targetIp}:${savedSettings.commandPort}")
+                Log.d(TAG, "Loaded settings: ${savedSettings.targetIp}:${savedSettings.commandPort}, clientId: $clientId")
                 Log.d(TAG, "Auto-connect enabled: $autoConnectEnabled")
                 Log.d(TAG, "Auto-reconnect enabled: $autoReconnectEnabled, interval: ${autoReconnectInterval}s")
 
-                // Initialize NetworkManager with saved settings
-                NetworkManager.initialize(savedSettings)
+                // Initialize NetworkManager with saved settings and client ID
+                NetworkManager.initialize(savedSettings, clientId)
 
                 // Configure auto-reconnect
                 NetworkManager.configureAutoReconnect(autoReconnectEnabled, autoReconnectInterval)

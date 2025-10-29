@@ -68,6 +68,7 @@ fun SettingsScreen(
     val autoConnectEnabled by viewModel.autoConnectEnabled.collectAsState()
     val autoReconnectEnabled by viewModel.autoReconnectEnabled.collectAsState()
     val autoReconnectInterval by viewModel.autoReconnectInterval.collectAsState()
+    val clientId by viewModel.clientId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -84,6 +85,7 @@ fun SettingsScreen(
             autoConnectEnabled = autoConnectEnabled,
             autoReconnectEnabled = autoReconnectEnabled,
             autoReconnectInterval = autoReconnectInterval,
+            clientId = clientId,
             onSaveSettings = { newSettings ->
                 viewModel.updateSettings(newSettings)
                 coroutineScope.launch {
@@ -147,6 +149,15 @@ fun SettingsScreen(
                     )
                 }
             },
+            onSaveClientId = { newClientId ->
+                viewModel.updateClientId(newClientId)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Client ID updated: $newClientId (reconnect required)",
+                        duration = SnackbarDuration.Long
+                    )
+                }
+            },
             onConnect = viewModel::connect,
             onDisconnect = viewModel::disconnect,
             onResetToDefaults = {
@@ -174,6 +185,7 @@ private fun SettingsContent(
     autoConnectEnabled: Boolean,
     autoReconnectEnabled: Boolean,
     autoReconnectInterval: Int,
+    clientId: String,
     onSaveSettings: (NetworkSettings) -> Unit,
     onSaveVideoSettings: (VideoStreamSettings) -> Unit,
     onSavePropertyQueryFrequency: (Float) -> Unit,
@@ -181,6 +193,7 @@ private fun SettingsContent(
     onSaveAutoConnectEnabled: (Boolean) -> Unit,
     onSaveAutoReconnectEnabled: (Boolean) -> Unit,
     onSaveAutoReconnectInterval: (Int) -> Unit,
+    onSaveClientId: (String) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onResetToDefaults: () -> Unit,
@@ -190,6 +203,7 @@ private fun SettingsContent(
     var commandPort by rememberSaveable { mutableStateOf(currentSettings.commandPort.toString()) }
     var statusPort by rememberSaveable { mutableStateOf(currentSettings.statusListenPort.toString()) }
     var heartbeatPort by rememberSaveable { mutableStateOf(currentSettings.heartbeatPort.toString()) }
+    var clientIdValue by rememberSaveable { mutableStateOf(clientId) }
 
     // Video settings state
     var videoEnabled by rememberSaveable { mutableStateOf(videoSettings.enabled) }
@@ -207,6 +221,11 @@ private fun SettingsContent(
         commandPort = currentSettings.commandPort.toString()
         statusPort = currentSettings.statusListenPort.toString()
         heartbeatPort = currentSettings.heartbeatPort.toString()
+    }
+
+    // Update client ID when it changes
+    androidx.compose.runtime.LaunchedEffect(clientId) {
+        clientIdValue = clientId
     }
 
     // Update video settings when they change
@@ -573,6 +592,31 @@ private fun SettingsContent(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Client ID (Protocol Identifier)
+        OutlinedTextField(
+            value = clientIdValue,
+            onValueChange = { clientIdValue = it },
+            label = { Text("Client ID (Protocol Identifier)") },
+            placeholder = { Text("H16") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            supportingText = { Text("Identifies this client in heartbeat messages (e.g., H16, WPC, RPi-Air)") }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Save Client ID Button
+        Button(
+            onClick = {
+                onSaveClientId(clientIdValue)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Save Client ID")
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
