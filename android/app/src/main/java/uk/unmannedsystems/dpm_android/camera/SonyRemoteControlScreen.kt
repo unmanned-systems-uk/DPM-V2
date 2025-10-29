@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -102,19 +104,56 @@ fun SonyRemoteControlScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Menu button overlay on video
-            IconButton(
-                onClick = onClose,
+            // Connection status and menu overlay on video
+            Row(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopEnd)
                     .padding(16.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), shape = CircleShape)
+                    .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Open menu",
-                    tint = Color.White
+                // Connection status dot
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(
+                            color = when (networkStatus.state) {
+                                uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL -> Color(0xFF4CAF50) // Green
+                                uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED -> Color(0xFF8BC34A) // Light green
+                                uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTING -> Color(0xFFFFC107) // Yellow
+                                uk.unmannedsystems.dpm_android.network.ConnectionState.DISCONNECTED -> Color(0xFF9E9E9E) // Gray
+                                uk.unmannedsystems.dpm_android.network.ConnectionState.ERROR -> Color(0xFFF44336) // Red
+                            },
+                            shape = CircleShape
+                        )
                 )
+
+                // Connection status text
+                Text(
+                    text = when (networkStatus.state) {
+                        uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL -> "OPERATIONAL"
+                        uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED -> "CONNECTED"
+                        uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTING -> "CONNECTING"
+                        uk.unmannedsystems.dpm_android.network.ConnectionState.DISCONNECTED -> "DISCONNECTED"
+                        uk.unmannedsystems.dpm_android.network.ConnectionState.ERROR -> "ERROR"
+                    },
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                // Menu button
+                IconButton(
+                    onClick = onClose
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Open menu",
+                        tint = Color.White
+                    )
+                }
             }
 
             // Camera error banner (e.g., "Camera not connected")
@@ -186,10 +225,13 @@ fun SonyRemoteControlScreen(
             onCapture = viewModel::captureImage,
             onIncrementShutter = viewModel::incrementShutterSpeed,
             onDecrementShutter = viewModel::decrementShutterSpeed,
+            onSetShutter = viewModel::setShutterSpeed,
             onIncrementAperture = viewModel::incrementAperture,
             onDecrementAperture = viewModel::decrementAperture,
+            onSetAperture = viewModel::setAperture,
             onIncrementISO = viewModel::incrementISO,
             onDecrementISO = viewModel::decrementISO,
+            onSetISO = viewModel::setISO,
             onIncrementExposureComp = { viewModel.adjustExposureCompensation(0.3f) },
             onDecrementExposureComp = { viewModel.adjustExposureCompensation(-0.3f) },
             onModeSelected = { modeName ->
@@ -213,10 +255,13 @@ private fun SonyRemoteSidebar(
     onCapture: () -> Unit,
     onIncrementShutter: () -> Unit,
     onDecrementShutter: () -> Unit,
+    onSetShutter: (ShutterSpeed) -> Unit,
     onIncrementAperture: () -> Unit,
     onDecrementAperture: () -> Unit,
+    onSetAperture: (Aperture) -> Unit,
     onIncrementISO: () -> Unit,
     onDecrementISO: () -> Unit,
+    onSetISO: (ISO) -> Unit,
     onIncrementExposureComp: () -> Unit,
     onDecrementExposureComp: () -> Unit,
     onModeSelected: (String) -> Unit,
@@ -244,10 +289,13 @@ private fun SonyRemoteSidebar(
                 cameraState = cameraState,
                 onIncrementShutter = onIncrementShutter,
                 onDecrementShutter = onDecrementShutter,
+                onSetShutter = onSetShutter,
                 onIncrementAperture = onIncrementAperture,
                 onDecrementAperture = onDecrementAperture,
+                onSetAperture = onSetAperture,
                 onIncrementISO = onIncrementISO,
                 onDecrementISO = onDecrementISO,
+                onSetISO = onSetISO,
                 onIncrementExposureComp = onIncrementExposureComp,
                 onDecrementExposureComp = onDecrementExposureComp
             )
@@ -521,10 +569,13 @@ private fun MainSettingsSection(
     cameraState: CameraState,
     onIncrementShutter: () -> Unit,
     onDecrementShutter: () -> Unit,
+    onSetShutter: (ShutterSpeed) -> Unit,
     onIncrementAperture: () -> Unit,
     onDecrementAperture: () -> Unit,
+    onSetAperture: (Aperture) -> Unit,
     onIncrementISO: () -> Unit,
     onDecrementISO: () -> Unit,
+    onSetISO: (ISO) -> Unit,
     onIncrementExposureComp: () -> Unit,
     onDecrementExposureComp: () -> Unit
 ) {
@@ -541,8 +592,12 @@ private fun MainSettingsSection(
             SonyParameterControl(
                 label = "Shutter Speed",
                 value = cameraState.shutterSpeed.displayValue,
+                availableValues = ShutterSpeed.entries.map { it.displayValue },
                 onIncrement = onIncrementShutter,
                 onDecrement = onDecrementShutter,
+                onSelect = { selectedValue ->
+                    ShutterSpeed.entries.find { it.displayValue == selectedValue }?.let { onSetShutter(it) }
+                },
                 highlighted = true
             )
 
@@ -550,8 +605,12 @@ private fun MainSettingsSection(
             SonyParameterControl(
                 label = "F",
                 value = cameraState.aperture.displayValue,
+                availableValues = Aperture.entries.map { it.displayValue },
                 onIncrement = onIncrementAperture,
-                onDecrement = onDecrementAperture
+                onDecrement = onDecrementAperture,
+                onSelect = { selectedValue ->
+                    Aperture.entries.find { it.displayValue == selectedValue }?.let { onSetAperture(it) }
+                }
             )
         }
 
@@ -565,8 +624,12 @@ private fun MainSettingsSection(
             SonyParameterControl(
                 label = "ISO",
                 value = cameraState.iso.displayValue,
+                availableValues = ISO.entries.map { it.displayValue },
                 onIncrement = onIncrementISO,
-                onDecrement = onDecrementISO
+                onDecrement = onDecrementISO,
+                onSelect = { selectedValue ->
+                    ISO.entries.find { it.displayValue == selectedValue }?.let { onSetISO(it) }
+                }
             )
 
             // Exposure Compensation
@@ -590,17 +653,21 @@ private fun MainSettingsSection(
 }
 
 /**
- * Sony-style parameter control with increment/decrement buttons
+ * Sony-style parameter control with increment/decrement buttons and dropdown selection
  */
 @Composable
 private fun SonyParameterControl(
     label: String,
     value: String,
+    availableValues: List<String> = emptyList(),
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
+    onSelect: ((String) -> Unit)? = null,
     highlighted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -613,23 +680,56 @@ private fun SonyParameterControl(
             fontSize = 10.sp
         )
 
-        // Value with background
-        Box(
-            modifier = Modifier
-                .background(
-                    color = if (highlighted) Color(0xFFFF5722) else Color(0xFF3A3A3A),
-                    shape = RoundedCornerShape(4.dp)
+        // Value with background - clickable to show dropdown
+        Box {
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = if (highlighted) Color(0xFFFF5722) else Color(0xFF3A3A3A),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .clickable(enabled = availableValues.isNotEmpty() && onSelect != null) {
+                        expanded = true
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = value,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = value,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
+            }
+
+            // Dropdown menu
+            if (availableValues.isNotEmpty() && onSelect != null) {
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color(0xFF2A2A2A))
+                ) {
+                    availableValues.forEach { availableValue ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = availableValue,
+                                    color = if (availableValue == value) Color(0xFFFF5722) else Color.White,
+                                    fontWeight = if (availableValue == value) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                onSelect(availableValue)
+                                expanded = false
+                            },
+                            modifier = Modifier.background(
+                                if (availableValue == value) Color(0xFF3A3A3A) else Color.Transparent
+                            )
+                        )
+                    }
+                }
+            }
         }
 
         // Increment/Decrement buttons

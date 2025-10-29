@@ -263,6 +263,42 @@ class CameraViewModel : ViewModel() {
     }
 
     /**
+     * Set shutter speed directly
+     */
+    fun setShutterSpeed(shutterSpeed: ShutterSpeed) {
+        _cameraState.update { state ->
+            // Send command to air-side
+            sendPropertyCommand("shutter_speed", shutterSpeedToProtocol(shutterSpeed))
+
+            state.copy(shutterSpeed = shutterSpeed)
+        }
+    }
+
+    /**
+     * Set aperture directly
+     */
+    fun setAperture(aperture: Aperture) {
+        _cameraState.update { state ->
+            // Send command to air-side
+            sendPropertyCommand("aperture", apertureToProtocol(aperture))
+
+            state.copy(aperture = aperture)
+        }
+    }
+
+    /**
+     * Set ISO directly
+     */
+    fun setISO(iso: ISO) {
+        _cameraState.update { state ->
+            // Send command to air-side
+            sendPropertyCommand("iso", isoToProtocol(iso))
+
+            state.copy(iso = iso)
+        }
+    }
+
+    /**
      * Set camera mode
      */
     fun setMode(mode: CameraMode) {
