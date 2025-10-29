@@ -4,7 +4,7 @@ package uk.unmannedsystems.dpm_android.network
  * Network configuration settings for communication with Raspberry Pi
  */
 data class NetworkSettings(
-    val targetIp: String = "192.168.144.20",
+    val targetIp: String = "192.168.144.10",  // Air-Side Pi ethernet address
     val commandPort: Int = 5000,
     val statusListenPort: Int = 5001,
     val heartbeatPort: Int = 5002,
