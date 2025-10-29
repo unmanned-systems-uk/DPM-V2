@@ -1,0 +1,296 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Heartbeat Message Specification",
+  "description": "Official heartbeat message format for DPM Payload Manager - ALL implementations must comply",
+  "version": "1.1.0",
+
+  "overview": {
+    "purpose": "Bidirectional heartbeat messages to detect connection health between Air-Side and Ground-Side",
+    "transport": "UDP",
+    "port": 5002,
+    "frequency": "1 Hz (1000ms interval)",
+    "timeout": "10 seconds (10 missed heartbeats indicates connection loss)",
+    "direction": "Bidirectional (Air↔Ground)"
+  },
+
+  "message_structure": {
+    "protocol_version": {
+      "type": "string",
+      "required": true,
+      "value": "1.0",
+      "description": "Protocol version - must match current protocol"
+    },
+    "message_type": {
+      "type": "string",
+      "required": true,
+      "value": "heartbeat",
+      "description": "Message type identifier"
+    },
+    "sequence_id": {
+      "type": "integer",
+      "required": true,
+      "description": "Monotonically increasing sequence number, unique per sender",
+      "notes": "Resets to 0 on restart. Used to detect missed or duplicate messages."
+    },
+    "timestamp": {
+      "type": "integer",
+      "required": true,
+      "description": "Unix timestamp in SECONDS since epoch (not milliseconds)",
+      "example": 1698765432,
+      "notes": "Use time(nullptr) in C++, System.currentTimeMillis()/1000 in Android/Kotlin, int(time.time()) in Python"
+    },
+    "payload": {
+      "type": "object",
+      "required": true,
+      "properties": {
+        "sender": {
+          "type": "string",
+          "required": true,
+          "enum": ["air", "ground"],
+          "description": "Identifies the sender of the heartbeat"
+        },
+        "client_id": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for the specific client instance",
+          "examples": ["H16", "WPC", "RPi-Air"],
+          "notes": "Used to track which specific client is connected. Ground-Side H16 uses 'H16', Windows PC diagnostic tool uses 'WPC', Air-Side uses 'RPi-Air' or similar."
+        },
+        "uptime_seconds": {
+          "type": "integer",
+          "required": true,
+          "description": "Number of seconds since the sending application started",
+          "minimum": 0,
+          "notes": "Calculate as (current_time - start_time) in seconds"
+        }
+      }
+    }
+  },
+
+  "validation_rules": {
+    "required_fields": [
+      "protocol_version",
+      "message_type",
+      "sequence_id",
+      "timestamp",
+      "payload"
+    ],
+    "payload_required_fields": [
+      "sender",
+      "client_id",
+      "uptime_seconds"
+    ],
+    "protocol_version_must_be": "1.0",
+    "message_type_must_be": "heartbeat",
+    "sender_must_be_one_of": ["air", "ground"],
+    "timestamp_must_be_seconds": true,
+    "sequence_id_must_increment": true
+  },
+
+  "examples": {
+    "air_to_ground": {
+      "description": "Heartbeat sent from Air-Side (SBC) to Ground-Side",
+      "message": {
+        "protocol_version": "1.0",
+        "message_type": "heartbeat",
+        "sequence_id": 42,
+        "timestamp": 1698765432,
+        "payload": {
+          "sender": "air",
+          "client_id": "RPi-Air",
+          "uptime_seconds": 3600
+        }
+      }
+    },
+    "ground_to_air_h16": {
+      "description": "Heartbeat sent from Ground-Side H16 (Android) to Air-Side",
+      "message": {
+        "protocol_version": "1.0",
+        "message_type": "heartbeat",
+        "sequence_id": 123,
+        "timestamp": 1698765433,
+        "payload": {
+          "sender": "ground",
+          "client_id": "H16",
+          "uptime_seconds": 7200
+        }
+      }
+    },
+    "ground_to_air_windows": {
+      "description": "Heartbeat sent from Windows PC diagnostic tool to Air-Side",
+      "message": {
+        "protocol_version": "1.0",
+        "message_type": "heartbeat",
+        "sequence_id": 87,
+        "timestamp": 1698765434,
+        "payload": {
+          "sender": "ground",
+          "client_id": "WPC",
+          "uptime_seconds": 1200
+        }
+      }
+    }
+  },
+
+  "implementation_requirements": {
+    "air_side_sbc": {
+      "language": "C++",
+      "file": "sbc/src/protocol/messages.h",
+      "function": "createHeartbeatMessage()",
+      "client_id": "RPi-Air",
+      "requirements": [
+        "Use std::time(nullptr) for timestamp (seconds)",
+        "Track uptime from application start",
+        "Increment sequence_id per message",
+        "Set sender to 'air'",
+        "Set client_id to 'RPi-Air'",
+        "Send at 1 Hz (1000ms interval)"
+      ]
+    },
+    "ground_side_android": {
+      "language": "Kotlin",
+      "file": "android/app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt",
+      "class": "NetworkClient",
+      "client_id": "H16",
+      "requirements": [
+        "Use System.currentTimeMillis() / 1000 for timestamp (convert ms to seconds)",
+        "Calculate uptime as (System.currentTimeMillis() - startTime) / 1000",
+        "Increment AtomicInteger for sequence_id",
+        "Set sender to 'ground'",
+        "Set client_id to 'H16'",
+        "Send at 1 Hz (1000ms interval)"
+      ]
+    },
+    "ground_side_windows": {
+      "language": "Python",
+      "file": "WindowsTools/network/protocol.py",
+      "function": "create_heartbeat()",
+      "client_id": "WPC",
+      "requirements": [
+        "Use int(time.time()) for timestamp (seconds)",
+        "Track uptime from application start",
+        "Increment sequence_id per message",
+        "Set sender to 'ground'",
+        "Set client_id to 'WPC'",
+        "Send at 1 Hz (1.0 second interval)"
+      ]
+    }
+  },
+
+  "common_mistakes": {
+    "timestamp_milliseconds": {
+      "incorrect": "timestamp: int(time.time() * 1000)",
+      "correct": "timestamp: int(time.time())",
+      "description": "Timestamp must be in SECONDS, not milliseconds"
+    },
+    "missing_protocol_version": {
+      "incorrect": "{ 'message_type': 'heartbeat', ... }",
+      "correct": "{ 'protocol_version': '1.0', 'message_type': 'heartbeat', ... }",
+      "description": "protocol_version field is REQUIRED"
+    },
+    "wrong_payload_fields": {
+      "incorrect": "payload: { 'status': 'alive' }",
+      "correct": "payload: { 'sender': 'air', 'client_id': 'RPi-Air', 'uptime_seconds': 123 }",
+      "description": "Payload must contain sender, client_id, and uptime_seconds"
+    },
+    "missing_client_id": {
+      "incorrect": "payload: { 'sender': 'ground', 'uptime_seconds': 123 }",
+      "correct": "payload: { 'sender': 'ground', 'client_id': 'H16', 'uptime_seconds': 123 }",
+      "description": "client_id field is REQUIRED to identify which client is connected"
+    },
+    "duplicate_timestamp": {
+      "incorrect": "payload: { 'timestamp': ... }",
+      "correct": "No timestamp in payload - only at top level",
+      "description": "Timestamp is at message level, not in payload"
+    }
+  },
+
+  "client_identifiers": {
+    "description": "Standard client_id values for DPM system components",
+    "registered_clients": {
+      "RPi-Air": {
+        "platform": "Raspberry Pi (Air-Side)",
+        "sender": "air",
+        "description": "Main payload manager running on Raspberry Pi SBC in the drone"
+      },
+      "H16": {
+        "platform": "SkyDroid H16 (Ground-Side)",
+        "sender": "ground",
+        "description": "Ground control station - SkyDroid H16 Android controller"
+      },
+      "WPC": {
+        "platform": "Windows PC (Diagnostic Tool)",
+        "sender": "ground",
+        "description": "Windows PC running diagnostic/monitoring tool"
+      }
+    },
+    "naming_convention": {
+      "format": "3-10 uppercase alphanumeric characters",
+      "examples": ["H16", "WPC", "RPi-Air"],
+      "recommendation": "Use abbreviations that clearly identify the device/platform"
+    }
+  },
+
+  "receiving_heartbeats": {
+    "validation_steps": [
+      "1. Verify message is valid JSON",
+      "2. Check protocol_version == '1.0'",
+      "3. Check message_type == 'heartbeat'",
+      "4. Verify all required fields present",
+      "5. Verify sender is 'air' or 'ground'",
+      "6. Update last_received_timestamp",
+      "7. Check for sequence_id gaps (indicates missed messages)"
+    ],
+    "timeout_detection": {
+      "method": "Time since last received heartbeat",
+      "timeout_seconds": 10,
+      "action": "Display 'connection lost' warning to user"
+    }
+  },
+
+  "testing": {
+    "unit_tests": {
+      "test_format": "Verify message matches JSON schema exactly",
+      "test_required_fields": "Ensure all required fields present",
+      "test_timestamp_format": "Verify timestamp is in seconds (reasonable value)",
+      "test_sender_value": "Verify sender is 'air' or 'ground'",
+      "test_sequence_increment": "Verify sequence_id increments"
+    },
+    "integration_tests": {
+      "air_to_ground": "Air-Side sends, Ground-Side receives and validates",
+      "ground_to_air": "Ground-Side sends, Air-Side receives and validates",
+      "timeout_detection": "Stop sending, verify timeout triggers after 10s"
+    }
+  },
+
+  "references": {
+    "protocol_spec": "protocol/protocol_v1.0.json",
+    "constants": {
+      "heartbeat_port": 5002,
+      "heartbeat_interval_ms": 1000,
+      "heartbeat_timeout_sec": 10
+    },
+    "related_files": [
+      "sbc/src/protocol/messages.h (Air-Side implementation)",
+      "sbc/src/protocol/heartbeat.cpp (Air-Side sender/receiver)",
+      "android/app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt (Android implementation)",
+      "WindowsTools/network/protocol.py (Windows implementation)",
+      "WindowsTools/network/heartbeat.py (Windows sender)"
+    ]
+  },
+
+  "changelog": {
+    "1.1.0": {
+      "date": "2025-10-29",
+      "description": "Added client_id field to payload for tracking specific client instances (H16, WPC, RPi-Air)",
+      "author": "DPM Team",
+      "breaking_change": true,
+      "migration": "All implementations must add client_id to heartbeat payload"
+    },
+    "1.0.0": {
+      "date": "2025-10-29",
+      "description": "Initial heartbeat specification created to standardize format across all implementations",
+      "author": "DPM Team"
+    }
+  }
+}
