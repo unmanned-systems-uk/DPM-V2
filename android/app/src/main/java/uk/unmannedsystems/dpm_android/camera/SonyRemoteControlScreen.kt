@@ -45,8 +45,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +83,7 @@ fun SonyRemoteControlScreen(
     val videoSettings by settingsViewModel.videoSettings.collectAsState()
     val networkStatus by uk.unmannedsystems.dpm_android.network.NetworkManager.connectionStatus.collectAsState()
     val videoState by videoPlayerViewModel.videoState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     Row(
         modifier = modifier
@@ -160,7 +164,15 @@ fun SonyRemoteControlScreen(
             // Connection status indicator - top right corner
             ConnectionStatusIcon(
                 networkStatus = networkStatus,
-                onClick = { },
+                onClick = {
+                    // Reconnect to Air-Side
+                    uk.unmannedsystems.dpm_android.network.NetworkManager.disconnect()
+                    // Small delay to ensure clean disconnect before reconnect
+                    coroutineScope.launch {
+                        delay(500)
+                        uk.unmannedsystems.dpm_android.network.NetworkManager.connect()
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 16.dp, end = 16.dp)
@@ -831,6 +843,11 @@ private fun FocusButton(
  * Connection status icon indicator
  * Shows Air-Side connection state with colored circle
  * Pulses when heartbeats are received from Air-Side
+ *
+ * CLICKABLE: Tap to reconnect to Air-Side
+ * - RED: Disconnected or Error - Click to connect
+ * - YELLOW: Connecting - Connection in progress
+ * - GREEN: Connected/Operational - Click to reconnect
  */
 @Composable
 private fun ConnectionStatusIcon(
