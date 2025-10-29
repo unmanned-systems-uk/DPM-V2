@@ -149,19 +149,33 @@ class DiagnosticApp:
     def _wire_components(self):
         """Wire all components together with callbacks"""
         # Give connection tab reference to TCP client
+        # This sets up the connection tab's callbacks
         self.connection_tab.set_tcp_client(self.tcp_client)
+
+        # Save the connection tab's callbacks so we can chain them
+        connection_tab_on_connected = self.tcp_client.on_connected
+        connection_tab_on_disconnected = self.tcp_client.on_disconnected
+        connection_tab_on_message = self.tcp_client.on_message_received
 
         # Give command sender tab reference to TCP client
         self.command_tab.set_tcp_client(self.tcp_client)
 
-        # Wire TCP client callbacks
+        # Wire TCP client callbacks (chaining with connection tab callbacks)
         def on_tcp_message(message):
             """Handle TCP message received"""
+            # Call connection tab's callback first
+            if connection_tab_on_message:
+                connection_tab_on_message(message)
+
             # Add to protocol inspector
             self.protocol_tab.add_message(message, "received")
 
         def on_tcp_connected():
             """Handle TCP connected"""
+            # Call connection tab's callback first
+            if connection_tab_on_connected:
+                connection_tab_on_connected()
+
             logger.info("TCP connected - starting UDP listeners and heartbeat sender")
 
             # Start UDP listeners
@@ -178,6 +192,10 @@ class DiagnosticApp:
 
         def on_tcp_disconnected():
             """Handle TCP disconnected"""
+            # Call connection tab's callback first
+            if connection_tab_on_disconnected:
+                connection_tab_on_disconnected()
+
             logger.info("TCP disconnected - stopping UDP listeners and heartbeat sender")
 
             # Stop UDP listeners
@@ -195,7 +213,7 @@ class DiagnosticApp:
             tcp_port = config.get('network', 'tcp_port')
             self.window.update_status_bar(False, f"Disconnected: {air_side_ip}:{tcp_port}")
 
-        # Set TCP callbacks
+        # Set TCP callbacks (now chained)
         self.tcp_client.on_message_received = on_tcp_message
         self.tcp_client.on_connected = on_tcp_connected
         self.tcp_client.on_disconnected = on_tcp_disconnected
