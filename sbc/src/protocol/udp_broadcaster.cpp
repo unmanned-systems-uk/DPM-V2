@@ -145,6 +145,7 @@ void UDPBroadcaster::sendStatus() {
             target_ip = target_ip_;
         }
 
+        // Send to primary port
         struct sockaddr_in target_addr{};
         target_addr.sin_family = AF_INET;
         target_addr.sin_port = htons(port_);
@@ -160,9 +161,30 @@ void UDPBroadcaster::sendStatus() {
         );
 
         if (bytes_sent < 0) {
-            Logger::error("Failed to send UDP status: " + std::string(strerror(errno)));
+            Logger::error("Failed to send UDP status to port " + std::to_string(port_) + ": " + std::string(strerror(errno)));
         } else {
-            Logger::debug("Sent UDP status (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
+            Logger::debug("Sent UDP status to port " + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
+        }
+
+        // Send to alternative port (for Windows Tools with firewall restrictions)
+        struct sockaddr_in target_addr_alt{};
+        target_addr_alt.sin_family = AF_INET;
+        target_addr_alt.sin_port = htons(config::UDP_STATUS_PORT_ALT);
+        inet_pton(AF_INET, target_ip.c_str(), &target_addr_alt.sin_addr);
+
+        ssize_t bytes_sent_alt = sendto(
+            socket_fd_,
+            message_str.c_str(),
+            message_str.size(),
+            0,
+            (struct sockaddr*)&target_addr_alt,
+            sizeof(target_addr_alt)
+        );
+
+        if (bytes_sent_alt < 0) {
+            Logger::error("Failed to send UDP status to alt port " + std::to_string(config::UDP_STATUS_PORT_ALT) + ": " + std::string(strerror(errno)));
+        } else {
+            Logger::debug("Sent UDP status to alt port " + std::to_string(config::UDP_STATUS_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent_alt) + ")");
         }
     } catch (const std::exception& e) {
         Logger::error("Exception in sendStatus: " + std::string(e.what()));

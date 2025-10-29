@@ -20,13 +20,59 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready!)
+**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready! Dual-port UDP broadcasting!)
 
-**Last Updated:** October 29, 2025 - ISO Auto remote setting fixed (24-bit vs 32-bit value format)
+**Last Updated:** October 29, 2025 - Added dual-port UDP broadcasting (ports 50001/50002 for Windows Tools firewall compatibility)
 
 ---
 
 ## RECENT UPDATES (October 23-29, 2025)
+
+### ✅ Dual-Port UDP Broadcasting Added! (October 29, 2025)
+
+**Problem:**
+- Windows Tools PC has firewall restrictions blocking ports 5001 and 5002
+- User needed alternative ports for UDP status and heartbeat reception
+
+**Solution Implemented:**
+- ✅ Added alternative UDP ports: 50001 (status) and 50002 (heartbeat)
+- ✅ Air-Side now broadcasts to BOTH port sets simultaneously
+- ✅ No configuration changes needed - works automatically
+
+**Implementation Details:**
+
+**config.h (lines 13-15):**
+```cpp
+// Alternative UDP ports (for Windows Tools with firewall restrictions)
+constexpr int UDP_STATUS_PORT_ALT = 50001;
+constexpr int UDP_HEARTBEAT_PORT_ALT = 50002;
+```
+
+**UDP Broadcasting:**
+- Primary: 192.168.144.11:5001 (5 Hz status)
+- Alternative: 192.168.144.11:50001 (5 Hz status)
+
+**Heartbeat:**
+- Primary: 192.168.144.11:5002 (1 Hz)
+- Alternative: 192.168.144.11:50002 (1 Hz)
+
+**Testing Results:**
+- ✅ Both port sets broadcasting simultaneously at correct frequencies
+- ✅ No performance impact (minimal overhead)
+- ✅ Windows Tools can now choose which port set to listen on
+- ✅ Android/Ground-Station continues using primary ports (5001/5002)
+
+**Log Output Verification:**
+```
+[DEBUG] Sent UDP status to port 5001 (seq=0, bytes=396)
+[DEBUG] Sent UDP status to alt port 50001 (seq=0, bytes=396)
+[DEBUG] Sent heartbeat to port 5002 (seq=0)
+[DEBUG] Sent heartbeat to alt port 50002 (seq=0)
+```
+
+**Status:** ✅ **DUAL-PORT BROADCASTING ACTIVE** - Windows Tools firewall issue resolved!
+
+---
 
 ### ✅ ISO Auto Remote Setting Fixed! (October 29, 2025)
 

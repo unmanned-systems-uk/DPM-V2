@@ -134,6 +134,7 @@ void Heartbeat::sendLoop() {
                 target_ip = target_ip_;
             }
 
+            // Send to primary port
             struct sockaddr_in target_addr{};
             target_addr.sin_family = AF_INET;
             target_addr.sin_port = htons(port_);
@@ -149,9 +150,30 @@ void Heartbeat::sendLoop() {
             );
 
             if (bytes_sent < 0) {
-                Logger::error("Failed to send heartbeat: " + std::string(strerror(errno)));
+                Logger::error("Failed to send heartbeat to port " + std::to_string(port_) + ": " + std::string(strerror(errno)));
             } else {
-                Logger::debug("Sent heartbeat (seq=" + std::to_string(sequence_id_ - 1) + ")");
+                Logger::debug("Sent heartbeat to port " + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
+            }
+
+            // Send to alternative port (for Windows Tools with firewall restrictions)
+            struct sockaddr_in target_addr_alt{};
+            target_addr_alt.sin_family = AF_INET;
+            target_addr_alt.sin_port = htons(config::UDP_HEARTBEAT_PORT_ALT);
+            inet_pton(AF_INET, target_ip.c_str(), &target_addr_alt.sin_addr);
+
+            ssize_t bytes_sent_alt = sendto(
+                socket_fd_,
+                message_str.c_str(),
+                message_str.size(),
+                0,
+                (struct sockaddr*)&target_addr_alt,
+                sizeof(target_addr_alt)
+            );
+
+            if (bytes_sent_alt < 0) {
+                Logger::error("Failed to send heartbeat to alt port " + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + ": " + std::string(strerror(errno)));
+            } else {
+                Logger::debug("Sent heartbeat to alt port " + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
             }
         } catch (const std::exception& e) {
             Logger::error("Exception in sendLoop: " + std::string(e.what()));
