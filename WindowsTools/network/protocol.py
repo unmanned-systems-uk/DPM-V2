@@ -7,6 +7,8 @@ import json
 import time
 from typing import Dict, Any, Optional, List
 
+from utils.config import config
+
 
 class ProtocolMessage:
     """DPM Protocol message builder and parser"""
@@ -59,7 +61,7 @@ class ProtocolMessage:
         BREAKING CHANGE (Protocol v1.1.0):
         - Added protocol_version field (required)
         - Changed timestamp to SECONDS (not milliseconds)
-        - Added client_id field to identify which client is sending (WPC = Windows PC)
+        - Added client_id field to identify which client is sending (configurable, default "WPC")
         - Added sender field ('ground' for WindowsTools)
         - Added uptime_seconds field (seconds since app started)
         - Removed old 'status' and payload 'timestamp' fields
@@ -69,6 +71,9 @@ class ProtocolMessage:
 
         Spec: protocol/heartbeat_spec.json v1.1.0
         """
+        # Get client_id from configuration (user can customize)
+        client_id = config.get("network", "client_id", "WPC")
+
         # Heartbeat message has different structure than other messages
         message = {
             "protocol_version": "1.0",
@@ -77,7 +82,7 @@ class ProtocolMessage:
             "timestamp": int(time.time()),  # SECONDS, not milliseconds!
             "payload": {
                 "sender": "ground",  # WindowsTools is a ground-side client
-                "client_id": "WPC",  # Windows PC client identifier
+                "client_id": client_id,  # User-configurable client identifier (default: WPC)
                 "uptime_seconds": uptime_seconds
             }
         }

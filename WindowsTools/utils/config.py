@@ -39,7 +39,8 @@ class ConfigManager:
                 "udp_heartbeat_port": 5002,
                 "h16_ip": "10.0.1.92",
                 "connection_timeout_ms": 5000,
-                "retry_attempts": 3
+                "retry_attempts": 3,
+                "client_id": "WPC"  # Client identifier for heartbeat (WPC = Windows PC)
             },
             "ssh": {
                 "host": "10.0.1.53",
