@@ -1,0 +1,31 @@
+{
+  "network": {
+    "air_side_ip": "10.0.1.53",
+    "tcp_port": 5000,
+    "udp_status_port": 5001,
+    "udp_heartbeat_port": 5002,
+    "h16_ip": "10.0.1.92",
+    "connection_timeout_ms": 5000,
+    "retry_attempts": 3
+  },
+  "ssh": {
+    "host": "10.0.1.53",
+    "port": 22,
+    "username": "dpm",
+    "password": "2350",
+    "save_password": true
+  },
+  "ui": {
+    "auto_connect_on_startup": true,
+    "auto_refresh_camera_interval_ms": 5000,
+    "auto_refresh_system_interval_ms": 5000,
+    "theme": "light",
+    "font_size": 10,
+    "enable_audio_alerts": true
+  },
+  "data": {
+    "log_directory": "D:\\DPM\\DPM-V2\\WindowsTools\\logs",
+    "message_capture_file": "D:\\DPM\\DPM-V2\\WindowsTools\\logs\\messages.json",
+    "auto_save_settings": true
+  }
+}
