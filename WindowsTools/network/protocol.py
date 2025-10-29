@@ -20,11 +20,16 @@ class ProtocolMessage:
         return self.sequence_id
 
     def _create_base_message(self, message_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Create base message structure"""
+        """Create base message structure
+
+        Note: For heartbeat messages, timestamp should be in SECONDS.
+        For other messages, timestamp is in MILLISECONDS for backwards compatibility.
+        """
         return {
+            "protocol_version": "1.0",
             "message_type": message_type,
             "sequence_id": self._next_sequence(),
-            "timestamp": int(time.time() * 1000),  # milliseconds
+            "timestamp": int(time.time() * 1000),  # milliseconds (for commands/responses)
             "payload": payload
         }
 
@@ -48,13 +53,34 @@ class ProtocolMessage:
         message = self._create_base_message("command", payload)
         return json.dumps(message)
 
-    def create_heartbeat(self) -> str:
-        """Create heartbeat message"""
-        payload = {
-            "status": "alive",
-            "timestamp": int(time.time() * 1000)
+    def create_heartbeat(self, uptime_seconds: int) -> str:
+        """Create heartbeat message compliant with heartbeat_spec.json v1.1.0
+
+        BREAKING CHANGE (Protocol v1.1.0):
+        - Added protocol_version field (required)
+        - Changed timestamp to SECONDS (not milliseconds)
+        - Added client_id field to identify which client is sending (WPC = Windows PC)
+        - Added sender field ('ground' for WindowsTools)
+        - Added uptime_seconds field (seconds since app started)
+        - Removed old 'status' and payload 'timestamp' fields
+
+        Args:
+            uptime_seconds: Number of seconds since the application started
+
+        Spec: protocol/heartbeat_spec.json v1.1.0
+        """
+        # Heartbeat message has different structure than other messages
+        message = {
+            "protocol_version": "1.0",
+            "message_type": "heartbeat",
+            "sequence_id": self._next_sequence(),
+            "timestamp": int(time.time()),  # SECONDS, not milliseconds!
+            "payload": {
+                "sender": "ground",  # WindowsTools is a ground-side client
+                "client_id": "WPC",  # Windows PC client identifier
+                "uptime_seconds": uptime_seconds
+            }
         }
-        message = self._create_base_message("heartbeat", payload)
         return json.dumps(message)
 
     def create_disconnect(self) -> str:

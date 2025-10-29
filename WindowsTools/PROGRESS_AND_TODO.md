@@ -22,11 +22,72 @@ Phase 5 - Polish:      ░░░░░░░░░░░░░░░░░░░
 
 **Overall Completion:** 60% (Phase 1-2 Complete - Full monitoring and command capability!)
 
-**Last Updated:** October 29, 2025 20:16 - Phase 2 implementation complete
+**Last Updated:** October 29, 2025 22:30 - 🔴 BREAKING CHANGE: Heartbeat Protocol v1.1.0
 
 ---
 
 ## RECENT UPDATES
+
+### 🔴 BREAKING CHANGE: Heartbeat Protocol v1.1.0 (October 29, 2025 22:30)
+
+**Status:** ✅ **WindowsTools updated to heartbeat_spec.json v1.1.0**
+
+**BREAKING CHANGE - All platforms must update:**
+
+**What Changed:**
+- Heartbeat protocol updated from informal format to formal spec v1.1.0
+- New spec file: `protocol/heartbeat_spec.json` (now canonical reference)
+- WindowsTools now fully compliant with spec
+
+**Files Modified:**
+- ✅ `network/protocol.py` - Updated `create_heartbeat()` method
+  - Added `protocol_version` field (required)
+  - Changed timestamp from MILLISECONDS → SECONDS
+  - Added `sender` field = "ground" (for WindowsTools)
+  - Added `client_id` field = "WPC" (Windows PC identifier)
+  - Added `uptime_seconds` field (seconds since app start)
+  - Removed old `status` and payload `timestamp` fields
+- ✅ `network/heartbeat.py` - Updated `HeartbeatSender` class
+  - Added `start_time` tracking for uptime calculation
+  - Modified `_send_loop()` to calculate and pass `uptime_seconds`
+  - Updated logging to show uptime
+
+**New Heartbeat Message Format:**
+```json
+{
+  "protocol_version": "1.0",
+  "message_type": "heartbeat",
+  "sequence_id": 42,
+  "timestamp": 1698765434,  // SECONDS (not milliseconds!)
+  "payload": {
+    "sender": "ground",      // "air" or "ground"
+    "client_id": "WPC",      // "WPC" for Windows PC
+    "uptime_seconds": 3600   // Seconds since app started
+  }
+}
+```
+
+**Client Identifiers (All Platforms):**
+- Air-Side (C++): `client_id = "RPi-Air"`
+- Ground-Side Android (Kotlin): `client_id = "H16"`
+- Ground-Side Windows (Python): `client_id = "WPC"` ✅ IMPLEMENTED
+
+**Testing:**
+- ✅ Heartbeat message format validated against spec
+- ✅ All required fields present and correct types
+- ✅ Timestamp in SECONDS (not milliseconds)
+- ✅ Uptime tracking working
+- ✅ client_id = "WPC" correctly set
+
+**Benefits:**
+- Air-Side can now identify which ground station is connected (H16 vs WPC)
+- Formal spec ensures consistency across all three platforms
+- Uptime field useful for diagnosing connection stability
+- Better logging and debugging capabilities
+
+**Reference:** `protocol/heartbeat_spec.json` v1.1.0
+
+---
 
 ### 🎉 Phase 2 - Core Monitoring COMPLETE! (October 29, 2025 20:16)
 
