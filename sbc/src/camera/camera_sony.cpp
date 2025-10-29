@@ -679,7 +679,7 @@ private:
             // Sony Alpha 1 supports full stops and third stops
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
             static const std::unordered_map<std::string, uint32_t> ISO_MAP = {
-                {"auto",   0xFFFFFFFF},
+                {"auto",   0xFFFFFF},  // 24-bit Auto value (matches camera's reported value)
                 // Extended low ISO (need 0x10000000 flag)
                 {"50",     0x10000032},    {"64",     0x10000040},    {"80",     0x10000050},
                 // Standard ISO range - Full stops and third stops (100-32000)

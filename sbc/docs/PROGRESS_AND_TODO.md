@@ -20,13 +20,128 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 99% (Camera integration fully working! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready!)
+**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready!)
 
-**Last Updated:** October 27, 2025 - Dynamic IP discovery implemented (auto-detects ground station IP from TCP connection)
+**Last Updated:** October 29, 2025 - ISO Auto remote setting fixed (24-bit vs 32-bit value format)
 
 ---
 
-## RECENT UPDATES (October 23-27, 2025)
+## RECENT UPDATES (October 23-29, 2025)
+
+### ✅ ISO Auto Remote Setting Fixed! (October 29, 2025)
+
+**Critical Issue Resolved:**
+- ISO Auto could be detected (via callbacks) when set manually on camera
+- But could NOT be set remotely via Ground Station app
+- Sony SDK `SetDeviceProperty()` returned SUCCESS, but camera silently rejected the value
+- Camera stayed at previous ISO setting (e.g., 125) instead of switching to Auto
+
+**Root Cause:**
+- We were sending **32-bit ISO Auto value**: `0xFFFFFFFF`
+- Camera expects **24-bit ISO Auto value**: `0xFFFFFF`
+- One byte difference caused silent firmware rejection
+- SDK accepted the value without error, making diagnosis difficult
+
+**The Fix:**
+```cpp
+// sbc/src/camera/camera_sony.cpp line 682
+// FROM:
+{"auto", 0xFFFFFFFF},  // 32-bit (WRONG)
+
+// TO:
+{"auto", 0xFFFFFF},    // 24-bit (CORRECT - matches camera's reported value)
+```
+
+**Testing Results:**
+- ✅ Set ISO to numeric value (125) → Success
+- ✅ Set ISO to Auto from Ground Station → Success
+- ✅ Query returns `"iso": "auto"` correctly
+- ✅ Camera LCD displays AUTO indicator
+- ✅ Camera adjusts ISO automatically based on scene
+
+**How We Found It:**
+1. Added diagnostic logging to payload_manager
+2. Queried camera when it WAS in Auto (set manually): reported `0xFFFFFF`
+3. Compared with what we were sending: `0xFFFFFFFF`
+4. Changed to match camera's format: Fixed!
+
+**Implementation Details:**
+- **Branch:** ISO-Set-Auto-Fix
+- **Commit:** 9b10767 - One-line fix in camera_sony.cpp
+- **Documentation:** docs/ISO_AUTO_INVESTIGATION.md (complete analysis)
+- **Diagnostic Tools Added:**
+  - `--diagnostic=iso` mode for ISO property inspection
+  - `--diagnostic=exposure-mode` for shooting mode checking
+  - `run_diagnostic.sh` helper script
+
+**Key Lessons:**
+1. SDK success doesn't guarantee camera acceptance
+2. Always query back to verify property changes
+3. Match exact format camera uses (check what it reports)
+4. Silent failures require immediate verification
+
+**Status:** ✅ **ISO AUTO FULLY WORKING** - Phase 1 MVP Complete at 100%!
+
+---
+
+### ✅ Diagnostic Mode System Added (October 29, 2025)
+
+**Problem:**
+- Separate test programs couldn't connect to camera (exclusive access conflict)
+- Needed diagnostic capabilities while payload_manager was running
+- Camera busy errors (0x8005) prevented standalone diagnostics
+
+**Solution:**
+- Added command-line diagnostic modes to payload_manager
+- Diagnostic runs at startup, then exits (no service conflict)
+- Integrated into Docker build system
+
+**Implementation:**
+- Created `src/diagnostics/diagnostics.h` and `diagnostics.cpp`
+- Added `--diagnostic=<mode>` argument parsing in main.cpp
+- Available modes:
+  - `--diagnostic=iso` - ISO property inspection (writable flag, available values)
+  - `--diagnostic=exposure-mode` - Shooting mode detection (M/A/S/P)
+  - `--diagnostic=properties` - List all camera properties (future)
+  - `--diagnostic=property-mapping` - Test value conversions (future)
+
+**Usage:**
+```bash
+cd /home/dpm/DPM-V2/sbc
+./run_diagnostic.sh iso              # Run ISO diagnostics
+./run_diagnostic.sh exposure-mode    # Check shooting mode
+```
+
+**Helper Script:** `run_diagnostic.sh`
+- Automatically stops running payload_manager
+- Runs diagnostic in temporary Docker container
+- Restarts payload_manager when complete
+- Clean, safe, automated workflow
+
+**Status:** ✅ **DIAGNOSTIC SYSTEM COMPLETE** - Permanent troubleshooting capability added!
+
+---
+
+### ✅ Log Analysis Guide Created (October 29, 2025)
+
+**Documentation:**
+- Created comprehensive `docs/LOG_ANALYSIS_GUIDE.md` (541 lines)
+- All useful grep commands for log analysis
+- Filtering by log level, component, event type
+- Real-time monitoring patterns
+- Troubleshooting guides for common issues
+- Quick reference card
+
+**Coverage:**
+- Camera-related logs (connection, properties, errors)
+- Network & protocol logs (TCP, UDP, heartbeats)
+- Property & command logs (set/get operations)
+- Performance & timing analysis
+- Error analysis and debugging
+
+**Status:** ✅ **PUSHED TO MAIN BRANCH** - Available in docs/LOG_ANALYSIS_GUIDE.md
+
+---
 
 ### ✅ Dynamic IP Discovery Implemented! (October 27, 2025)
 
