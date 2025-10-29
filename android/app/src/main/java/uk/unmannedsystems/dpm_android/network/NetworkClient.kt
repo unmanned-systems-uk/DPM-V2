@@ -24,11 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * Implements the command protocol specification v1.0
  */
 class NetworkClient(
-    private val settings: NetworkSettings = NetworkSettings()
+    private val settings: NetworkSettings = NetworkSettings(),
+    private val clientId: String = "H16"
 ) {
     companion object {
         private const val TAG = "NetworkClient"
-        private const val CLIENT_ID = "h16_gcs_001"
         private const val CLIENT_VERSION = "1.0.0"
     }
 
@@ -265,7 +265,7 @@ class NetworkClient(
             sequenceId = sequenceId.incrementAndGet(),
             timestamp = System.currentTimeMillis() / 1000,
             payload = HandshakePayload(
-                clientId = CLIENT_ID,
+                clientId = clientId,
                 clientVersion = CLIENT_VERSION,
                 requestedFeatures = listOf(
                     "camera_control",
@@ -337,7 +337,7 @@ class NetworkClient(
                         timestamp = System.currentTimeMillis() / 1000,
                         payload = HeartbeatPayload(
                             sender = "ground",
-                            clientId = "H16",  // SkyDroid H16 Ground Station identifier
+                            clientId = clientId,  // From settings (e.g., H16, WPC, custom)
                             uptimeSeconds = (System.currentTimeMillis() - startTime) / 1000
                         )
                     )

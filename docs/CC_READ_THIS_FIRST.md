@@ -3,7 +3,7 @@
 
 **Date Created:** October 25, 2025
 **Last Updated:** October 29, 2025
-**Version:** 2.4 (Platform ID Commit Prefix Mandatory)
+**Version:** 2.4 (Platform ID Commit Prefix + Branch Confirmation Mandatory)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -1647,17 +1647,18 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 ### Universal Rules (Both Platforms)
 
 1. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
-2. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
-3. 🔴 **ALWAYS pull latest from Git before starting work**
-4. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
-5. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
-6. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-7. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-8. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
-9. 🔴 **ALWAYS verify build succeeds before committing**
-10. 🔴 **ALWAYS commit before ending session**
-11. 🔴 **ALWAYS work incrementally (one thing at a time)**
-12. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
+2. 🔴 **ALWAYS confirm current Git branch (should be `main`)**
+3. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
+4. 🔴 **ALWAYS pull latest from Git before starting work**
+5. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
+6. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
+7. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
+8. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+9. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
+10. 🔴 **ALWAYS verify build succeeds before committing**
+11. 🔴 **ALWAYS commit before ending session**
+12. 🔴 **ALWAYS work incrementally (one thing at a time)**
+13. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
 
 ### Platform-Specific Rules
 
@@ -1704,11 +1705,12 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 ### Subsequent Sessions:
 
 1. ✅ Read this file (CC_READ_THIS_FIRST.md)
-2. ✅ Pull latest from Git
-3. ✅ Check protocol synchronization
-4. ✅ Read appropriate PROGRESS_AND_TODO.md
-5. ✅ Check `git status` and `git log --oneline -5`
-6. ✅ Continue work
+2. ✅ Confirm current Git branch (should be `main`)
+3. ✅ Pull latest from Git
+4. ✅ Check protocol synchronization
+5. ✅ Read appropriate PROGRESS_AND_TODO.md
+6. ✅ Check `git status` and `git log --oneline -5`
+7. ✅ Continue work
 
 ---
 
@@ -1736,9 +1738,9 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 ---
 
-**Document Status:** ✅ Active - Combined Air-Side & Ground-Side
-**Version:** 2.2 - CRITICAL: Protocol Files Location Clarification
-**Last Updated:** October 28, 2025
+**Document Status:** ✅ Active - Combined Air-Side & Ground-Side & WindowsTools
+**Version:** 2.4 - Added mandatory branch confirmation rule
+**Last Updated:** October 29, 2025
 **Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)
 **Maintained By:** Human oversight, enforced by Claude Code
 

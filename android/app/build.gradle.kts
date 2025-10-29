@@ -1,3 +1,8 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,6 +23,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Add build timestamp
+        val buildTime = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.US)
+        dateFormat.timeZone = TimeZone.getTimeZone("UTC")
+        val buildDate = dateFormat.format(Date(buildTime))
+
+        buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
+        buildConfigField("long", "BUILD_TIMESTAMP", "${buildTime}L")
     }
 
     buildTypes {
@@ -38,6 +52,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
