@@ -575,7 +575,7 @@ private:
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("shutter_speed", value)) {
                 Logger::error("Invalid shutter_speed value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                Logger::error("Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
@@ -627,7 +627,7 @@ private:
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("aperture", value)) {
                 Logger::error("Invalid aperture value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                Logger::error("Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
@@ -670,7 +670,7 @@ private:
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("iso", value)) {
                 Logger::error("Invalid ISO value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in docs/protocol/camera_properties.json");
+                Logger::error("Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
