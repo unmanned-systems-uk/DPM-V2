@@ -13,6 +13,7 @@ class ProtocolMessage:
 
     def __init__(self):
         self.sequence_id = 0
+        self.start_time = time.time()  # Track start time for uptime calculation
 
     def _next_sequence(self) -> int:
         """Get next sequence ID"""
@@ -20,11 +21,12 @@ class ProtocolMessage:
         return self.sequence_id
 
     def _create_base_message(self, message_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Create base message structure"""
+        """Create base message structure (v1.0 compliant)"""
         return {
+            "protocol_version": "1.0",  # Required by spec
             "message_type": message_type,
             "sequence_id": self._next_sequence(),
-            "timestamp": int(time.time() * 1000),  # milliseconds
+            "timestamp": int(time.time()),  # SECONDS (not milliseconds)
             "payload": payload
         }
 
@@ -49,10 +51,11 @@ class ProtocolMessage:
         return json.dumps(message)
 
     def create_heartbeat(self) -> str:
-        """Create heartbeat message"""
+        """Create heartbeat message (v1.1.0 - includes client_id)"""
         payload = {
-            "status": "alive",
-            "timestamp": int(time.time() * 1000)
+            "sender": "ground",
+            "client_id": "WPC",
+            "uptime_seconds": int(time.time() - self.start_time)
         }
         message = self._create_base_message("heartbeat", payload)
         return json.dumps(message)
