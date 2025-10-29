@@ -19,6 +19,8 @@ external/crsdk/
 .vscode/
 .idea/
 *.swp
+.gradle/
+.claude/
 
 # Logs
 logs/

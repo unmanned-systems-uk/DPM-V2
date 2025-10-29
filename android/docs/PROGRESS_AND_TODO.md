@@ -25,34 +25,11 @@ Integration:           ████████████████░░░
 
 **Overall Completion:** 65% (Phase 1 MVP)
 
-**Last Updated:** October 27, 2025 - Camera enhancements and critical heartbeat issue discovered
+**Last Updated:** October 29, 2025 - Documentation cleanup
 
 ---
 
 ## RECENT UPDATES
-
-### 🚨 CRITICAL: Heartbeat Not Received - Air-Side Issue (October 27, 2025) 🔴
-
-**BLOCKER DISCOVERED:**
-- Ground-Side (Android) not receiving UDP heartbeat broadcasts from Air-Side
-- Connection stuck at CONNECTED state, never reaches OPERATIONAL
-- Property querying disabled (requires OPERATIONAL state)
-- No heartbeat messages in logs
-- Air-Side heartbeat broadcaster likely not sending on port 5556
-
-**Impact:**
-- Camera property queries not working
-- Connection state incomplete
-- User experience degraded
-
-**Action Required:**
-- ❗ Investigate Air-Side heartbeat broadcaster service
-- ❗ Check if UDP packets being sent on port 5556
-- ❗ Review Air-Side logs for errors
-
-**Status:** 🔴 ACTIVE BLOCKER - Needs immediate Air-Side investigation
-
----
 
 ### ✅ Camera Error Handling (October 27, 2025) ✅
 
@@ -544,19 +521,19 @@ Integration:           ████████████████░░░
   * Ground-side: Implemented and integrated
   * Protocol sync: ✅ Complete
 
-- ⏸️ **camera.set_property** - Set camera property
+- ✅ **camera.set_property** - Set camera property
   * NetworkClient method: setCameraProperty(property, value)
   * UI: Camera control sliders/selectors
-  * Air-side: Not implemented (planned v1.1)
-  * Ground-side: Implemented, awaiting air-side
-  * Protocol sync: ⚠️ Waiting for air-side
+  * Air-side: Implemented (v1.1.0)
+  * Ground-side: Implemented and integrated
+  * Protocol sync: ✅ Complete
 
-- ⏸️ **camera.get_properties** - Query camera properties
+- ✅ **camera.get_properties** - Query camera properties
   * NetworkClient method: getCameraProperties(properties)
-  * UI: Not yet integrated
-  * Air-side: Not implemented (planned v1.1)
-  * Ground-side: Implemented, awaiting air-side
-  * Protocol sync: ⚠️ Waiting for air-side
+  * UI: Integrated with polling system
+  * Air-side: Implemented (v1.1.0)
+  * Ground-side: Implemented and integrated
+  * Protocol sync: ✅ Complete
 
 **System Commands:**
 - ✅ **system.get_status** - Query system status
@@ -647,9 +624,9 @@ Integration:           ████████████████░░░
 
 ### ⏸️ What's Pending
 
-**Air-Side Dependencies:**
-- ⏸️ camera.set_property (waiting for air-side implementation)
-- ⏸️ camera.get_properties (waiting for air-side implementation)
+**Phase 1 Remaining:**
+- ⏸️ white_balance_temperature UI (air-side ready)
+- ⏸️ drive_mode UI (air-side ready)
 
 **Planned Features:**
 - ⏸️ Downloads screen (content management)
@@ -669,21 +646,21 @@ Integration:           ████████████████░░░
 ## NEXT STEPS
 
 ### Immediate Tasks
-1. 🔴 **CRITICAL** - Investigate Air-Side heartbeat broadcaster (BLOCKER)
-   - Check if service is running on Raspberry Pi
-   - Verify UDP packets being sent on port 5556
-   - Review Air-Side logs for errors
-2. ⏳ Test system.get_status end-to-end with air-side (after heartbeat fixed)
-3. ⏳ Test camera.capture end-to-end with air-side (after heartbeat fixed)
+1. 🎯 **Implement white_balance_temperature UI** - Phase 1 property (air-side ready)
+   - Slider control: 2500-9900K, step 100
+   - Only active when white_balance = "temperature"
+2. 🎯 **Implement drive_mode UI** - Phase 1 property (air-side ready)
+   - Dropdown: single/continuous_lo/continuous_hi/self_timer/bracket
+3. ⏳ Test camera property end-to-end with air-side
 4. ⏳ Verify WiFi connectivity with dynamic IP
 5. ⏳ Test on physical H16 hardware (when available)
 
 ### Short Term (Next Session)
-1. Wait for air-side to implement camera.set_property
-2. Wait for air-side to implement camera.get_properties
-3. Integrate property commands when air-side ready
-4. Add error handling for unsupported commands
-5. Performance testing and optimization
+1. Complete Phase 1 camera property implementations
+2. Add exposure_compensation UI (Phase 2 property)
+3. Add error handling for edge cases
+4. Performance testing and optimization
+5. End-to-end testing with real hardware
 
 ### Medium Term (Phase 2)
 1. Implement Downloads screen
@@ -754,15 +731,10 @@ Integration:           ████████████████░░░
 ## KNOWN ISSUES
 
 ### Active Issues
-
-**🔴 CRITICAL: No Heartbeat Reception (October 27, 2025)**
-- **Status**: ACTIVE BLOCKER
-- **Issue**: Ground-Side not receiving UDP heartbeat broadcasts from Air-Side
-- **Impact**: Connection stuck at CONNECTED, property querying disabled
-- **Root Cause**: Air-Side heartbeat broadcaster not sending on port 5556
-- **Action**: Investigate Air-Side service
+- None currently identified
 
 ### Resolved Issues
+- ✅ No heartbeat reception → Fixed (Air-Side heartbeat broadcaster now working)
 - ✅ Settings screen status not updating on first connect → Fixed with NetworkManager
 - ✅ Camera screen heartbeat not showing → Fixed with NetworkManager
 - ✅ Auto-connect only from Settings screen → Fixed with DPMApplication
@@ -815,17 +787,17 @@ Integration:           ████████████████░░░
 ## TEAM NOTES
 
 ### For Next Session
-1. System.get_status ready for end-to-end testing
-2. camera.set_property and camera.get_properties need air-side implementation
-3. Consider adding logging levels (verbose/debug for development)
-4. May want to add network quality indicator (latency, packet loss)
+1. Complete Phase 1 property UI implementations (white_balance_temperature, drive_mode)
+2. Consider adding logging levels (verbose/debug for development)
+3. May want to add network quality indicator (latency, packet loss)
+4. End-to-end testing with real camera hardware
 
 ### Protocol Sync Status
 - ✅ Handshake: Both sides implemented
 - ✅ camera.capture: Both sides implemented
+- ✅ camera.set_property: Both sides implemented
+- ✅ camera.get_properties: Both sides implemented
 - ✅ system.get_status: Both sides implemented
-- ⚠️ camera.set_property: Ground-side ready, waiting for air-side
-- ⚠️ camera.get_properties: Ground-side ready, waiting for air-side
 
 ### Workflow Notes
 - Following CC_READ_THIS_FIRST.md workflow rules
