@@ -2,7 +2,7 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025
-**Version:** 2.2 (CRITICAL: Protocol Files Location - ~/DPM-V2/protocol/ NOT docs/)
+**Version:** 2.3 (WindowsTools Development Guidelines Added)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -15,9 +15,13 @@
   - Read Common Rules below, then jump to [Air-Side Specifics](#-air-side-specifics-c-sbc)
   - Check `sbc/docs/PROGRESS_AND_TODO.md` for current status
 
-- 🔹 **Ground-Side (Android)?** → Working in `android/` directory  
+- 🔹 **Ground-Side (Android)?** → Working in `android/` directory
   - Read Common Rules below, then jump to [Ground-Side Specifics](#-ground-side-specifics-android-app)
   - Check `android/docs/PROGRESS_AND_TODO.md` for current status
+
+- 🔹 **WindowsTools (Python Diagnostic)?** → Working in `WindowsTools/` directory
+  - Read Common Rules below, then jump to [WindowsTools Specifics](#-windowstools-specifics-python-diagnostic)
+  - Check `WindowsTools/PROGRESS_AND_TODO.md` for current status
 
 - 🔹 **Protocol/Documentation?** → Working in `docs/` directory
   - Read Common Rules below
@@ -1230,6 +1234,305 @@ adb logcat | grep DPM
 
 ---
 
+## 🔹 WINDOWSTOOLS SPECIFICS (Python Diagnostic)
+
+### WindowsTools Session Start Extensions
+
+**Additional checks for Python/Windows development:**
+
+1. **Check Python Environment:**
+   ```bash
+   python --version  # Should be Python 3.x
+   pip list | grep -E "tkinter"  # Check tkinter available
+   ```
+
+2. **Verify Protocol Access:**
+   ```bash
+   ls ../protocol/
+   # Should see commands.json, camera_properties.json
+   ```
+
+3. **Check Configuration:**
+   ```bash
+   cat WindowsTools/config.json
+   # Verify air_side_ip and ports are correct
+   ```
+
+### 🚨 CRITICAL: Stay in Your Lane!
+
+**WindowsTools Development Boundaries:**
+
+**✅ YOU MAY:**
+- Create/modify ANY files in `WindowsTools/` directory
+- Read from `protocol/` directory (commands.json, camera_properties.json)
+- Read documentation in `docs/` directory
+- Update `WindowsTools/PROGRESS_AND_TODO.md`
+- Commit with `[FEATURE] WindowsTools:` or `[FIX] WindowsTools:` prefix
+
+**❌ YOU MUST NOT:**
+- Modify files in `sbc/` directory (Air-Side code)
+- Modify files in `android/` directory (Ground-Side code)
+- Modify files in `protocol/` directory (unless explicitly coordinated)
+- Modify `docs/CC_READ_THIS_FIRST.md` (unless adding WindowsTools notes)
+- Commit changes outside WindowsTools/ without explicit user approval
+
+### Python/tkinter Development
+
+**Project Structure:**
+```
+WindowsTools/
+├── main.py              # Application entry point (DiagnosticApp class)
+├── requirements.txt     # Python dependencies
+├── config.json          # Runtime configuration (auto-created)
+├── gui/
+│   ├── main_window.py   # Main window framework
+│   ├── widgets.py       # Reusable GUI components
+│   ├── tab_connection.py    # Phase 1
+│   ├── tab_protocol.py      # Phase 2
+│   ├── tab_command.py       # Phase 2
+│   ├── tab_camera.py        # Phase 2
+│   ├── tab_system.py        # Phase 2
+│   └── tab_config.py        # Phase 1
+├── network/
+│   ├── tcp_client.py    # TCP client for commands
+│   ├── udp_listener.py  # UDP listeners (status 5Hz, heartbeat 1Hz)
+│   ├── heartbeat.py     # Heartbeat sender (1Hz)
+│   └── protocol.py      # Protocol message formatting
+├── utils/
+│   ├── config.py        # Configuration management
+│   ├── logger.py        # Logging system
+│   └── protocol_loader.py  # Loads protocol JSON files
+├── logs/                # Log files (auto-created)
+├── templates/           # Command templates (future)
+└── docs/
+    ├── PROGRESS_AND_TODO.md
+    ├── DIAGNOSTIC_TOOL_PLAN.md
+    └── README.md
+```
+
+**Running the Tool:**
+```bash
+cd WindowsTools
+python main.py
+```
+
+**Development Workflow:**
+```bash
+# 1. Always pull first
+git pull origin main
+
+# 2. Check current status
+cat WindowsTools/PROGRESS_AND_TODO.md
+
+# 3. Make changes (ONLY in WindowsTools/)
+
+# 4. Test
+cd WindowsTools
+python main.py
+
+# 5. Commit with proper prefix
+git add WindowsTools/
+git commit -m "[FEATURE] WindowsTools: Description"
+git push origin main
+```
+
+### Python Best Practices (Mandatory)
+
+**Code Style:**
+- ✅ Follow PEP 8 style guidelines
+- ✅ Use type hints where appropriate
+- ✅ Docstrings for all classes and functions
+- ✅ Clear variable names (no single letters except counters)
+
+**Error Handling:**
+```python
+try:
+    # Risky operation
+except SpecificException as e:
+    logger.error(f"Error: {e}")
+    messagebox.showerror("Error", f"Operation failed: {e}")
+```
+
+**Threading:**
+- ✅ Use `threading.Thread(daemon=True)` for background tasks
+- ✅ Never block the GUI thread
+- ✅ Use callbacks to update GUI from background threads
+
+**GUI Updates:**
+```python
+# Good: Update GUI from main thread
+def callback_from_network():
+    self.after(0, self._update_ui_safely)
+
+# Bad: Update GUI from network thread (will crash)
+def callback_from_network():
+    self.status_label.config(text="Connected")  # ❌ CRASH!
+```
+
+### Callback Chaining Pattern
+
+**CRITICAL:** When multiple components need callbacks, CHAIN them, don't replace:
+
+```python
+# ✅ GOOD: Chain callbacks
+original_callback = client.on_connected
+
+def my_callback():
+    if original_callback:
+        original_callback()  # Call original first
+    # Then do my stuff
+    self.do_my_thing()
+
+client.on_connected = my_callback
+
+# ❌ BAD: Replace callbacks (breaks other components)
+client.on_connected = self.my_callback  # Original lost!
+```
+
+**This was the bug that caused connection status not updating!**
+
+### Integration with Air-Side
+
+**Network Ports:**
+- TCP 5000: Command channel (handshake, commands, responses)
+- UDP 5001: Status broadcasts from Air-Side (5 Hz)
+- UDP 5002: Heartbeat bidirectional (1 Hz)
+
+**Typical Flow:**
+1. User clicks "Connect"
+2. TCP connects to Air-Side (10.0.1.53:5000)
+3. Send handshake message
+4. Air-Side responds
+5. UDP listeners auto-start (status 5Hz, heartbeat 1Hz)
+6. Heartbeat sender auto-starts (1Hz)
+7. Real-time updates flow to dashboards
+
+**Message Flow:**
+```
+WindowsTools                    Air-Side
+    │                              │
+    ├──── TCP: Handshake ────────→│
+    │←──── TCP: Response ──────────┤
+    │                              │
+    ├──── TCP: Command ───────────→│
+    │←──── TCP: Response ──────────┤
+    │                              │
+    │←──── UDP 5001: Status ───────┤ (5 Hz continuous)
+    │←──── UDP 5002: Heartbeat ────┤ (1 Hz)
+    ├──── UDP 5002: Heartbeat ────→│ (1 Hz)
+```
+
+### WindowsTools Testing Checklist
+
+**Before committing:**
+- [ ] Application starts without errors
+- [ ] All tabs load correctly
+- [ ] Can connect to Air-Side (if available)
+- [ ] No Python exceptions in console
+- [ ] Log files created correctly in `logs/`
+- [ ] Configuration persists in `config.json`
+- [ ] Only modified files in `WindowsTools/` directory
+- [ ] Commit message has `[FEATURE] WindowsTools:` or `[FIX] WindowsTools:` prefix
+
+**Phase 2 Features to Test:**
+- [ ] Protocol Inspector captures all messages
+- [ ] Command Sender sends commands correctly
+- [ ] Camera Dashboard updates from UDP status
+- [ ] System Monitor updates from UDP status
+- [ ] Heartbeat sender/receiver working (check Protocol Inspector)
+- [ ] Connection status updates properly when connected/disconnected
+
+### WindowsTools Troubleshooting
+
+**Issue: "tkinter not available"**
+```bash
+# Windows: tkinter usually included with Python
+# If missing:
+pip install tk
+
+# Or reinstall Python with tcl/tk option enabled
+```
+
+**Issue: "Protocol files not found"**
+```bash
+# Check you're running from correct directory
+pwd  # Should be in DPM-V2/WindowsTools or DPM-V2
+
+# Check protocol files exist
+ls ../protocol/
+# Should see: commands.json, camera_properties.json
+```
+
+**Issue: "Can't connect to Air-Side"**
+```bash
+# Check Air-Side is running
+# Check IP address in config.json (default: 10.0.1.53)
+# Check firewall not blocking ports 5000-5002
+# Check you're on the same network as Air-Side
+
+# Test with ping
+ping 10.0.1.53
+```
+
+**Issue: "UDP messages not received"**
+```bash
+# Check UDP listeners started (should auto-start on TCP connect)
+# Check Windows firewall allows Python to receive UDP
+# Check Air-Side is sending UDP broadcasts
+# Use Protocol Inspector tab to see if messages arriving
+```
+
+**Issue: "Callbacks not firing"**
+```bash
+# Check callback chaining (see Callback Chaining Pattern above)
+# Ensure you're not replacing other components' callbacks
+# Use logger.debug() to trace callback execution
+```
+
+**Issue: "GUI freezes"**
+```bash
+# Never block GUI thread with long operations
+# Use threading.Thread(daemon=True) for background tasks
+# Use .after() or callbacks to update GUI from background threads
+```
+
+### Phase Status (As of Oct 29, 2025)
+
+**✅ Phase 1 - Foundation:** 100% Complete
+- Basic TCP client
+- Configuration management
+- Connection Monitor tab
+- Configuration tab
+
+**✅ Phase 2 - Core Monitoring:** 100% Complete
+- UDP status/heartbeat listeners
+- Protocol Inspector tab
+- Command Sender tab
+- Camera Dashboard tab
+- System Monitor tab
+- Full protocol monitoring operational
+
+**⏳ Phase 3 - Advanced:** 0% Not Started
+- Docker logs viewer (SSH integration)
+- Real-time graphs (matplotlib)
+- Custom command templates
+- Advanced filtering
+
+**⏳ Phase 4 - Testing:** 0% Not Started
+- Automated test sequences
+- Stress testing
+- Performance monitoring
+
+**⏳ Phase 5 - Polish:** 0% Not Started
+- Dark mode theme
+- Keyboard shortcuts
+- Error handling improvements
+- Performance optimization
+
+**Current Focus:** User testing Phase 2 with real Air-Side connection
+
+---
+
 ## 🛠️ COMMON TROUBLESHOOTING
 
 ### Git Issues
@@ -1324,6 +1627,14 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - 🟡 Check commented-out methods in NetworkClient.kt
 - 🟡 Test on device/emulator before committing
 
+**WindowsTools (Python):**
+- 🟡 **ONLY modify files in WindowsTools/ directory**
+- 🟡 **ALWAYS chain callbacks, never replace them**
+- 🟡 Follow PEP 8 style guidelines
+- 🟡 Never block GUI thread (use threading.Thread(daemon=True))
+- 🟡 Test application starts before committing
+- 🟡 Use [FEATURE] WindowsTools: or [FIX] WindowsTools: commit prefixes
+
 ---
 
 ## 🎓 FOR NEW CLAUDE CODE INSTANCES
@@ -1331,8 +1642,11 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 ### First Session on This Project:
 
 1. ✅ Read this file (CC_READ_THIS_FIRST.md) - you're doing it!
-2. ✅ Identify platform (air-side or ground-side)
+2. ✅ Identify platform (air-side, ground-side, or WindowsTools)
 3. ✅ Read appropriate PROGRESS_AND_TODO.md thoroughly
+   - Air-Side: `sbc/docs/PROGRESS_AND_TODO.md`
+   - Ground-Side: `android/docs/PROGRESS_AND_TODO.md`
+   - WindowsTools: `WindowsTools/PROGRESS_AND_TODO.md`
 4. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
 5. ✅ Read protocol documentation (commands.json, camera_properties.json)
 6. ✅ Check `git log --oneline -20` (understand recent history)
