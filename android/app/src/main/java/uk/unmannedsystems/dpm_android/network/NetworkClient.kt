@@ -337,6 +337,7 @@ class NetworkClient(
                         timestamp = System.currentTimeMillis() / 1000,
                         payload = HeartbeatPayload(
                             sender = "ground",
+                            clientId = "H16",
                             uptimeSeconds = (System.currentTimeMillis() - startTime) / 1000
                         )
                     )

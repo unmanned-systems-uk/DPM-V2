@@ -193,9 +193,10 @@ data class ActiveDownloadInfo(
 )
 
 /**
- * Heartbeat message payload
+ * Heartbeat message payload (v1.1.0 - includes client_id)
  */
 data class HeartbeatPayload(
     val sender: String, // "ground" or "air"
+    @SerializedName("client_id") val clientId: String, // "H16", "WPC", "RPi-Air"
     @SerializedName("uptime_seconds") val uptimeSeconds: Long
 )
