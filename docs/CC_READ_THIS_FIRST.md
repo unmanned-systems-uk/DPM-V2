@@ -2,7 +2,8 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025
-**Version:** 2.3 (WindowsTools Development Guidelines Added)
+**Last Updated:** October 29, 2025
+**Version:** 2.4 (Platform ID Commit Prefix Mandatory)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
@@ -97,7 +98,27 @@
 - ✅ **ALWAYS** read `CC_READ_THIS_FIRST.md` first (this file)
 - This is your source of truth for workflow rules
 
-### 2. Pull Latest Changes from Git
+### 2. 🔴 MANDATORY: Ask User Which Platform They're Working On
+- ✅ **REQUIRED** - At the start of EVERY session, ask the user:
+
+  **"Which platform are you working on today?"**
+  - **Air-Side** (C++ SBC) → Platform ID: `AIR-SIDE`
+  - **Ground-Station** (Android) → Platform ID: `ANDROID`
+  - **Windows Tools** (Python) → Platform ID: `WINDOWS`
+  - **Protocol/Docs** → Platform ID: `PROTOCOL` or `DOCS`
+
+- ✅ **Record the platform ID** - You'll use it in ALL commit messages
+- ✅ **DO NOT PROCEED** until user confirms their platform
+- ⚠️ **CRITICAL** - The platform ID MUST be prefixed to ALL git commits this session
+
+**Example Session Start:**
+```
+Claude: "Which platform are you working on today? (Air-Side, Ground-Station/Android, or Windows Tools)"
+User: "Air-Side"
+Claude: "Got it! Working on Air-Side platform. All commits will use [AIR-SIDE] prefix."
+```
+
+### 3. Pull Latest Changes from Git
 - ✅ **MANDATORY** - Always pull latest before doing ANY work
 - ✅ Run `git pull origin main` at start of EVERY session
 - ✅ This ensures you have latest protocol definitions
@@ -246,7 +267,7 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 5. CC updates sbc/docs/PROGRESS_AND_TODO.md
 
 6. CC commits with clear message
-   └─ [PROTOCOL] Implemented [command.name] command
+   └─ [AIR-SIDE][PROTOCOL] Implemented [command.name] command
 ```
 
 **Ground-Side Flow:**
@@ -270,7 +291,7 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 5. CC updates android/docs/PROGRESS_AND_TODO.md
 
 6. CC commits with clear message
-   └─ [PROTOCOL] Implemented [command.name] UI
+   └─ [ANDROID][PROTOCOL] Implemented [command.name] UI
 ```
 
 #### Camera Properties Workflow
@@ -401,14 +422,21 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 **Commit Message Format:**
 
 ```bash
-[TYPE] Component: Brief one-line summary (max 72 chars)
+[PLATFORM-ID][TYPE] Component: Brief one-line summary (max 72 chars)
 
 - Detailed point 1 (what changed)
 - Detailed point 2 (why it changed)
 - Detailed point 3 (impact/result)
 ```
 
-**Valid TYPE prefixes:**
+**🔴 MANDATORY: Platform ID Prefixes**
+- `[AIR-SIDE]` - Changes to Air-Side (C++ SBC in sbc/)
+- `[ANDROID]` - Changes to Ground-Station Android app (android/)
+- `[WINDOWS]` - Changes to Windows Tools (WindowsTools/)
+- `[PROTOCOL]` - Changes to protocol specs (protocol/)
+- `[DOCS]` - Documentation changes only
+
+**Valid TYPE prefixes (after Platform ID):**
 - `[FEATURE]` - New functionality
 - `[FIX]` - Bug fix
 - `[PROTOCOL]` - Protocol implementation
@@ -420,37 +448,56 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 
 **Good Examples:**
 ```bash
-[PROTOCOL] Camera: Implemented shutter_speed property
+[AIR-SIDE][PROTOCOL] Camera: Implemented shutter_speed property
 
-- Air-side: Sony SDK CrDeviceProperty_ShutterSpeed integration
-- Ground-side: Dropdown UI with standard shutter speeds
-- Validation: Enum values from camera_properties.json
+- Sony SDK CrDeviceProperty_ShutterSpeed integration
+- PropertyLoader reads values from protocol/camera_properties.json
+- Validation: Enum values match specification
 - Testing: Verified with Sony A1 camera
 
-[FIX] Docker: Resolved CrAdapter dynamic loading issue
+[AIR-SIDE][FIX] Docker: Resolved CrAdapter dynamic loading issue
 
 - Root cause: Adapters statically linked in CMakeLists.txt
 - Solution: Only link libCr_Core.so, copy CrAdapter/ to build dir
 - Result: SDK now loads adapters dynamically
 
-[FEATURE] Android: Added camera control screen
+[ANDROID][FEATURE] Added camera control screen
 
 - Implemented CameraControlFragment with MVVM pattern
 - Added exposure controls (shutter, aperture, ISO)
 - Connected to NetworkClient for command sending
 - Tested on emulator and H16 hardware
+
+[WINDOWS][FIX] Fix protocol.py heartbeat to match spec v1.1.0
+
+- Added missing protocol_version field
+- Fixed timestamp from milliseconds to seconds
+- Corrected heartbeat payload structure
+- Added client_id="WPC"
+
+[PROTOCOL][FEATURE] Add heartbeat_spec.json v1.1.0
+
+- Created official heartbeat message specification
+- Added client_id field for client tracking
+- Documented requirements for all three platforms
 ```
 
 **Bad Examples:**
 ```bash
-# Too vague
+# ❌ Missing platform ID prefix
 [FEATURE] Added stuff
 
-# No context
+# ❌ Missing platform ID AND type
 Fixed bug
 
-# Too long in title
+# ❌ Missing platform ID
 [FEATURE] Implemented camera shutter speed property control with dropdown UI and validation
+
+# ❌ Too vague (even with platform ID)
+[AIR-SIDE][FEATURE] Added stuff
+
+# ❌ No context
+[ANDROID][FIX] Fixed bug
 
 # No details
 [FIX] Camera works now
@@ -1267,7 +1314,7 @@ adb logcat | grep DPM
 - Read from `protocol/` directory (commands.json, camera_properties.json)
 - Read documentation in `docs/` directory
 - Update `WindowsTools/PROGRESS_AND_TODO.md`
-- Commit with `[FEATURE] WindowsTools:` or `[FIX] WindowsTools:` prefix
+- Commit with `[WINDOWS][FEATURE]` or `[WINDOWS][FIX]` prefix
 
 **❌ YOU MUST NOT:**
 - Modify files in `sbc/` directory (Air-Side code)
@@ -1332,7 +1379,7 @@ python main.py
 
 # 5. Commit with proper prefix
 git add WindowsTools/
-git commit -m "[FEATURE] WindowsTools: Description"
+git commit -m "[WINDOWS][FEATURE] Description"
 git push origin main
 ```
 
@@ -1432,7 +1479,7 @@ WindowsTools                    Air-Side
 - [ ] Log files created correctly in `logs/`
 - [ ] Configuration persists in `config.json`
 - [ ] Only modified files in `WindowsTools/` directory
-- [ ] Commit message has `[FEATURE] WindowsTools:` or `[FIX] WindowsTools:` prefix
+- [ ] Commit message has `[WINDOWS][FEATURE]` or `[WINDOWS][FIX]` prefix
 
 **Phase 2 Features to Test:**
 - [ ] Protocol Inspector captures all messages
@@ -1633,7 +1680,7 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - 🟡 Follow PEP 8 style guidelines
 - 🟡 Never block GUI thread (use threading.Thread(daemon=True))
 - 🟡 Test application starts before committing
-- 🟡 Use [FEATURE] WindowsTools: or [FIX] WindowsTools: commit prefixes
+- 🟡 Use [WINDOWS][FEATURE] or [WINDOWS][FIX] commit prefixes
 
 ---
 
