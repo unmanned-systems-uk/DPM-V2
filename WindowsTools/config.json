@@ -7,7 +7,7 @@
     "h16_ip": "10.0.1.92",
     "connection_timeout_ms": 5000,
     "retry_attempts": 3,
-    "client_id": "TEST-PC"
+    "client_id": "Win-Tools"
   },
   "ssh": {
     "host": "10.0.1.53",

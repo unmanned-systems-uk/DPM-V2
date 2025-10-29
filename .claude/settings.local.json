@@ -78,7 +78,11 @@
       "Bash(docker stop:*)",
       "Bash(docker run:*)",
       "Bash(lsof:*)",
-      "Bash(docker start:*)"
+      "Bash(docker start:*)",
+      "Bash(git fetch:*)",
+      "Bash(python:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
