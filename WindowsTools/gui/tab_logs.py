@@ -339,8 +339,12 @@ class LogInspectorTab(ttk.Frame):
             )
 
             if exit_code == 0:
+                # Combine stdout and stderr (Docker logs outputs to both!)
+                # This matches the behavior of: docker logs 2>&1
+                combined_logs = stdout + stderr
+
                 # Update UI on main thread
-                self.after(0, lambda: self._update_log_display(stdout))
+                self.after(0, lambda: self._update_log_display(combined_logs))
             else:
                 error_msg = stderr if stderr else "Failed to fetch logs"
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to fetch logs:\n{error_msg}"))
