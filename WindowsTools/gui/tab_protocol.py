@@ -381,12 +381,18 @@ class ProtocolInspectorTab(ttk.Frame):
             return
 
         try:
-            # Get selected message
-            item = selection[0]
-            index = self.tree.index(item)
+            # Get selected message using mapping (fixes copy with filters active)
+            item_id = selection[0]
 
-            if index < len(self.messages):
-                msg_data = self.messages[index]
+            if item_id not in self.tree_item_to_msg_index:
+                logger.warning(f"Selected tree item {item_id} not found in mapping")
+                messagebox.showwarning("Error", "Could not find selected message")
+                return
+
+            msg_index = self.tree_item_to_msg_index[item_id]
+
+            if msg_index < len(self.messages):
+                msg_data = self.messages[msg_index]
                 message = msg_data["message"]
 
                 # Format as JSON
@@ -398,6 +404,9 @@ class ProtocolInspectorTab(ttk.Frame):
                 self.update()
 
                 messagebox.showinfo("Success", "Message copied to clipboard!")
+            else:
+                logger.warning(f"Message index {msg_index} out of range (total: {len(self.messages)})")
+                messagebox.showwarning("Error", "Message index out of range")
 
         except Exception as e:
             logger.error(f"Error copying message: {e}")
