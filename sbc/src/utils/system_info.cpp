@@ -59,13 +59,15 @@ double SystemInfo::getCPUPercent() {
         int64_t idle_total = idle + iowait;
         auto now = std::chrono::steady_clock::now();
 
-        // On first call, just store the values and return 0
+        // On first call, just store the values
         if (!cpu_stats_initialized_) {
             last_cpu_stats_.total = total;
             last_cpu_stats_.idle = idle_total;
             last_cpu_stats_.timestamp = now;
             cpu_stats_initialized_ = true;
-            return 0.0;
+            // Return instant CPU percentage on first call
+            double instant_usage = 100.0 * (1.0 - static_cast<double>(idle_total) / total);
+            return (instant_usage < 0.0) ? 0.0 : (instant_usage > 100.0) ? 100.0 : instant_usage;
         }
 
         // Calculate deltas
@@ -81,6 +83,8 @@ double SystemInfo::getCPUPercent() {
         if (total_delta > 0) {
             double usage = 100.0 * (1.0 - static_cast<double>(idle_delta) / total_delta);
             return (usage < 0.0) ? 0.0 : (usage > 100.0) ? 100.0 : usage;
+        } else {
+            Logger::warning("CPU total_delta is zero or negative: " + std::to_string(total_delta));
         }
     } catch (...) {
         // Ignore errors
