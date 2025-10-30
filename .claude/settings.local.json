@@ -83,7 +83,11 @@
       "Bash(git fetch:*)",
       "Bash(python:*)",
       "Bash(./gradlew assembleDebug:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(docker rm:*)",
+      "Bash(/dev/null)",
+      "Bash(docker inspect:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

@@ -779,9 +779,40 @@ private:
             prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
+        else if (property == "exposure_compensation") {
+            // Exposure compensation: convert EV value to Sony SDK fixed-point format
+            // Protocol format: decimal string (e.g., "+1.0", "-0.3", "0.0")
+            // Sony SDK format: value × 1000 as signed 16-bit integer
+            // Range: -5.0 to +5.0 EV in 1/3 stop increments
+            // Examples: +1.0 EV = 1000, -0.3 EV = -300, 0.0 EV = 0
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureBiasCompensation);
+
+            try {
+                double ev_value = std::stod(value);
+
+                // Validate range: -5.0 to +5.0 EV
+                if (ev_value < -5.0 || ev_value > 5.0) {
+                    Logger::error("Exposure compensation out of range (-5.0 to +5.0 EV): " + value);
+                    return false;
+                }
+
+                // Convert to Sony SDK format: EV × 1000
+                // Use int16_t for signed values (can be negative)
+                int16_t sdk_value = static_cast<int16_t>(ev_value * 1000.0);
+
+                Logger::debug("Exposure compensation: " + value + " EV -> SDK value " + std::to_string(sdk_value));
+
+                prop.SetCurrentValue(static_cast<uint16_t>(sdk_value));
+                prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+            } catch (const std::exception& e) {
+                Logger::error("Failed to parse exposure compensation value '" + value + "': " + std::string(e.what()));
+                Logger::error("Expected decimal number (e.g., '+1.0', '-0.3', '0.0')");
+                return false;
+            }
+        }
         else {
             Logger::error("Unknown or unsupported property: " + property);
-            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode");
+            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode, exposure_compensation");
             return false;
         }
 
