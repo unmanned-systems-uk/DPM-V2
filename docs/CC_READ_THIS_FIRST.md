@@ -1,8 +1,9 @@
 # Claude Code - READ THIS FIRST
 ## DPM Payload Manager Project Rules & Workflow
 
-**Date Created:** October 25, 2025  
-**Version:** 2.5 (Platform Identification & START Command)  
+**Date Created:** October 25, 2025
+**Last Updated:** October 30, 2025
+**Version:** 2.5 (Platform Identification & START Command)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---

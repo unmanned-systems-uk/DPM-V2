@@ -12,14 +12,16 @@
 #include <chrono>
 #include <thread>
 
-UDPBroadcaster::UDPBroadcaster(int port, const std::string& target_ip)
+UDPBroadcaster::UDPBroadcaster(int port, const std::string& default_target_ip)
     : socket_fd_(-1)
     , port_(port)
-    , target_ip_(target_ip)
+    , default_target_ip_(default_target_ip)
     , running_(false)
     , sequence_id_(0)
     , camera_(nullptr)
 {
+    // Add default target to client list
+    client_ips_.insert(default_target_ip);
 }
 
 UDPBroadcaster::~UDPBroadcaster() {
@@ -31,11 +33,27 @@ void UDPBroadcaster::setCamera(std::shared_ptr<CameraInterface> camera) {
 }
 
 void UDPBroadcaster::setTargetIP(const std::string& target_ip) {
-    std::lock_guard<std::mutex> lock(target_ip_mutex_);
-    if (target_ip_ != target_ip) {
-        Logger::info("UDP broadcaster target IP updated: " + target_ip_ + " -> " + target_ip);
-        target_ip_ = target_ip;
+    // Legacy method - adds client if not already present
+    addClient(target_ip);
+}
+
+void UDPBroadcaster::addClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    if (client_ips_.insert(client_ip).second) {
+        Logger::info("UDP broadcaster: Added client " + client_ip + " (total clients: " + std::to_string(client_ips_.size()) + ")");
     }
+}
+
+void UDPBroadcaster::removeClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    if (client_ips_.erase(client_ip) > 0) {
+        Logger::info("UDP broadcaster: Removed client " + client_ip + " (remaining clients: " + std::to_string(client_ips_.size()) + ")");
+    }
+}
+
+size_t UDPBroadcaster::getClientCount() const {
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    return client_ips_.size();
 }
 
 void UDPBroadcaster::start() {
@@ -52,7 +70,7 @@ void UDPBroadcaster::start() {
     }
 
     running_ = true;
-    Logger::info("UDP broadcaster started (target: " + target_ip_ + ":" + std::to_string(port_) + " at 5 Hz)");
+    Logger::info("UDP broadcaster started (default target: " + default_target_ip_ + ":" + std::to_string(port_) + " at 5 Hz)");
 
     // Start broadcast thread
     broadcast_thread_ = std::thread(&UDPBroadcaster::broadcastLoop, this);
@@ -135,34 +153,59 @@ void UDPBroadcaster::sendStatus() {
             gimbal
         );
 
-        // Send to target
+        // Send to all registered clients
         std::string message_str = status_msg.dump();
 
-        // Get target IP (thread-safe)
-        std::string target_ip;
+        // Get client IPs (thread-safe)
+        std::set<std::string> clients;
         {
-            std::lock_guard<std::mutex> lock(target_ip_mutex_);
-            target_ip = target_ip_;
+            std::lock_guard<std::mutex> lock(clients_mutex_);
+            clients = client_ips_;  // Copy the set
         }
 
-        struct sockaddr_in target_addr{};
-        target_addr.sin_family = AF_INET;
-        target_addr.sin_port = htons(port_);
-        inet_pton(AF_INET, target_ip.c_str(), &target_addr.sin_addr);
+        // Send to each client
+        for (const auto& client_ip : clients) {
+            // Send to primary port
+            struct sockaddr_in target_addr{};
+            target_addr.sin_family = AF_INET;
+            target_addr.sin_port = htons(port_);
+            inet_pton(AF_INET, client_ip.c_str(), &target_addr.sin_addr);
 
-        ssize_t bytes_sent = sendto(
-            socket_fd_,
-            message_str.c_str(),
-            message_str.size(),
-            0,
-            (struct sockaddr*)&target_addr,
-            sizeof(target_addr)
-        );
+            ssize_t bytes_sent = sendto(
+                socket_fd_,
+                message_str.c_str(),
+                message_str.size(),
+                0,
+                (struct sockaddr*)&target_addr,
+                sizeof(target_addr)
+            );
 
-        if (bytes_sent < 0) {
-            Logger::error("Failed to send UDP status: " + std::string(strerror(errno)));
-        } else {
-            Logger::debug("Sent UDP status (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
+            if (bytes_sent < 0) {
+                Logger::error("Failed to send UDP status to " + client_ip + ":" + std::to_string(port_) + ": " + std::string(strerror(errno)));
+            } else {
+                Logger::debug("Sent UDP status to " + client_ip + ":" + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
+            }
+
+            // Send to alternative port (for Windows Tools with firewall restrictions)
+            struct sockaddr_in target_addr_alt{};
+            target_addr_alt.sin_family = AF_INET;
+            target_addr_alt.sin_port = htons(config::UDP_STATUS_PORT_ALT);
+            inet_pton(AF_INET, client_ip.c_str(), &target_addr_alt.sin_addr);
+
+            ssize_t bytes_sent_alt = sendto(
+                socket_fd_,
+                message_str.c_str(),
+                message_str.size(),
+                0,
+                (struct sockaddr*)&target_addr_alt,
+                sizeof(target_addr_alt)
+            );
+
+            if (bytes_sent_alt < 0) {
+                Logger::error("Failed to send UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + ": " + std::string(strerror(errno)));
+            } else {
+                Logger::debug("Sent UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent_alt) + ")");
+            }
         }
     } catch (const std::exception& e) {
         Logger::error("Exception in sendStatus: " + std::string(e.what()));

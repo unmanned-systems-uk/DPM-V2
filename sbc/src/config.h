@@ -9,6 +9,11 @@ namespace config {
     constexpr int TCP_PORT = 5000;
     constexpr int UDP_STATUS_PORT = 5001;
     constexpr int UDP_HEARTBEAT_PORT = 5002;
+
+    // Alternative UDP ports (for Windows Tools with firewall restrictions)
+    constexpr int UDP_STATUS_PORT_ALT = 50001;
+    constexpr int UDP_HEARTBEAT_PORT_ALT = 50002;
+
     constexpr const char* GROUND_IP = "192.168.144.11";  // Default (R16 ethernet)
     constexpr const char* AIR_IP = "192.168.144.20";
 

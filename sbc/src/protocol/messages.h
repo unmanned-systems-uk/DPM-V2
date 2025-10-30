@@ -99,6 +99,7 @@ struct SystemStatus {
     int64_t memory_mb;
     int64_t memory_total_mb;
     double disk_free_gb;
+    double disk_total_gb;
     double network_rx_mbps;
     double network_tx_mbps;
 
@@ -109,6 +110,7 @@ struct SystemStatus {
             {"memory_mb", memory_mb},
             {"memory_total_mb", memory_total_mb},
             {"disk_free_gb", disk_free_gb},
+            {"disk_total_gb", disk_total_gb},
             {"network_rx_mbps", network_rx_mbps},
             {"network_tx_mbps", network_tx_mbps}
         };
@@ -216,8 +218,8 @@ inline json createStatusMessage(int seq_id, const SystemStatus& system,
     };
 }
 
-// Create heartbeat message
-inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_t uptime) {
+// Create heartbeat message (v1.1.0 - includes client_id)
+inline json createHeartbeatMessage(int seq_id, const std::string& sender, const std::string& client_id, int64_t uptime) {
     return {
         {"protocol_version", "1.0"},
         {"message_type", "heartbeat"},
@@ -225,6 +227,7 @@ inline json createHeartbeatMessage(int seq_id, const std::string& sender, int64_
         {"timestamp", std::time(nullptr)},
         {"payload", {
             {"sender", sender},
+            {"client_id", client_id},
             {"uptime_seconds", uptime}
         }}
     };
