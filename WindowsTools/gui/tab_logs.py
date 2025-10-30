@@ -166,7 +166,19 @@ class LogInspectorTab(ttk.Frame):
                        variable=self.filter_mode_var,
                        command=self._on_filter_mode_changed).pack(side=tk.LEFT, padx=10)
 
-        # Log display with sub-tabs
+        # Bottom controls (pack BEFORE expanding log frame so it stays visible)
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+
+        ttk.Button(bottom_frame, text="Clear Display", command=self._clear_display).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
+
+        # Line count label
+        self.line_count_label = ttk.Label(bottom_frame, text="Lines: 0")
+        self.line_count_label.pack(side=tk.RIGHT, padx=10)
+
+        # Log display with sub-tabs (pack AFTER bottom controls with expand)
         log_frame = ttk.LabelFrame(self, text="Log Inspector", padding=5)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
@@ -214,18 +226,6 @@ class LogInspectorTab(ttk.Frame):
         # Tab 4: Camera Status Comparison
         self.camera_comparison_tab = CameraComparisonTab(self.log_notebook, self.log_parser)
         self.log_notebook.add(self.camera_comparison_tab, text="Status Comparison")
-
-        # Bottom controls
-        bottom_frame = ttk.Frame(self)
-        bottom_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        ttk.Button(bottom_frame, text="Clear Display", command=self._clear_display).pack(side=tk.LEFT, padx=5)
-        ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
-        ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
-
-        # Line count label
-        self.line_count_label = ttk.Label(bottom_frame, text="Lines: 0")
-        self.line_count_label.pack(side=tk.RIGHT, padx=10)
 
     def _get_ssh_config(self) -> dict:
         """Get SSH configuration from config"""
