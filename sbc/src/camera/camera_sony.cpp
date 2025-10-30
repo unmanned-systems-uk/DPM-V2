@@ -91,6 +91,7 @@ public:
     }
 
     ~CameraSony() override {
+        stopPropertyRefresh();  // Ensure refresh thread is stopped
         disconnect();
         shutdownSDK();
     }
@@ -197,12 +198,23 @@ public:
 
             // DIAGNOSTIC: Query and log available ISO values
             logAvailableIsoValues();
+
+            // Start periodic property refresh thread - it will populate cached properties
+            // NOTE: We do NOT call updateCachedProperties() here because calling
+            // GetDeviceProperties() immediately after connection can block indefinitely.
+            // The background refresh thread handles property queries safely.
+            Logger::info("Starting property refresh thread...");
+            startPropertyRefresh();
+            Logger::info("Property refresh thread started successfully");
         }
 
         return callback_->isConnected();
     }
 
     void disconnect() override {
+        // Stop property refresh thread first (before acquiring lock)
+        stopPropertyRefresh();
+
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!isConnectedLocked()) {
@@ -1072,6 +1084,35 @@ private:
         return result;
     }
 
+    // Update cached camera properties for status broadcasts
+    void updateCachedProperties() {
+        Logger::info("updateCachedProperties: Entry");
+        if (!isConnected()) {
+            Logger::error("updateCachedProperties: Camera not connected, returning");
+            return;
+        }
+
+        Logger::info("updateCachedProperties: Querying properties...");
+        // NOTE: No mutex lock needed here - getProperty() acquires it for each call
+        // Query current camera settings and update cache
+        cached_status_.iso = getProperty("iso");
+        Logger::info("updateCachedProperties: Got ISO");
+        cached_status_.shutter_speed = getProperty("shutter_speed");
+        Logger::info("updateCachedProperties: Got shutter_speed");
+        cached_status_.aperture = getProperty("aperture");
+        Logger::info("updateCachedProperties: Got aperture");
+        cached_status_.white_balance = getProperty("white_balance");
+        Logger::info("updateCachedProperties: Got white_balance");
+        cached_status_.focus_mode = getProperty("focus_mode");
+        Logger::info("updateCachedProperties: Got focus_mode");
+        cached_status_.file_format = getProperty("file_format");
+        Logger::info("updateCachedProperties: Got file_format");
+
+        Logger::info("Updated cached camera properties: ISO=" + cached_status_.iso +
+                    ", Shutter=" + cached_status_.shutter_speed +
+                    ", Aperture=" + cached_status_.aperture);
+    }
+
 private:
     mutable std::mutex mutex_;
     bool sdk_initialized_;
@@ -1082,6 +1123,52 @@ private:
 
     // Cached status for non-blocking getStatus() calls
     mutable messages::CameraStatus cached_status_;
+
+    // Periodic property refresh
+    std::atomic<bool> property_refresh_running_{false};
+    std::thread property_refresh_thread_;
+
+    // Property refresh loop - runs in separate thread
+    void propertyRefreshLoop() {
+        Logger::info("Camera property refresh thread started (interval: 2 seconds)");
+
+        while (property_refresh_running_) {
+            if (isConnected()) {
+                try {
+                    updateCachedProperties();
+                } catch (const std::exception& e) {
+                    Logger::error("Exception in property refresh: " + std::string(e.what()));
+                }
+            }
+
+            // Wait 2 seconds before next refresh
+            for (int i = 0; i < 20 && property_refresh_running_; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+
+        Logger::info("Camera property refresh thread stopped");
+    }
+
+    // Start periodic property refresh
+    void startPropertyRefresh() {
+        if (!property_refresh_running_) {
+            property_refresh_running_ = true;
+            property_refresh_thread_ = std::thread(&CameraSony::propertyRefreshLoop, this);
+            Logger::info("Started periodic camera property refresh");
+        }
+    }
+
+    // Stop periodic property refresh
+    void stopPropertyRefresh() {
+        if (property_refresh_running_) {
+            property_refresh_running_ = false;
+            if (property_refresh_thread_.joinable()) {
+                property_refresh_thread_.join();
+            }
+            Logger::info("Stopped periodic camera property refresh");
+        }
+    }
 };
 
 // Factory function to create camera interface
