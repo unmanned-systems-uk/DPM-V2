@@ -291,7 +291,12 @@ class NetworkClient(
     private fun startUdpStatusListener() {
         statusListenerJob = scope.launch {
             try {
-                udpSocket = DatagramSocket(settings.statusListenPort)
+                // Create socket with SO_REUSEADDR to prevent "Address already in use" errors
+                udpSocket = DatagramSocket(null).apply {
+                    reuseAddress = true
+                    bind(java.net.InetSocketAddress(settings.statusListenPort))
+                }
+                Log.d(TAG, "UDP status listener bound to port ${settings.statusListenPort}")
                 val buffer = ByteArray(4096)
 
                 while (isActive) {
@@ -299,6 +304,7 @@ class NetworkClient(
                     udpSocket?.receive(packet)
 
                     val json = String(packet.data, 0, packet.length)
+                    Log.d(TAG, "Received UDP status: $json")
                     try {
                         val statusMessage = gson.fromJson(json, BaseMessage::class.java)
                         val statusPayload = gson.fromJson(
@@ -309,9 +315,10 @@ class NetworkClient(
                         // Update state flows
                         _cameraStatus.value = statusPayload.camera
                         _systemStatus.value = statusPayload.system
+                        Log.d(TAG, "System status updated: uptime=${statusPayload.system.uptimeSeconds}s, cpu=${statusPayload.system.cpuPercent}%")
 
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing status message", e)
+                        Log.e(TAG, "Error parsing status message: $json", e)
                     }
                 }
             } catch (e: Exception) {
@@ -374,8 +381,12 @@ class NetworkClient(
             try {
                 // Bind to port 5002 to receive heartbeats from Air-Side
                 val receivePort = settings.heartbeatPort  // Same port Air-Side sends to
-                heartbeatReceiveSocket = DatagramSocket(receivePort)
-                heartbeatReceiveSocket?.soTimeout = 0  // Non-blocking for continuous receive
+                // Create socket with SO_REUSEADDR to prevent "Address already in use" errors
+                heartbeatReceiveSocket = DatagramSocket(null).apply {
+                    reuseAddress = true
+                    soTimeout = 0  // Non-blocking for continuous receive
+                    bind(java.net.InetSocketAddress(receivePort))
+                }
 
                 Log.d(TAG, "Heartbeat receiver listening on port $receivePort")
 
