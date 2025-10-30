@@ -27,6 +27,9 @@ class ConnectionTab(ttk.Frame):
 
         self._create_ui()
 
+        # Set initial status to gray (neutral) - passive mode is normal
+        self.status_indicator.set_status("gray")
+
         logger.debug("Connection tab initialized")
 
     def _create_ui(self):
@@ -35,8 +38,50 @@ class ConnectionTab(ttk.Frame):
         control_frame = ttk.Frame(self)
         control_frame.pack(fill=tk.X, padx=10, pady=10)
 
+        # Monitoring Mode Info
+        mode_frame = ttk.LabelFrame(control_frame, text="Monitoring Mode", padding=10)
+        mode_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(0, 5))
+
+        mode_info = ttk.Frame(mode_frame)
+        mode_info.pack(fill=tk.X)
+
+        ttk.Label(mode_info, text="📡 Passive Monitoring:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT)
+        ttk.Label(mode_info, text="Receiving UDP status broadcasts",
+                 font=('Arial', 8), foreground='green').pack(side=tk.LEFT, padx=5)
+
+        mode_info2 = ttk.Frame(mode_frame)
+        mode_info2.pack(fill=tk.X, pady=2)
+
+        ttk.Label(mode_info2, text="ℹ️", font=('Arial', 9)).pack(side=tk.LEFT)
+        ttk.Label(mode_info2, text="TCP connection only needed for sending commands",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=5)
+
+        # UDP Status Indicators
+        udp_frame = ttk.LabelFrame(control_frame, text="UDP Listeners (Passive Monitoring)", padding=10)
+        udp_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Status port
+        status_port_frame = ttk.Frame(udp_frame)
+        status_port_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(status_port_frame, text="Status Port:").pack(side=tk.LEFT)
+        self.udp_status_indicator = StatusIndicator(status_port_frame, size=12)
+        self.udp_status_indicator.pack(side=tk.LEFT, padx=5)
+        self.udp_status_indicator.set_status("green")  # Assume running when app starts
+        ttk.Label(status_port_frame, text=f"{config.get('network', 'udp_status_port', 5001)}",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+
+        # Heartbeat port
+        hb_port_frame = ttk.Frame(udp_frame)
+        hb_port_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(hb_port_frame, text="Heartbeat:").pack(side=tk.LEFT)
+        self.udp_hb_indicator = StatusIndicator(hb_port_frame, size=12)
+        self.udp_hb_indicator.pack(side=tk.LEFT, padx=5)
+        self.udp_hb_indicator.set_status("green")  # Assume running when app starts
+        ttk.Label(hb_port_frame, text=f"{config.get('network', 'udp_heartbeat_port', 5002)}",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+
         # Connection info
-        info_frame = ttk.LabelFrame(control_frame, text="Connection", padding=10)
+        info_frame = ttk.LabelFrame(control_frame, text="TCP Connection (Optional - For Commands)", padding=10)
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
 
         # Status indicator
@@ -46,7 +91,7 @@ class ConnectionTab(ttk.Frame):
         ttk.Label(status_frame, text="Status:").pack(side=tk.LEFT)
         self.status_indicator = StatusIndicator(status_frame, size=20)
         self.status_indicator.pack(side=tk.LEFT, padx=5)
-        self.status_label = ttk.Label(status_frame, text="Disconnected", font=('Arial', 10, 'bold'))
+        self.status_label = ttk.Label(status_frame, text="Not Connected (Passive Mode)", font=('Arial', 10, 'bold'))
         self.status_label.pack(side=tk.LEFT, padx=5)
 
         # IP and Port
@@ -150,21 +195,23 @@ class ConnectionTab(ttk.Frame):
         """Callback when connected"""
         self.connected = True
         self.status_indicator.set_status("green")
-        self.status_label.config(text="Connected")
+        self.status_label.config(text="Connected (Active Control Mode)")
         self.connect_btn.config(state=tk.DISABLED)
         self.disconnect_btn.config(state=tk.NORMAL)
         self.handshake_btn.config(state=tk.NORMAL)
-        self.log.append("✓ Connected successfully!", "SUCCESS")
+        self.log.append("✓ TCP Connected - Active Control Mode enabled", "SUCCESS")
+        self.log.append("  You can now send commands to Air-Side", "INFO")
 
     def _on_disconnected_callback(self):
         """Callback when disconnected"""
         self.connected = False
-        self.status_indicator.set_status("red")
-        self.status_label.config(text="Disconnected")
+        self.status_indicator.set_status("gray")
+        self.status_label.config(text="Not Connected (Passive Mode)")
         self.connect_btn.config(state=tk.NORMAL)
         self.disconnect_btn.config(state=tk.DISABLED)
         self.handshake_btn.config(state=tk.DISABLED)
-        self.log.append("✗ Disconnected", "WARN")
+        self.log.append("ℹ️ TCP Disconnected - Passive Monitoring Mode", "INFO")
+        self.log.append("  UDP status broadcasts still active", "INFO")
 
     def _on_message_callback(self, message: dict):
         """Callback when message received"""
