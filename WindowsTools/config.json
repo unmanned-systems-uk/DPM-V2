@@ -2,12 +2,12 @@
   "network": {
     "air_side_ip": "10.0.1.53",
     "tcp_port": 5000,
-    "udp_status_port": 5001,
-    "udp_heartbeat_port": 5002,
+    "udp_status_port": 50001,
+    "udp_heartbeat_port": 50002,
     "h16_ip": "10.0.1.92",
     "connection_timeout_ms": 5000,
     "retry_attempts": 3,
-    "client_id": "Win-Tools"
+    "client_id": "WPC"
   },
   "ssh": {
     "host": "10.0.1.53",
@@ -22,7 +22,7 @@
     "auto_refresh_system_interval_ms": 5000,
     "theme": "light",
     "font_size": 10,
-    "enable_audio_alerts": true
+    "enable_audio_alerts": false
   },
   "data": {
     "log_directory": "D:\\DPM\\DPM-V2\\WindowsTools\\logs",

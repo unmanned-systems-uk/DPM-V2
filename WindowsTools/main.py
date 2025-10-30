@@ -32,6 +32,7 @@ from gui.tab_protocol import ProtocolInspectorTab
 from gui.tab_command import CommandSenderTab
 from gui.tab_camera import CameraDashboardTab
 from gui.tab_system import SystemMonitorTab
+from gui.tab_logs import LogInspectorTab
 
 
 class DiagnosticApp:
@@ -51,6 +52,7 @@ class DiagnosticApp:
         self.command_tab = None
         self.camera_tab = None
         self.system_tab = None
+        self.log_tab = None
 
     def initialize(self):
         """Initialize all components"""
@@ -134,6 +136,9 @@ class DiagnosticApp:
         # System Monitor tab (Phase 2)
         self.system_tab = SystemMonitorTab(self.window.notebook)
 
+        # Log Inspector tab (Phase 2)
+        self.log_tab = LogInspectorTab(self.window.notebook)
+
         # Add tabs to window (in display order)
         tabs = {
             "Connection Monitor": self.connection_tab,
@@ -141,6 +146,7 @@ class DiagnosticApp:
             "Command Sender": self.command_tab,
             "Camera Dashboard": self.camera_tab,
             "System Monitor": self.system_tab,
+            "Log Inspector": self.log_tab,
             "Configuration": self.config_tab,
         }
 
@@ -220,23 +226,19 @@ class DiagnosticApp:
 
         # Wire UDP Status listener callback
         def on_status_message(message):
-            """Handle UDP status broadcast"""
-            # Add to protocol inspector
-            self.protocol_tab.add_message(message, "received")
-
-            # Update camera dashboard
-            self.camera_tab.update_camera_status(message)
-
-            # Update system monitor
-            self.system_tab.update_system_status(message)
+            """Handle UDP status broadcast - called from background thread"""
+            # Schedule GUI updates on main thread using after_idle()
+            self.window.root.after_idle(lambda: self.protocol_tab.add_message(message, "received"))
+            self.window.root.after_idle(lambda: self.camera_tab.update_camera_status(message))
+            self.window.root.after_idle(lambda: self.system_tab.update_system_status(message))
 
         self.status_listener.on_message_received = on_status_message
 
         # Wire UDP Heartbeat listener callback
         def on_heartbeat_message(message):
-            """Handle UDP heartbeat"""
-            # Add to protocol inspector
-            self.protocol_tab.add_message(message, "received")
+            """Handle UDP heartbeat - called from background thread"""
+            # Schedule GUI updates on main thread using after_idle()
+            self.window.root.after_idle(lambda: self.protocol_tab.add_message(message, "received"))
 
             # Update connection tab with heartbeat stats
             # (Connection tab would need enhancement to display this)
@@ -293,6 +295,10 @@ class DiagnosticApp:
 
         if self.heartbeat_sender and self.heartbeat_sender.is_running():
             self.heartbeat_sender.stop()
+
+        # Cleanup SSH connection in Log Inspector
+        if self.log_tab:
+            self.log_tab.cleanup()
 
         logger.info("Application shutdown complete")
 
