@@ -285,6 +285,10 @@ class LogInspectorTab(ttk.Frame):
         logger.info("SSH connected - fetching initial logs")
         self._refresh_logs()
 
+        # Notify Remote Control tab if available
+        if hasattr(self, 'remote_control_tab') and self.remote_control_tab:
+            self.remote_control_tab.update_ssh_status(True)
+
     def _on_ssh_disconnected(self):
         """Callback when SSH disconnected"""
         # Update UI on main thread
@@ -296,6 +300,10 @@ class LogInspectorTab(ttk.Frame):
         self.ssh_status_label.config(text="Disconnected", foreground="gray")
         self.connect_btn.config(state=tk.NORMAL, text="Connect SSH")
         self.disconnect_btn.config(state=tk.DISABLED)
+
+        # Notify Remote Control tab if available
+        if hasattr(self, 'remote_control_tab') and self.remote_control_tab:
+            self.remote_control_tab.update_ssh_status(False)
 
         # Stop auto-refresh
         self.auto_refresh_var.set(False)

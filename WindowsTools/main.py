@@ -34,6 +34,7 @@ from gui.tab_camera import CameraDashboardTab
 from gui.tab_system import SystemMonitorTab
 from gui.tab_logs import LogInspectorTab
 from gui.tab_activity import ActivityLogTab
+from gui.tab_remote_control import RemoteControlTab
 
 
 class DiagnosticApp:
@@ -55,6 +56,7 @@ class DiagnosticApp:
         self.system_tab = None
         self.log_tab = None
         self.activity_tab = None
+        self.remote_control_tab = None
 
     def initialize(self):
         """Initialize all components"""
@@ -141,6 +143,9 @@ class DiagnosticApp:
         # Log Inspector tab (Phase 2)
         self.log_tab = LogInspectorTab(self.window.notebook)
 
+        # Remote Control tab (Phase 2) - shares SSH client with Log Inspector
+        self.remote_control_tab = RemoteControlTab(self.window.notebook, self.log_tab.ssh_client)
+
         # Activity Log tab (Phase 2)
         self.activity_tab = ActivityLogTab(self.window.notebook)
 
@@ -152,6 +157,7 @@ class DiagnosticApp:
             "Camera Dashboard": self.camera_tab,
             "System Monitor": self.system_tab,
             "Log Inspector": self.log_tab,
+            "Remote Control": self.remote_control_tab,
             "Activity Log": self.activity_tab,
             "Configuration": self.config_tab,
         }
@@ -171,6 +177,9 @@ class DiagnosticApp:
 
         # Give command sender tab reference to TCP client
         self.command_tab.set_tcp_client(self.tcp_client)
+
+        # Wire Remote Control tab with Log Inspector for SSH status updates
+        self.log_tab.remote_control_tab = self.remote_control_tab
 
         # Wire TCP client callbacks (chaining with connection tab callbacks)
         def on_tcp_message(message):
