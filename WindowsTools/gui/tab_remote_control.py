@@ -4,9 +4,10 @@ Execute common SSH commands on Air-Side SBC with one-click buttons
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, filedialog
 from typing import Optional
 import threading
+from datetime import datetime
 
 from utils.logger import logger
 from utils.config import config
@@ -143,6 +144,9 @@ class RemoteControlTab(ttk.Frame):
 
         ttk.Button(bottom_frame, text="Copy Selected",
                   command=self._copy_selected).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(bottom_frame, text="Save Report",
+                  command=self._save_report).pack(side=tk.LEFT, padx=5)
 
         # Status
         self.status_label = ttk.Label(bottom_frame, text="Ready",
@@ -517,3 +521,40 @@ class RemoteControlTab(ttk.Frame):
                 messagebox.showwarning("No Selection", "Please select text to copy.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
+
+    def _save_report(self):
+        """Save diagnostic report to file"""
+        try:
+            # Get output content
+            output = self.output_text.get(1.0, tk.END).strip()
+
+            if not output:
+                messagebox.showwarning("No Content", "No report to save. Run Smart Diagnostic first.")
+                return
+
+            # Generate default filename with timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            default_filename = f"diagnostic_report_{timestamp}.txt"
+
+            # Open save file dialog
+            file_path = filedialog.asksaveasfilename(
+                title="Save Diagnostic Report",
+                defaultextension=".txt",
+                initialfile=default_filename,
+                filetypes=[
+                    ("Text files", "*.txt"),
+                    ("All files", "*.*")
+                ]
+            )
+
+            if file_path:
+                # Save to file
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(output)
+
+                messagebox.showinfo("Success", f"Report saved successfully!\n\n{file_path}")
+                logger.info(f"Diagnostic report saved to: {file_path}")
+                self.status_label.config(text=f"Report saved to {file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save report:\n{e}")
+            logger.exception(f"Error saving diagnostic report: {e}")
