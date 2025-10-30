@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.2.4"
-VERSION_NAME = "Phase 2 - Critical Log Fix"
+VERSION = "1.2.5"
+VERSION_NAME = "Phase 2 - Grep Filter"
 BUILD_DATE = "2025-10-30"
 
 # Build metadata

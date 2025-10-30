@@ -158,7 +158,13 @@ class LogInspectorTab(ttk.Frame):
         self.search_entry.pack(side=tk.LEFT, padx=5)
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
 
-        ttk.Button(search_frame, text="Clear Search", command=self._clear_search).pack(side=tk.LEFT, padx=5)
+        ttk.Button(search_frame, text="Clear", command=self._clear_search).pack(side=tk.LEFT, padx=5)
+
+        # Filter toggle (grep mode)
+        self.filter_mode_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(search_frame, text="Filter (grep - only show matches)",
+                       variable=self.filter_mode_var,
+                       command=self._on_filter_mode_changed).pack(side=tk.LEFT, padx=10)
 
         # Log display with sub-tabs
         log_frame = ttk.LabelFrame(self, text="Log Inspector", padding=5)
@@ -364,11 +370,13 @@ class LogInspectorTab(ttk.Frame):
         # Update sub-tabs with parsed data
         self._update_subtabs()
 
-        # Apply search filter if active
+        # Apply filter if filter mode enabled
         search_text = self.search_var.get().lower()
-        if search_text:
+        if self.filter_mode_var.get() and search_text:
+            # Filter mode: only show matching lines
             display_logs = self._filter_logs(logs, search_text)
         else:
+            # Normal mode: show all logs (search will highlight matches)
             display_logs = logs
 
         # Update text widget
@@ -438,6 +446,12 @@ class LogInspectorTab(ttk.Frame):
     def _clear_search(self):
         """Clear search filter"""
         self.search_var.set("")
+        if self.current_logs:
+            self._update_log_display(self.current_logs)
+
+    def _on_filter_mode_changed(self):
+        """Handle filter mode toggle"""
+        # Re-display logs with new filter mode
         if self.current_logs:
             self._update_log_display(self.current_logs)
 
@@ -526,6 +540,13 @@ class LogInspectorTab(ttk.Frame):
         if not self.subtab_update_scheduled:
             self.subtab_update_scheduled = True
             self.after(self.subtab_update_interval, self._update_subtabs)
+
+        # Apply filter if enabled (grep mode - only show matching lines)
+        search_text = self.search_var.get().lower()
+        if self.filter_mode_var.get() and search_text:
+            # Filter mode: only append if line matches search
+            if search_text not in line.lower():
+                return  # Skip this line
 
         # Enable editing
         self.log_text.config(state=tk.NORMAL)
