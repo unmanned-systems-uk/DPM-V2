@@ -15,10 +15,10 @@ from utils.config import config
 class RemoteControlTab(ttk.Frame):
     """Remote Control tab - execute common SSH commands"""
 
-    def __init__(self, parent, ssh_client):
+    def __init__(self, parent, log_inspector_tab):
         super().__init__(parent)
 
-        self.ssh_client = ssh_client  # Shared SSH client from Log Inspector
+        self.log_inspector_tab = log_inspector_tab  # Reference to Log Inspector tab to access SSH client
 
         self._create_ui()
 
@@ -156,7 +156,10 @@ class RemoteControlTab(ttk.Frame):
 
     def _execute_command(self, command: str, status_msg: str):
         """Execute SSH command in background thread"""
-        if not self.ssh_client or not self.ssh_client.is_connected():
+        # Get current SSH client from Log Inspector tab
+        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
+
+        if not ssh_client or not ssh_client.is_connected():
             messagebox.showwarning("Not Connected",
                                   "SSH connection required.\nPlease connect in Log Inspector tab first.")
             return
@@ -170,7 +173,7 @@ class RemoteControlTab(ttk.Frame):
         # Execute in background thread
         def run_command():
             try:
-                exit_code, stdout, stderr = self.ssh_client.execute_command(command, timeout=30)
+                exit_code, stdout, stderr = ssh_client.execute_command(command, timeout=30)
 
                 # Schedule UI update on main thread
                 self.after(0, lambda: self._display_result(exit_code, stdout, stderr))

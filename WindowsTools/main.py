@@ -144,7 +144,7 @@ class DiagnosticApp:
         self.log_tab = LogInspectorTab(self.window.notebook)
 
         # Remote Control tab (Phase 2) - shares SSH client with Log Inspector
-        self.remote_control_tab = RemoteControlTab(self.window.notebook, self.log_tab.ssh_client)
+        self.remote_control_tab = RemoteControlTab(self.window.notebook, self.log_tab)
 
         # Activity Log tab (Phase 2)
         self.activity_tab = ActivityLogTab(self.window.notebook)
