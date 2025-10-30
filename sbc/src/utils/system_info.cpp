@@ -21,6 +21,7 @@ messages::SystemStatus SystemInfo::getStatus() {
         status.memory_mb = getMemoryUsedMB();
         status.memory_total_mb = getMemoryTotalMB();
         status.disk_free_gb = getDiskFreeGB();
+        status.disk_total_gb = getDiskTotalGB();
         status.network_rx_mbps = getNetworkRxMbps();
         status.network_tx_mbps = getNetworkTxMbps();
     } catch (const std::exception& e) {
@@ -150,6 +151,21 @@ double SystemInfo::getDiskFreeGB() {
             // Available space in GB
             double free_bytes = static_cast<double>(stat.f_bavail) * stat.f_frsize;
             return free_bytes / (1024.0 * 1024.0 * 1024.0);
+        }
+    } catch (...) {
+        // Ignore errors
+    }
+
+    return 0.0;
+}
+
+double SystemInfo::getDiskTotalGB() {
+    try {
+        struct statvfs stat;
+        if (statvfs("/home", &stat) == 0) {
+            // Total space in GB
+            double total_bytes = static_cast<double>(stat.f_blocks) * stat.f_frsize;
+            return total_bytes / (1024.0 * 1024.0 * 1024.0);
         }
     } catch (...) {
         // Ignore errors

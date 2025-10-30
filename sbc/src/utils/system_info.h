@@ -18,6 +18,7 @@ private:
     static int64_t getMemoryUsedMB();
     static int64_t getMemoryTotalMB();
     static double getDiskFreeGB();
+    static double getDiskTotalGB();
     static double getNetworkRxMbps();
     static double getNetworkTxMbps();
 

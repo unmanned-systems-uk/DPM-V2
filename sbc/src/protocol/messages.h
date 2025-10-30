@@ -99,6 +99,7 @@ struct SystemStatus {
     int64_t memory_mb;
     int64_t memory_total_mb;
     double disk_free_gb;
+    double disk_total_gb;
     double network_rx_mbps;
     double network_tx_mbps;
 
@@ -109,6 +110,7 @@ struct SystemStatus {
             {"memory_mb", memory_mb},
             {"memory_total_mb", memory_total_mb},
             {"disk_free_gb", disk_free_gb},
+            {"disk_total_gb", disk_total_gb},
             {"network_rx_mbps", network_rx_mbps},
             {"network_tx_mbps", network_tx_mbps}
         };

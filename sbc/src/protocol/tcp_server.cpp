@@ -235,6 +235,14 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
         );
     }
 
+    // Remove client from UDP broadcaster and heartbeat
+    if (udp_broadcaster_) {
+        udp_broadcaster_->removeClient(client_ip);
+    }
+    if (heartbeat_) {
+        heartbeat_->removeClient(client_ip);
+    }
+
     // Graceful shutdown: stop sending, allow receiving for a moment
     shutdown(client_socket, SHUT_WR);
 
@@ -243,7 +251,7 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
     recv(client_socket, discard_buffer, sizeof(discard_buffer), MSG_DONTWAIT);
 
     close(client_socket);
-    Logger::debug("Closed connection to " + client_ip);
+    Logger::info("Disconnected client: " + client_ip);
 }
 
 json TCPServer::processCommand(const json& command) {
