@@ -158,9 +158,27 @@ class LogInspectorTab(ttk.Frame):
         self.search_entry.pack(side=tk.LEFT, padx=5)
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
 
-        ttk.Button(search_frame, text="Clear Search", command=self._clear_search).pack(side=tk.LEFT, padx=5)
+        ttk.Button(search_frame, text="Clear", command=self._clear_search).pack(side=tk.LEFT, padx=5)
 
-        # Log display with sub-tabs
+        # Filter toggle (grep mode)
+        self.filter_mode_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(search_frame, text="Filter (grep - only show matches)",
+                       variable=self.filter_mode_var,
+                       command=self._on_filter_mode_changed).pack(side=tk.LEFT, padx=10)
+
+        # Bottom controls (pack BEFORE expanding log frame so it stays visible)
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+
+        ttk.Button(bottom_frame, text="Clear Display", command=self._clear_display).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
+
+        # Line count label
+        self.line_count_label = ttk.Label(bottom_frame, text="Lines: 0")
+        self.line_count_label.pack(side=tk.RIGHT, padx=10)
+
+        # Log display with sub-tabs (pack AFTER bottom controls with expand)
         log_frame = ttk.LabelFrame(self, text="Log Inspector", padding=5)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
@@ -208,18 +226,6 @@ class LogInspectorTab(ttk.Frame):
         # Tab 4: Camera Status Comparison
         self.camera_comparison_tab = CameraComparisonTab(self.log_notebook, self.log_parser)
         self.log_notebook.add(self.camera_comparison_tab, text="Status Comparison")
-
-        # Bottom controls
-        bottom_frame = ttk.Frame(self)
-        bottom_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        ttk.Button(bottom_frame, text="Clear Display", command=self._clear_display).pack(side=tk.LEFT, padx=5)
-        ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
-        ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
-
-        # Line count label
-        self.line_count_label = ttk.Label(bottom_frame, text="Lines: 0")
-        self.line_count_label.pack(side=tk.RIGHT, padx=10)
 
     def _get_ssh_config(self) -> dict:
         """Get SSH configuration from config"""
@@ -279,6 +285,10 @@ class LogInspectorTab(ttk.Frame):
         logger.info("SSH connected - fetching initial logs")
         self._refresh_logs()
 
+        # Notify Remote Control tab if available
+        if hasattr(self, 'remote_control_tab') and self.remote_control_tab:
+            self.remote_control_tab.update_ssh_status(True)
+
     def _on_ssh_disconnected(self):
         """Callback when SSH disconnected"""
         # Update UI on main thread
@@ -290,6 +300,10 @@ class LogInspectorTab(ttk.Frame):
         self.ssh_status_label.config(text="Disconnected", foreground="gray")
         self.connect_btn.config(state=tk.NORMAL, text="Connect SSH")
         self.disconnect_btn.config(state=tk.DISABLED)
+
+        # Notify Remote Control tab if available
+        if hasattr(self, 'remote_control_tab') and self.remote_control_tab:
+            self.remote_control_tab.update_ssh_status(False)
 
         # Stop auto-refresh
         self.auto_refresh_var.set(False)
@@ -339,8 +353,12 @@ class LogInspectorTab(ttk.Frame):
             )
 
             if exit_code == 0:
+                # Combine stdout and stderr (Docker logs outputs to both!)
+                # This matches the behavior of: docker logs 2>&1
+                combined_logs = stdout + stderr
+
                 # Update UI on main thread
-                self.after(0, lambda: self._update_log_display(stdout))
+                self.after(0, lambda: self._update_log_display(combined_logs))
             else:
                 error_msg = stderr if stderr else "Failed to fetch logs"
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to fetch logs:\n{error_msg}"))
@@ -360,11 +378,13 @@ class LogInspectorTab(ttk.Frame):
         # Update sub-tabs with parsed data
         self._update_subtabs()
 
-        # Apply search filter if active
+        # Apply filter if filter mode enabled
         search_text = self.search_var.get().lower()
-        if search_text:
+        if self.filter_mode_var.get() and search_text:
+            # Filter mode: only show matching lines
             display_logs = self._filter_logs(logs, search_text)
         else:
+            # Normal mode: show all logs (search will highlight matches)
             display_logs = logs
 
         # Update text widget
@@ -434,6 +454,12 @@ class LogInspectorTab(ttk.Frame):
     def _clear_search(self):
         """Clear search filter"""
         self.search_var.set("")
+        if self.current_logs:
+            self._update_log_display(self.current_logs)
+
+    def _on_filter_mode_changed(self):
+        """Handle filter mode toggle"""
+        # Re-display logs with new filter mode
         if self.current_logs:
             self._update_log_display(self.current_logs)
 
@@ -522,6 +548,13 @@ class LogInspectorTab(ttk.Frame):
         if not self.subtab_update_scheduled:
             self.subtab_update_scheduled = True
             self.after(self.subtab_update_interval, self._update_subtabs)
+
+        # Apply filter if enabled (grep mode - only show matching lines)
+        search_text = self.search_var.get().lower()
+        if self.filter_mode_var.get() and search_text:
+            # Filter mode: only append if line matches search
+            if search_text not in line.lower():
+                return  # Skip this line
 
         # Enable editing
         self.log_text.config(state=tk.NORMAL)

@@ -9,14 +9,15 @@ from tkinter import ttk, messagebox
 from utils.logger import logger
 from utils.config import config
 from gui.widgets import ConnectionStatusBar
+from version import get_version_string, VERSION, VERSION_NAME, BUILD_DATE
 
 
 class MainWindow:
     """Main application window"""
 
-    def __init__(self):
+    def __init__(self, cleanup_callback=None):
         self.root = tk.Tk()
-        self.root.title("DPM Diagnostic Tool v1.0")
+        self.root.title(f"DPM Diagnostic Tool {get_version_string()}")
         self.root.geometry("1200x800")
 
         # Set minimum size
@@ -25,6 +26,7 @@ class MainWindow:
         # Initialize components
         self.tcp_client = None
         self.tabs = {}
+        self.cleanup_callback = cleanup_callback
 
         self._create_menu()
         self._create_notebook()
@@ -82,7 +84,8 @@ class MainWindow:
         """Show about dialog"""
         messagebox.showinfo(
             "About DPM Diagnostic Tool",
-            "DPM Diagnostic Tool v1.0\n\n"
+            f"DPM Diagnostic Tool {get_version_string()}\n"
+            f"Build Date: {BUILD_DATE}\n\n"
             "Windows diagnostic and testing tool for DPM Payload Manager.\n\n"
             "Features:\n"
             "- Real-time protocol monitoring\n"
@@ -97,10 +100,12 @@ class MainWindow:
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             logger.info("Application closing...")
 
-            # Cleanup (will be handled by tabs)
-            if hasattr(self, 'tcp_client') and self.tcp_client:
-                if self.tcp_client.is_connected():
-                    self.tcp_client.disconnect()
+            # Call cleanup callback BEFORE destroying window to avoid GUI access errors
+            if self.cleanup_callback:
+                try:
+                    self.cleanup_callback()
+                except Exception as e:
+                    logger.error(f"Error during cleanup: {e}")
 
             self.root.destroy()
 

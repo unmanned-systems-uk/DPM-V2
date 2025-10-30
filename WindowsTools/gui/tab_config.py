@@ -59,8 +59,33 @@ class ConfigTab(ttk.Frame):
         frame = ttk.LabelFrame(self.scrollable_frame, text="Network Settings", padding=10)
         frame.pack(fill=tk.X, padx=10, pady=5)
 
-        self.air_ip = LabeledEntry(frame, "Air-Side IP:", width=15)
+        # Network Architecture Info
+        arch_info_frame = ttk.Frame(frame)
+        arch_info_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(arch_info_frame, text="📡 Network Architecture:",
+                 font=('Arial', 9, 'bold')).pack(anchor=tk.W, padx=5)
+
+        ttk.Label(arch_info_frame, text="• Air-Side Pi WiFi: 10.0.1.53 (SSH access)",
+                 font=('Arial', 8), foreground='blue').pack(anchor=tk.W, padx=20)
+
+        ttk.Label(arch_info_frame, text="• H16 WiFi: 10.0.1.92 (ADB access)",
+                 font=('Arial', 8), foreground='blue').pack(anchor=tk.W, padx=20)
+
+        ttk.Label(arch_info_frame, text="• Air-Side Pi VXLAN: 192.168.144.10 (DPM Protocol)",
+                 font=('Arial', 8), foreground='green').pack(anchor=tk.W, padx=20)
+
+        ttk.Label(arch_info_frame, text="• H16 br-vxlan: 192.168.144.11 (Bridge to Air-Side)",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+
+        ttk.Separator(frame, orient='horizontal').pack(fill=tk.X, pady=10)
+
+        self.air_ip = LabeledEntry(frame, "Air-Side IP (WiFi):", width=15)
         self.air_ip.pack(fill=tk.X, pady=2)
+
+        # Info for Air-Side IP
+        ttk.Label(frame, text="ℹ️ WiFi IP for SSH access to Air-Side Pi (default: 10.0.1.53)",
+                 font=('Arial', 8), foreground='gray').pack(fill=tk.X, padx=20, pady=(0, 5))
 
         self.tcp_port = LabeledSpinbox(frame, "TCP Port:", 1000, 65535, width=10)
         self.tcp_port.pack(fill=tk.X, pady=2)
@@ -71,8 +96,12 @@ class ConfigTab(ttk.Frame):
         self.heartbeat_port = LabeledSpinbox(frame, "UDP Heartbeat Port:", 1000, 65535, width=10)
         self.heartbeat_port.pack(fill=tk.X, pady=2)
 
-        self.h16_ip = LabeledEntry(frame, "H16 IP:", width=15)
+        self.h16_ip = LabeledEntry(frame, "H16 IP (WiFi):", width=15)
         self.h16_ip.pack(fill=tk.X, pady=2)
+
+        # Info for H16 IP
+        ttk.Label(frame, text="ℹ️ WiFi IP for ADB access to H16 Ground Station (default: 10.0.1.92)",
+                 font=('Arial', 8), foreground='gray').pack(fill=tk.X, padx=20, pady=(0, 5))
 
         self.client_id = LabeledEntry(frame, "Client ID (Heartbeat):", width=15)
         self.client_id.pack(fill=tk.X, pady=2)

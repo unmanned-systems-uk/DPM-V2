@@ -173,10 +173,19 @@ class SystemMonitorTab(ttk.Frame):
 
     def update_system_status(self, status_data: Dict[str, Any]):
         """Update system status from UDP status broadcast"""
-        if "system" not in status_data:
+        # Handle both direct format and payload-wrapped format
+        if "payload" in status_data:
+            # UDP format: {"message_type": "status", "payload": {"system": {...}}}
+            payload = status_data["payload"]
+            if "system" not in payload:
+                return
+            system = payload["system"]
+        elif "system" in status_data:
+            # Direct format
+            system = status_data["system"]
+        else:
             return
 
-        system = status_data["system"]
         self.system_data = system
 
         # Uptime
@@ -189,7 +198,7 @@ class SystemMonitorTab(ttk.Frame):
         self.hostname_label.config(text=hostname)
 
         # CPU usage
-        cpu_usage = system.get("cpu_usage_percent", 0.0)
+        cpu_usage = system.get("cpu_percent", 0.0)
         self.cpu_var.set(cpu_usage)
         self.cpu_label.config(text=f"{cpu_usage:.1f}%")
 
@@ -202,7 +211,14 @@ class SystemMonitorTab(ttk.Frame):
             self.cpu_label.config(foreground="green")
 
         # Memory usage
-        mem_usage = system.get("memory_usage_percent", 0.0)
+        mem_used_mb = system.get("memory_mb", 0)
+        mem_total_mb = system.get("memory_total_mb", 0)
+
+        # Calculate memory usage percentage
+        mem_usage = 0.0
+        if mem_total_mb > 0:
+            mem_usage = (mem_used_mb / mem_total_mb) * 100
+
         self.mem_var.set(mem_usage)
         self.mem_label.config(text=f"{mem_usage:.1f}%")
 
@@ -214,17 +230,15 @@ class SystemMonitorTab(ttk.Frame):
         else:
             self.mem_label.config(foreground="green")
 
-        # Memory details (if available)
-        mem_used_mb = system.get("memory_used_mb", 0)
-        mem_total_mb = system.get("memory_total_mb", 0)
+        # Memory details
         if mem_used_mb > 0:
             self.mem_used_label.config(text=f"{mem_used_mb:.0f} MB")
         if mem_total_mb > 0:
             self.mem_total_label.config(text=f"{mem_total_mb:.0f} MB")
 
         # Storage (disk) usage
-        storage_free_gb = system.get("storage_free_gb", 0.0)
-        storage_total_gb = system.get("storage_total_gb", 0.0)
+        storage_free_gb = system.get("disk_free_gb", 0.0)
+        storage_total_gb = system.get("disk_total_gb", 0.0)
 
         if storage_total_gb > 0:
             storage_used_percent = ((storage_total_gb - storage_free_gb) / storage_total_gb) * 100

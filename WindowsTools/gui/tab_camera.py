@@ -167,10 +167,18 @@ class CameraDashboardTab(ttk.Frame):
 
     def update_camera_status(self, status_data: Dict[str, Any]):
         """Update camera status from UDP status broadcast"""
-        if "camera" not in status_data:
+        # Handle both direct format and payload-wrapped format
+        if "payload" in status_data:
+            # UDP format: {"message_type": "status", "payload": {"camera": {...}}}
+            payload = status_data["payload"]
+            if "camera" not in payload:
+                return
+            camera = payload["camera"]
+        elif "camera" in status_data:
+            # Direct format
+            camera = status_data["camera"]
+        else:
             return
-
-        camera = status_data["camera"]
 
         # Connection status
         self.camera_connected = camera.get("connected", False)
@@ -186,7 +194,7 @@ class CameraDashboardTab(ttk.Frame):
         self.model_label.config(text=model)
 
         # Battery level
-        battery = camera.get("battery_level", 0)
+        battery = camera.get("battery_percent", 0)
         self.battery_var.set(battery)
         self.battery_label.config(text=f"{battery}%")
 
@@ -194,8 +202,8 @@ class CameraDashboardTab(ttk.Frame):
         shots = camera.get("remaining_shots", "N/A")
         self.shots_label.config(text=str(shots))
 
-        # Current properties
-        current_props = camera.get("current_properties", {})
+        # Current properties (called "settings" in status message)
+        current_props = camera.get("settings", {})
         self._update_properties(current_props)
 
         # Update timestamp
@@ -204,34 +212,39 @@ class CameraDashboardTab(ttk.Frame):
 
     def _update_properties(self, properties: Dict[str, Any]):
         """Update property displays"""
-        # Exposure triangle
-        shutter = properties.get("shutter_speed", "N/A")
-        self.shutter_label.config(text=str(shutter))
+        # Helper to convert empty strings to "N/A"
+        def get_prop(key, default="N/A"):
+            value = properties.get(key, default)
+            return value if value and str(value).strip() else "N/A"
 
-        aperture = properties.get("aperture", "N/A")
+        # Exposure triangle
+        shutter = get_prop("shutter_speed")
+        self.shutter_label.config(text=shutter)
+
+        aperture = get_prop("aperture")
         self.aperture_label.config(text=f"f/{aperture}" if aperture != "N/A" else "N/A")
 
-        iso = properties.get("iso", "N/A")
-        self.iso_label.config(text=str(iso))
+        iso = get_prop("iso")
+        self.iso_label.config(text=iso)
 
         # Other properties
-        wb = properties.get("white_balance", "N/A")
-        self.wb_label.config(text=str(wb))
+        wb = get_prop("white_balance")
+        self.wb_label.config(text=wb)
 
-        focus = properties.get("focus_mode", "N/A")
-        self.focus_label.config(text=str(focus))
+        focus = get_prop("focus_mode")
+        self.focus_label.config(text=focus)
 
-        file_format = properties.get("file_format", "N/A")
-        self.format_label.config(text=str(file_format))
+        file_format = get_prop("file_format")
+        self.format_label.config(text=file_format)
 
-        drive = properties.get("drive_mode", "N/A")
-        self.drive_label.config(text=str(drive))
+        drive = get_prop("drive_mode")
+        self.drive_label.config(text=drive)
 
-        exp_mode = properties.get("exposure_mode", "N/A")
-        self.exp_mode_label.config(text=str(exp_mode))
+        exp_mode = get_prop("exposure_mode")
+        self.exp_mode_label.config(text=exp_mode)
 
-        flash = properties.get("flash_mode", "N/A")
-        self.flash_label.config(text=str(flash))
+        flash = get_prop("flash_mode")
+        self.flash_label.config(text=flash)
 
         # Store properties
         self.camera_properties = properties
