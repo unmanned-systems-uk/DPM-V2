@@ -40,6 +40,10 @@ class LogInspectorTab(ttk.Frame):
         self.camera_events_tab: Optional[CameraEventsTab] = None
         self.active_clients_tab: Optional[ActiveClientsTab] = None
 
+        # Sub-tab update scheduling
+        self.subtab_update_scheduled = False
+        self.subtab_update_interval = 1000  # Update sub-tabs every 1 second
+
         self._create_ui()
 
         logger.debug("Log Inspector tab initialized")
@@ -343,6 +347,14 @@ class LogInspectorTab(ttk.Frame):
         """Update log text display"""
         self.current_logs = logs
 
+        # Parse logs for sub-tabs
+        for line in logs.splitlines():
+            if line.strip():
+                self.log_parser.parse_line(line)
+
+        # Update sub-tabs with parsed data
+        self._update_subtabs()
+
         # Apply search filter if active
         search_text = self.search_var.get().lower()
         if search_text:
@@ -498,6 +510,14 @@ class LogInspectorTab(ttk.Frame):
 
     def _append_log_line(self, line: str):
         """Append a log line to the display"""
+        # Feed line to log parser
+        self.log_parser.parse_line(line)
+
+        # Schedule sub-tab update if not already scheduled
+        if not self.subtab_update_scheduled:
+            self.subtab_update_scheduled = True
+            self.after(self.subtab_update_interval, self._update_subtabs)
+
         # Enable editing
         self.log_text.config(state=tk.NORMAL)
 
@@ -524,6 +544,24 @@ class LogInspectorTab(ttk.Frame):
         # Update line count
         total_lines = int(self.log_text.index(tk.END).split('.')[0]) - 1
         self.line_count_label.config(text=f"Lines: {total_lines}")
+
+    def _update_subtabs(self):
+        """Update all sub-tabs with parsed log data"""
+        try:
+            # Update Camera Events tab
+            if self.camera_events_tab:
+                self.camera_events_tab.update_events()
+
+            # Update Active Clients tab
+            if self.active_clients_tab:
+                self.active_clients_tab.update_clients()
+
+        except Exception as e:
+            logger.error(f"Error updating sub-tabs: {e}")
+
+        finally:
+            # Reset scheduled flag
+            self.subtab_update_scheduled = False
 
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""
