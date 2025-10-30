@@ -27,8 +27,9 @@ The Payload Manager Service runs on the Raspberry Pi 5 (Air Side) and communicat
 
 - ✅ **Network Communication**
   - TCP Command Server (port 5000) - JSON-based protocol
-  - UDP Status Broadcasting (port 5001, 5 Hz)
-  - UDP Heartbeat (port 5002, 1 Hz bidirectional)
+  - UDP Status Broadcasting (ports 5001/50001, 5 Hz) - Dual-port for firewall compatibility
+  - UDP Heartbeat (ports 5002/50002, 1 Hz bidirectional) - Dual-port for firewall compatibility
+  - **Multi-client support** - Broadcasts to all connected clients simultaneously (H16 + Windows Tools)
   - **Dynamic IP discovery** - Auto-detects ground station IP from TCP connection
   - Works seamlessly on WiFi (10.0.1.x) and Ethernet (192.168.144.x)
 
@@ -41,10 +42,12 @@ The Payload Manager Service runs on the Raspberry Pi 5 (Air Side) and communicat
   - UI notifications for camera events
 
 - ✅ **System Monitoring**
-  - CPU usage tracking
-  - Memory usage monitoring
-  - Uptime tracking
-  - Real-time telemetry streaming
+  - CPU usage tracking (delta-based, percentage)
+  - Memory usage monitoring (used/total in MB)
+  - Disk storage monitoring (free/total in GB)
+  - Network bandwidth monitoring (RX/TX in Mbps)
+  - Uptime tracking (seconds)
+  - Real-time telemetry streaming at 5 Hz
 
 - ✅ **Logging System**
   - File-based logging
@@ -57,17 +60,19 @@ The Payload Manager Service runs on the Raspberry Pi 5 (Air Side) and communicat
 
 **Air Side (Raspberry Pi):**
 - TCP Port: 5000 (command server - listens on 0.0.0.0)
-- UDP Port: 5001 (status broadcast - sends to ground station)
-- UDP Port: 5002 (heartbeat - bidirectional)
+- UDP Ports: 5001, 50001 (status broadcast - sends to all connected clients)
+- UDP Ports: 5002, 50002 (heartbeat - bidirectional)
 
-**Ground Side (Android App):**
-- **Dynamic IP discovery** - Ground station IP is auto-detected from TCP connection
+**Ground Side (Multiple Clients Supported):**
+- **Multi-client support** - Supports H16 and Windows Tools simultaneously
+- **Dynamic IP discovery** - Ground station IPs auto-detected from TCP connections
 - WiFi testing: 10.0.1.x (dynamic DHCP)
-- H16 Ethernet: 192.168.144.11 (static, future)
+- H16 Ethernet: 192.168.144.11 (static)
+- **Dual-port broadcasting** - Primary ports (5001/5002) and alternative ports (50001/50002) for firewall compatibility
 
-**Connection:** Ethernet (H16) or WiFi (testing)
+**Connection:** Ethernet (H16) or WiFi (testing) - Both simultaneously supported
 
-**Note:** No manual IP configuration required! The service automatically detects the ground station IP when the Android app connects via TCP.
+**Note:** No manual IP configuration required! The service automatically detects all ground station IPs when clients connect via TCP and broadcasts to all of them.
 
 ---
 
