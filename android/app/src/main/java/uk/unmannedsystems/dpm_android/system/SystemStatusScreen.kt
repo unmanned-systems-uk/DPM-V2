@@ -337,8 +337,8 @@ private fun SystemStatusCard(
             // CPU Usage
             StatusItem(
                 label = "CPU Usage",
-                value = "${String.format("%.1f", systemStatus.cpuUsagePercent)}%",
-                progress = systemStatus.cpuUsagePercent.toFloat() / 100f
+                value = "${String.format("%.1f", systemStatus.cpuPercent)}%",
+                progress = systemStatus.cpuPercent.toFloat() / 100f
             )
 
             // Memory Usage
@@ -351,7 +351,7 @@ private fun SystemStatusCard(
             // Storage Free
             StatusItem(
                 label = "Storage Free",
-                value = "${String.format("%.2f", systemStatus.storageFreeGb)} GB"
+                value = "${String.format("%.2f", systemStatus.diskFreeGb)} GB"
             )
         }
     }

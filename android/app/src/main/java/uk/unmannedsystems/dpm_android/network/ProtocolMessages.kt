@@ -74,15 +74,23 @@ data class StatusPayload(
 
 /**
  * System status information
+ * Matches air-side UDP status broadcast format
  */
 data class SystemStatus(
     @SerializedName("uptime_seconds") val uptimeSeconds: Long,
-    @SerializedName("cpu_usage_percent") val cpuUsagePercent: Float,
-    @SerializedName("memory_usage_percent") val memoryUsagePercent: Float,
-    @SerializedName("storage_free_gb") val storageFreeGb: Float,
-    @SerializedName("network_latency_ms") val networkLatencyMs: Int,
-    @SerializedName("mavlink_connected") val mavlinkConnected: Boolean
-)
+    @SerializedName("cpu_percent") val cpuPercent: Float,
+    @SerializedName("memory_mb") val memoryMb: Int,
+    @SerializedName("memory_total_mb") val memoryTotalMb: Int,
+    @SerializedName("disk_free_gb") val diskFreeGb: Float,
+    @SerializedName("network_rx_mbps") val networkRxMbps: Float? = null,
+    @SerializedName("network_tx_mbps") val networkTxMbps: Float? = null
+) {
+    // Computed property for memory usage percentage
+    val memoryUsagePercent: Float
+        get() = if (memoryTotalMb > 0) {
+            (memoryMb.toFloat() / memoryTotalMb.toFloat()) * 100f
+        } else 0f
+}
 
 /**
  * Simple camera settings synchronized from Air Side

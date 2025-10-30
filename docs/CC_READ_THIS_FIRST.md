@@ -2,31 +2,132 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025
-**Last Updated:** October 29, 2025
-**Version:** 2.4 (Platform ID Commit Prefix + Branch Confirmation Mandatory)
+**Last Updated:** October 30, 2025
+**Version:** 2.5 (Platform Identification & START Command)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
 
-## 🎯 QUICK START - WHERE AM I WORKING?
+## ⚡ QUICK START COMMAND
 
-**Identify your platform first:**
+**Type `START` at the beginning of any session for automatic setup!**
 
-- 🔹 **Air-Side (C++ SBC)?** → Working in `sbc/` directory
-  - Read Common Rules below, then jump to [Air-Side Specifics](#-air-side-specifics-c-sbc)
-  - Check `sbc/docs/PROGRESS_AND_TODO.md` for current status
+When you type **START**, Claude Code will automatically:
 
-- 🔹 **Ground-Side (Android)?** → Working in `android/` directory
-  - Read Common Rules below, then jump to [Ground-Side Specifics](#-ground-side-specifics-android-app)
-  - Check `android/docs/PROGRESS_AND_TODO.md` for current status
+1. ✅ Ask which platform you're working on (Air/Ground/WindowsTools/Docs)
+2. ✅ Confirm current Git branch (should be `main`)
+3. ✅ Run `git pull origin main` and check for conflicts
+4. ✅ Verify protocol files are at correct location (`~/DPM-V2/protocol/`)
+5. ✅ Check protocol synchronization (commands.json & camera_properties.json)
+6. ✅ Read the appropriate PROGRESS_AND_TODO.md
+7. ✅ Run `git status` and show uncommitted changes
+8. ✅ Identify current phase and next recommended task
+9. ✅ Ready to work!
 
-- 🔹 **WindowsTools (Python Diagnostic)?** → Working in `WindowsTools/` directory
-  - Read Common Rules below, then jump to [WindowsTools Specifics](#-windowstools-specifics-python-diagnostic)
-  - Check `WindowsTools/PROGRESS_AND_TODO.md` for current status
+**Example:**
+```
+User: START
+Claude: 
+  🎯 Which platform are you working on?
+  1. 🔹 AIR-SIDE (C++ SBC in sbc/)
+  2. 🔹 GROUND-SIDE (Android in android/)
+  3. 🔹 WINDOWSTOOLS (Python Diagnostic in WindowsTools/)
+  4. 🔹 DOCS (Protocol/Documentation)
+  
+User: 1
+Claude: 
+  ✅ Air-Side mode activated
+  ✅ Confirming branch: main
+  ✅ Running git pull...
+  ✅ Checking protocol files location...
+  ✅ Checking protocol sync...
+  ✅ Reading sbc/docs/PROGRESS_AND_TODO.md...
+  [proceeds with session initialization]
+```
 
-- 🔹 **Protocol/Documentation?** → Working in `docs/` directory
-  - Read Common Rules below
-  - Focus on Protocol Synchronization section
+**Alternative:** You can also specify platform directly:
+- `START AIR` - Start air-side session
+- `START GROUND` - Start ground-side session
+- `START WINDOWS` - Start WindowsTools session
+- `START DOCS` - Start documentation session
+
+---
+
+## 🎯 PLATFORM IDENTIFICATION (MANDATORY!)
+
+**🔴 CRITICAL: Claude Code MUST ask which platform at the start of EVERY session! 🔴**
+
+### Platform Question (Always Ask First!)
+
+**At the start of EVERY work session, Claude Code MUST ask:**
+
+```
+🎯 Which platform are you working on today?
+
+1. 🔹 AIR-SIDE (C++ SBC)
+   - Working in sbc/ directory
+   - C++ development
+   - Sony SDK integration
+   - Raspberry Pi 4 target
+
+2. 🔹 GROUND-SIDE (Android App)
+   - Working in android/ directory
+   - Kotlin development
+   - H16 Ground Station target
+
+3. 🔹 WINDOWSTOOLS (Python Diagnostic)
+   - Working in WindowsTools/ directory
+   - Python/tkinter development
+   - Windows PC diagnostic tool
+
+4. 🔹 DOCS/PROTOCOL
+   - Working in docs/ or protocol/ directories
+   - Protocol specification
+   - Cross-platform documentation
+
+Please respond with: AIR, GROUND, WINDOWS, or DOCS
+```
+
+**Wait for user response before proceeding!**
+
+**Once platform is identified:**
+- Set context for entire session
+- Apply platform-specific rules
+- Read platform-specific documentation
+- Use platform-specific commit prefixes
+
+### Platform-Specific Session Paths
+
+**If AIR-SIDE selected:**
+- ✅ Read Common Rules (below)
+- ✅ Read [Air-Side Specifics](#-air-side-specifics-c-sbc)
+- ✅ Check `sbc/docs/PROGRESS_AND_TODO.md`
+- ✅ Verify Docker status (if applicable)
+- ✅ Check Sony SDK availability
+- ✅ Bookmark Sony SDK HTML documentation
+- ✅ Set Git commit prefix to `[AIR]`
+
+**If GROUND-SIDE selected:**
+- ✅ Read Common Rules (below)
+- ✅ Read [Ground-Side Specifics](#-ground-side-specifics-android-app)
+- ✅ Check `android/docs/PROGRESS_AND_TODO.md`
+- ✅ Check commented-out methods in NetworkClient.kt
+- ✅ Verify ADB connectivity
+- ✅ Set Git commit prefix to `[GROUND]`
+
+**If WINDOWSTOOLS selected:**
+- ✅ Read Common Rules (below)
+- ✅ Read [WindowsTools Specifics](#-windowstools-specifics-python-diagnostic)
+- ✅ Check `WindowsTools/PROGRESS_AND_TODO.md`
+- ✅ Verify Python environment
+- ✅ Test application launch
+- ✅ Set Git commit prefix to `[WINDOWS]`
+
+**If DOCS/PROTOCOL selected:**
+- ✅ Read Common Rules (below)
+- ✅ Focus on protocol synchronization
+- ✅ Check both air and ground implementation status
+- ✅ Set Git commit prefix to `[DOCS]`
 
 ---
 
@@ -94,31 +195,24 @@
 ## 📋 COMMON SESSION START CHECKLIST
 **Every session, regardless of platform:**
 
-### 1. Read This Document
+### 1. Platform Identification (NEW!)
+- ✅ **MANDATORY** - Claude Code asks which platform
+- ✅ User responds: AIR, GROUND, WINDOWS, or DOCS
+- ✅ Claude Code sets context for entire session
+- ✅ All subsequent rules filtered by platform
+
+### 2. Branch Confirmation (MANDATORY!)
+- ✅ **MANDATORY** - Confirm current Git branch
+- ✅ Run `git branch --show-current`
+- ✅ Should return: `main`
+- ⚠️ **If NOT on main branch**: STOP and ask user what to do
+- ⚠️ **Never work on wrong branch!**
+
+### 3. Read This Document
 - ✅ **ALWAYS** read `CC_READ_THIS_FIRST.md` first (this file)
 - This is your source of truth for workflow rules
 
-### 2. 🔴 MANDATORY: Ask User Which Platform They're Working On
-- ✅ **REQUIRED** - At the start of EVERY session, ask the user:
-
-  **"Which platform are you working on today?"**
-  - **Air-Side** (C++ SBC) → Platform ID: `AIR-SIDE`
-  - **Ground-Station** (Android) → Platform ID: `ANDROID`
-  - **Windows Tools** (Python) → Platform ID: `WINDOWS`
-  - **Protocol/Docs** → Platform ID: `PROTOCOL` or `DOCS`
-
-- ✅ **Record the platform ID** - You'll use it in ALL commit messages
-- ✅ **DO NOT PROCEED** until user confirms their platform
-- ⚠️ **CRITICAL** - The platform ID MUST be prefixed to ALL git commits this session
-
-**Example Session Start:**
-```
-Claude: "Which platform are you working on today? (Air-Side, Ground-Station/Android, or Windows Tools)"
-User: "Air-Side"
-Claude: "Got it! Working on Air-Side platform. All commits will use [AIR-SIDE] prefix."
-```
-
-### 3. Pull Latest Changes from Git
+### 4. Pull Latest Changes from Git
 - ✅ **MANDATORY** - Always pull latest before doing ANY work
 - ✅ Run `git pull origin main` at start of EVERY session
 - ✅ This ensures you have latest protocol definitions
@@ -132,7 +226,7 @@ Claude: "Got it! Working on Air-Side platform. All commits will use [AIR-SIDE] p
 4. **Wait** for user to resolve or give instructions
 5. **DO NOT** attempt to resolve conflicts without user approval
 
-### 3. Check Protocol Synchronization
+### 5. Check Protocol Synchronization
 - ✅ **MANDATORY** - Check `protocol/commands.json` for new commands
 - ✅ **MANDATORY** - Check `protocol/camera_properties.json` for new properties
 - ✅ Check if the other platform has implemented things you need to implement
@@ -160,17 +254,18 @@ cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
   select(.value.implemented.ground_side == false) | .key'
 ```
 
-### 4. Check Current Status
+### 6. Check Current Status
 - ✅ Read the appropriate `PROGRESS_AND_TODO.md`:
   - **Air-side:** `sbc/docs/PROGRESS_AND_TODO.md`
   - **Ground-side:** `android/docs/PROGRESS_AND_TODO.md`
+  - **WindowsTools:** `WindowsTools/PROGRESS_AND_TODO.md`
 - Understand:
   - What phase we're in
   - What's been completed
   - What's currently blocked
   - What to work on next
 
-### 5. Read Relevant Technical Docs (If Needed)
+### 7. Read Relevant Technical Docs (If Needed)
 - ⚠️ **DO NOT** read `Project_Summary_and_Action_Plan.md` unless explicitly asked
 - ⚠️ **DO NOT** re-read technical specs you've already reviewed in this session
 - ✅ **DO** read specific technical docs when starting new features
@@ -188,7 +283,11 @@ cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
 - `docs/Updated_System_Architecture_H16.md` - System architecture
 - Android-specific guides when implementing UI/networking
 
-### 6. Understand Git Status
+**WindowsTools Docs:**
+- `WindowsTools/PROGRESS_AND_TODO.md` - Current status and tasks
+- `WindowsTools/README.md` - Setup and usage instructions
+
+### 8. Understand Git Status
 - ✅ Run `git status` to check for uncommitted changes
 - ✅ Identify what needs to be committed
 - ✅ Check current branch (should be `main`)
@@ -196,7 +295,7 @@ cat protocol/camera_properties.json | jq -r '.properties | to_entries[] |
 ---
 
 ## 🔄 COMMON WORKFLOW RULES
-**These rules apply to BOTH platforms:**
+**These rules apply to ALL platforms:**
 
 ### Rule #0: Protocol Synchronization (MOST IMPORTANT!)
 
@@ -261,13 +360,13 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
    ├─ Add any new error codes to messages.h
    └─ Test implementation
 
-4. CC updates protocol/commands.json
+4. CC updates commands.json
    └─ Set "air_side": true
 
 5. CC updates sbc/docs/PROGRESS_AND_TODO.md
 
 6. CC commits with clear message
-   └─ [AIR-SIDE][PROTOCOL] Implemented [command.name] command
+   └─ [AIR][PROTOCOL] Implemented [command.name] command
 ```
 
 **Ground-Side Flow:**
@@ -285,13 +384,13 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
    ├─ Add error handling
    └─ Test with air-side (if available)
 
-4. CC updates protocol/commands.json
+4. CC updates commands.json
    └─ Set "ground_side": true
 
 5. CC updates android/docs/PROGRESS_AND_TODO.md
 
 6. CC commits with clear message
-   └─ [ANDROID][PROTOCOL] Implemented [command.name] UI
+   └─ [GROUND][PROTOCOL] Implemented [command.name] UI
 ```
 
 #### Camera Properties Workflow
@@ -317,7 +416,7 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
    - Mark property as implemented
 
 3. **UI considerations (ground-side):**
-   - Check `ui_hints` in protocol/camera_properties.json:
+   - Check `ui_hints` in camera_properties.json:
      - `dropdown` → Spinner/Dropdown
      - `slider` → SeekBar
      - `segmented_control` → RadioGroup/ToggleButton
@@ -395,10 +494,12 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 
 **Format Example:**
 ```markdown
-**Last Updated:** October 25, 2025 15:30 - After implementing shutter_speed property
+**Last Updated:** October 29, 2025 15:30 - After implementing shutter_speed property
 ```
 
-### Rule #2: Commit to Git Regularly
+### Rule #2: Commit to Git Regularly (UPDATED WITH PLATFORM PREFIXES!)
+
+**🔴 NEW REQUIREMENT: All commits MUST include platform prefix! 🔴**
 
 **Commit frequency rules:**
 
@@ -419,24 +520,23 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
    - ✅ **MANDATORY** - Commit all changes before ending work
    - Update docs first, then commit
 
-**Commit Message Format:**
+**Commit Message Format (UPDATED!):**
 
 ```bash
-[PLATFORM-ID][TYPE] Component: Brief one-line summary (max 72 chars)
+[PLATFORM][TYPE] Component: Brief one-line summary (max 72 chars)
 
 - Detailed point 1 (what changed)
 - Detailed point 2 (why it changed)
 - Detailed point 3 (impact/result)
 ```
 
-**🔴 MANDATORY: Platform ID Prefixes**
-- `[AIR-SIDE]` - Changes to Air-Side (C++ SBC in sbc/)
-- `[ANDROID]` - Changes to Ground-Station Android app (android/)
-- `[WINDOWS]` - Changes to Windows Tools (WindowsTools/)
-- `[PROTOCOL]` - Changes to protocol specs (protocol/)
-- `[DOCS]` - Documentation changes only
+**Valid PLATFORM prefixes:**
+- `[AIR]` - Air-side (C++ SBC) changes
+- `[GROUND]` - Ground-side (Android) changes
+- `[WINDOWS]` - WindowsTools (Python diagnostic) changes
+- `[DOCS]` - Documentation/Protocol (cross-platform)
 
-**Valid TYPE prefixes (after Platform ID):**
+**Valid TYPE prefixes:**
 - `[FEATURE]` - New functionality
 - `[FIX]` - Bug fix
 - `[PROTOCOL]` - Protocol implementation
@@ -446,61 +546,100 @@ cat protocol/camera_properties.json | jq '.implementation_phases.phase_1.propert
 - `[BUILD]` - Build system changes
 - `[WIP]` - Work in progress
 
+**Platform Prefix Rules:**
+- ✅ **AIR-SIDE work**: MUST use `[AIR]` prefix
+- ✅ **GROUND-SIDE work**: MUST use `[GROUND]` prefix
+- ✅ **WINDOWSTOOLS work**: MUST use `[WINDOWS]` prefix
+- ✅ **DOCS/PROTOCOL**: Use `[DOCS]` prefix (no platform-specific code)
+- ✅ **Cross-platform changes**: Use multiple commits, one per platform
+
 **Good Examples:**
 ```bash
-[AIR-SIDE][PROTOCOL] Camera: Implemented shutter_speed property
+[AIR][PROTOCOL] Camera: Implemented shutter_speed property
 
-- Sony SDK CrDeviceProperty_ShutterSpeed integration
-- PropertyLoader reads values from protocol/camera_properties.json
-- Validation: Enum values match specification
+- Air-side: Sony SDK CrDeviceProperty_ShutterSpeed integration
+- Added validation for shutter speed values
+- Updated handleCameraSetProperty() handler
 - Testing: Verified with Sony A1 camera
 
-[AIR-SIDE][FIX] Docker: Resolved CrAdapter dynamic loading issue
+[GROUND][PROTOCOL] Camera: Implemented shutter_speed UI
+
+- Added Spinner with standard shutter speeds
+- Connected to networkClient.setCameraProperty()
+- Validation: Enum values from camera_properties.json
+- Testing: Verified end-to-end with air-side
+
+[AIR][FIX] Docker: Resolved CrAdapter dynamic loading issue
 
 - Root cause: Adapters statically linked in CMakeLists.txt
 - Solution: Only link libCr_Core.so, copy CrAdapter/ to build dir
 - Result: SDK now loads adapters dynamically
 
-[ANDROID][FEATURE] Added camera control screen
+[GROUND][FEATURE] Android: Added camera control screen
 
 - Implemented CameraControlFragment with MVVM pattern
 - Added exposure controls (shutter, aperture, ISO)
 - Connected to NetworkClient for command sending
 - Tested on emulator and H16 hardware
 
-[WINDOWS][FIX] Fix protocol.py heartbeat to match spec v1.1.0
+[WINDOWS][FEATURE] Protocol Inspector: Added JSON formatting
 
-- Added missing protocol_version field
-- Fixed timestamp from milliseconds to seconds
-- Corrected heartbeat payload structure
-- Added client_id="WPC"
+- Implemented syntax highlighting for JSON messages
+- Added expand/collapse for nested structures
+- Improved readability of protocol messages
 
-[PROTOCOL][FEATURE] Add heartbeat_spec.json v1.1.0
+[DOCS] Protocol: Added focus control commands
 
-- Created official heartbeat message specification
-- Added client_id field for client tracking
-- Documented requirements for all three platforms
+- Updated commands.json with camera.focus command
+- Added camera.set_focus_area command
+- Both marked air_side=false, ground_side=false
+- Ready for implementation in next session
+
+[AIR][WIP] Camera: Partial Sony SDK integration
+
+- Connected to camera successfully
+- Can read properties but not set yet
+- Need to debug SetDeviceProperty callback issue
+- Committing for end of session
 ```
 
 **Bad Examples:**
 ```bash
-# ❌ Missing platform ID prefix
+# Missing platform prefix
 [FEATURE] Added stuff
 
-# ❌ Missing platform ID AND type
+# No context
 Fixed bug
 
-# ❌ Missing platform ID
-[FEATURE] Implemented camera shutter speed property control with dropdown UI and validation
-
-# ❌ Too vague (even with platform ID)
-[AIR-SIDE][FEATURE] Added stuff
-
-# ❌ No context
-[ANDROID][FIX] Fixed bug
+# Too long in title
+[AIR][FEATURE] Implemented camera shutter speed property control with dropdown UI and validation
 
 # No details
-[FIX] Camera works now
+[GROUND][FIX] Camera works now
+
+# Wrong platform prefix (air work with ground prefix)
+[GROUND][PROTOCOL] Implemented C++ camera handler
+```
+
+**Cross-Platform Changes:**
+If you modify multiple platforms in one session, make **separate commits**:
+
+```bash
+# Commit 1: Air-side changes
+git add sbc/
+git commit -m "[AIR][PROTOCOL] Camera: Implemented shutter_speed handler"
+
+# Commit 2: Ground-side changes
+git add android/
+git commit -m "[GROUND][PROTOCOL] Camera: Added shutter_speed UI"
+
+# Commit 3: WindowsTools changes
+git add WindowsTools/
+git commit -m "[WINDOWS][FEATURE] Added shutter_speed display"
+
+# Commit 4: Protocol updates
+git add protocol/
+git commit -m "[DOCS] Protocol: Marked shutter_speed implemented all sides"
 ```
 
 ### Rule #3: Never Leave Orphaned Documentation
@@ -544,6 +683,15 @@ cd android
 # Success produces: app/build/outputs/apk/debug/app-debug.apk
 ```
 
+**WindowsTools (Python):**
+```bash
+cd WindowsTools
+python DiagnosticTool.py  # Should launch without errors
+
+# If errors occur, FIX IT before committing
+# Test all tabs load correctly
+```
+
 **Never commit broken code!**
 
 ### Rule #5: Work Incrementally
@@ -584,133 +732,23 @@ cd android
    # Should see libCr_Core.so and CrAdapter/ directory
    ```
 
-3. **Check Build Directory:**
+3. **Locate Sony SDK HTML Documentation:**
+   ```bash
+   # Sony SDK API documentation location:
+   ~/sony_sdk/doc/html/index.html
+   
+   # CRITICAL: Always reference Sony SDK documentation when:
+   # - Implementing new camera properties
+   # - Working with Sony SDK API calls
+   # - Debugging Sony SDK errors
+   # - Understanding property enums and values
+   ```
+
+4. **Check Build Directory:**
    ```bash
    ls sbc/build/
    # Should exist and contain CMake files
    ```
-
-### 📚 Sony SDK Documentation Reference
-
-**🔴 CRITICAL: ALWAYS CHECK SDK DOCUMENTATION BEFORE IMPLEMENTING CAMERA FUNCTIONS! 🔴**
-
-The Sony Camera Remote SDK includes comprehensive HTML documentation that MUST be consulted when working with camera functions. Many past issues have occurred from assuming how SDK functions work rather than checking the documentation.
-
-**Primary Documentation Location:**
-```
-CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/function_list/function_list.html
-```
-
-**When to Consult SDK Documentation:**
-
-✅ **ALWAYS before:**
-- Implementing any new camera property
-- Calling any SDK function for the first time
-- Making assumptions about function behavior
-- Implementing error handling for SDK calls
-- Working with SDK callback objects
-- Handling SDK enumerations or constants
-
-❌ **NEVER:**
-- Assume SDK function behavior without checking docs
-- Guess at parameter requirements
-- Implement without verifying return value meanings
-- Copy code patterns without understanding them
-
-**Key SDK Documentation Sections:**
-
-1. **Function List** (`function_list.html`)
-   - Complete list of all SDK functions
-   - Function signatures and parameters
-   - Return value descriptions
-   - Usage notes and requirements
-
-2. **Camera Property Codes** 
-   - `CrDeviceProperty_*` enum values
-   - Valid values for each property
-   - Property dependencies and restrictions
-
-3. **Callback Interfaces**
-   - `ICrCameraObjectInfo` - Camera enumeration callbacks
-   - `CrDevicePropertyCallback` - Property change notifications
-   - Object lifetime requirements (CRITICAL!)
-
-4. **Error Codes**
-   - `CrError_*` enum definitions
-   - Error condition meanings
-   - Proper error handling patterns
-
-**Documentation Access Methods:**
-
-```bash
-# Open in browser (if running on Pi with desktop)
-firefox ~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/function_list/function_list.html
-
-# Or copy to development machine for browsing
-scp -r pi@192.168.x.x:~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/ ./sony_sdk_docs/
-```
-
-**Example Workflow - Adding New Camera Property:**
-
-```
-1. Check camera_properties.json for property name and validation
-   └─ Example: "shutter_speed" with values ["1/8000", "1/4000", ...]
-
-2. Open SDK HTML documentation
-   └─ Search for "ShutterSpeed" or browse property list
-
-3. Find CrDeviceProperty_ShutterSpeed in docs
-   ├─ Read property description
-   ├─ Check valid values (CrShutterSpeed enum)
-   ├─ Note any dependencies or restrictions
-   └─ Review example usage if provided
-
-4. Implement in C++ with verified information
-   ├─ Map JSON values to SDK enum values
-   ├─ Use exact SDK function signature from docs
-   ├─ Handle all documented error codes
-   └─ Follow documented callback requirements
-
-5. Test with real camera
-   └─ Verify behavior matches documentation
-```
-
-**Common SDK Documentation Gotchas:**
-
-⚠️ **Callback Object Lifetime**
-- Documentation specifies callback object lifetime requirements
-- Stack-allocated callbacks may cause connection failures
-- Always check object lifetime requirements in docs
-
-⚠️ **Property Dependencies**
-- Some properties require specific camera modes
-- Some properties depend on other property values
-- Documentation lists these dependencies explicitly
-
-⚠️ **Asynchronous Operations**
-- Many SDK operations are asynchronous
-- Documentation specifies when callbacks are used
-- Response timing varies by operation
-
-⚠️ **Thread Safety**
-- Documentation indicates which functions are thread-safe
-- Some operations require specific thread context
-- Always verify thread safety requirements
-
-**Quick Reference Commands:**
-
-```bash
-# Search SDK documentation for specific property
-grep -r "CrDeviceProperty_ShutterSpeed" ~/CrSDK_v2.00.00_20250805a_Linux64ARMv8/
-
-# List all device properties in SDK headers
-grep "CrDeviceProperty_" ~/sony_sdk/include/CrDefines.h
-
-# Find error code definitions
-grep "CrError_" ~/sony_sdk/include/CrError.h
-```
-
-**Remember:** The Sony SDK HTML documentation has been instrumental in resolving past issues (like the callback object lifetime problem diagnosed at 90% confidence). Taking 5 minutes to read the documentation can save hours of debugging!
 
 ### C++ Build System
 
@@ -793,6 +831,18 @@ cat valgrind-out.txt | grep "indirectly lost"
 
 ### Sony SDK Integration
 
+**🔴 CRITICAL: Always check Sony SDK HTML documentation before implementing!**
+
+**Documentation Location:**
+```bash
+~/sony_sdk/doc/html/index.html
+```
+
+**Key Documentation Sections:**
+- API Reference → Device Properties → Camera Properties
+- Class Reference → SCRSDK namespace
+- Examples → Remote Sample Application
+
 **Common SDK Operations:**
 
 ```cpp
@@ -823,6 +873,14 @@ if (ret != CrError_None) {
     return ErrorCode::CAMERA_ERROR;
 }
 ```
+
+**When Implementing New Camera Properties:**
+1. Open Sony SDK HTML docs
+2. Find the property in CrDeviceProperty enum
+3. Check available values in corresponding Value enum
+4. Note any dependencies or restrictions
+5. Implement using documented approach
+6. Test with actual camera
 
 ### C++ Best Practices (Mandatory)
 
@@ -954,17 +1012,16 @@ cat /etc/udev/rules.d/99-sony-camera.rules
 # - Break circular references with weak_ptr
 ```
 
-**Issue: "SDK function not working as expected"**
+**Issue: "Don't know which Sony SDK property to use"**
 ```bash
-# FIRST: Check the Sony SDK HTML documentation!
-# Location: CrSDK_v2.00.00_20250805a_Linux64ARMv8/CrSDK_API_Reference_v2.00.00/html/
+# SOLUTION: Open Sony SDK HTML documentation
+open ~/sony_sdk/doc/html/index.html
 
-# Then verify:
-# 1. Function signature matches documentation
-# 2. Parameters are correct type and order
-# 3. Return value is being checked properly
-# 4. Callback requirements are met
-# 5. Thread safety requirements are satisfied
+# Navigate to:
+# 1. API Reference → Device Properties
+# 2. Find the property you need
+# 3. Check available values and enums
+# 4. Review example code if available
 ```
 
 ---
@@ -1283,242 +1340,195 @@ adb logcat | grep DPM
 
 ## 🔹 WINDOWSTOOLS SPECIFICS (Python Diagnostic)
 
+### WindowsTools Overview
+
+**Purpose:** Python/tkinter diagnostic tool for monitoring and testing DPM protocol on Windows PC
+
+**Current Status:** Phase 2 Complete (Core Monitoring)
+- Connection Monitor
+- Protocol Inspector
+- Command Sender
+- Camera Dashboard
+- System Monitor
+
+**Key Features:**
+- Real-time TCP/UDP protocol monitoring
+- Send test commands to Air-Side
+- View camera status and system health
+- JSON formatting and syntax highlighting
+- Callback-based architecture
+
 ### WindowsTools Session Start Extensions
 
-**Additional checks for Python/Windows development:**
+**Additional checks for Python development:**
 
-1. **Check Python Environment:**
+1. **Check Python Version:**
    ```bash
-   python --version  # Should be Python 3.x
-   pip list | grep -E "tkinter"  # Check tkinter available
+   python --version
+   # Should be Python 3.9 or newer
    ```
 
-2. **Verify Protocol Access:**
+2. **Check Dependencies:**
    ```bash
-   ls ../protocol/
-   # Should see commands.json, camera_properties.json
+   cd WindowsTools
+   pip list | grep -E "tkinter|netifaces"
    ```
 
-3. **Check Configuration:**
+3. **Test Application Launch:**
    ```bash
-   cat WindowsTools/config.json
-   # Verify air_side_ip and ports are correct
+   python DiagnosticTool.py
+   # Should open GUI without errors
    ```
 
-### 🚨 CRITICAL: Stay in Your Lane!
+### WindowsTools Architecture
 
-**WindowsTools Development Boundaries:**
-
-**✅ YOU MAY:**
-- Create/modify ANY files in `WindowsTools/` directory
-- Read from `protocol/` directory (commands.json, camera_properties.json)
-- Read documentation in `docs/` directory
-- Update `WindowsTools/PROGRESS_AND_TODO.md`
-- Commit with `[WINDOWS][FEATURE]` or `[WINDOWS][FIX]` prefix
-
-**❌ YOU MUST NOT:**
-- Modify files in `sbc/` directory (Air-Side code)
-- Modify files in `android/` directory (Ground-Side code)
-- Modify files in `protocol/` directory (unless explicitly coordinated)
-- Modify `docs/CC_READ_THIS_FIRST.md` (unless adding WindowsTools notes)
-- Commit changes outside WindowsTools/ without explicit user approval
-
-### Python/tkinter Development
-
-**Project Structure:**
+**File Structure:**
 ```
 WindowsTools/
-├── main.py              # Application entry point (DiagnosticApp class)
-├── requirements.txt     # Python dependencies
-├── config.json          # Runtime configuration (auto-created)
-├── gui/
-│   ├── main_window.py   # Main window framework
-│   ├── widgets.py       # Reusable GUI components
-│   ├── tab_connection.py    # Phase 1
-│   ├── tab_protocol.py      # Phase 2
-│   ├── tab_command.py       # Phase 2
-│   ├── tab_camera.py        # Phase 2
-│   ├── tab_system.py        # Phase 2
-│   └── tab_config.py        # Phase 1
-├── network/
-│   ├── tcp_client.py    # TCP client for commands
-│   ├── udp_listener.py  # UDP listeners (status 5Hz, heartbeat 1Hz)
-│   ├── heartbeat.py     # Heartbeat sender (1Hz)
-│   └── protocol.py      # Protocol message formatting
-├── utils/
-│   ├── config.py        # Configuration management
-│   ├── logger.py        # Logging system
-│   └── protocol_loader.py  # Loads protocol JSON files
-├── logs/                # Log files (auto-created)
-├── templates/           # Command templates (future)
-└── docs/
-    ├── PROGRESS_AND_TODO.md
-    ├── DIAGNOSTIC_TOOL_PLAN.md
-    └── README.md
+├── DiagnosticTool.py          # Main entry point
+├── config.json                # User settings (IP, ports)
+├── README.md                  # Setup instructions
+├── PROGRESS_AND_TODO.md       # Development status
+├── components/
+│   ├── connection_manager.py  # TCP/UDP networking
+│   ├── tab_connection.py      # Connection Monitor tab
+│   ├── tab_protocol.py        # Protocol Inspector tab
+│   ├── tab_command.py         # Command Sender tab
+│   ├── tab_camera.py          # Camera Dashboard tab
+│   └── tab_system.py          # System Monitor tab
+└── utils/
+    └── logger.py              # Logging utilities
 ```
 
-**Running the Tool:**
-```bash
-cd WindowsTools
-python main.py
+### Critical WindowsTools Rules
+
+**🔴 RULE #1: ONLY modify files in WindowsTools/ directory**
+- Never modify Air-Side C++ code
+- Never modify Ground-Side Android code
+- Never modify protocol/ files (read-only for WindowsTools)
+- Only work within WindowsTools/ boundary
+
+**🔴 RULE #2: Callback Chaining Pattern (MANDATORY!)**
+
+WindowsTools uses a callback-based architecture. **NEVER replace existing callbacks!**
+
+**❌ WRONG - Replaces callback:**
+```python
+# This BREAKS other components!
+connection_manager.set_status_callback(my_new_callback)
 ```
 
-**Development Workflow:**
-```bash
-# 1. Always pull first
-git pull origin main
+**✅ CORRECT - Chains callback:**
+```python
+# Get existing callback
+existing_callback = connection_manager.status_callback
 
-# 2. Check current status
-cat WindowsTools/PROGRESS_AND_TODO.md
+# Create new callback that calls both
+def chained_callback(data):
+    # Call existing first (maintains others' functionality)
+    if existing_callback:
+        existing_callback(data)
+    
+    # Then do your work
+    my_processing(data)
 
-# 3. Make changes (ONLY in WindowsTools/)
-
-# 4. Test
-cd WindowsTools
-python main.py
-
-# 5. Commit with proper prefix
-git add WindowsTools/
-git commit -m "[WINDOWS][FEATURE] Description"
-git push origin main
+# Set the chained callback
+connection_manager.set_status_callback(chained_callback)
 ```
 
-### Python Best Practices (Mandatory)
+**Why This Matters:**
+- Multiple tabs may listen to the same callback
+- Replacing a callback breaks other components
+- Always chain callbacks to preserve functionality
 
-**Code Style:**
+**Callback Types in WindowsTools:**
+- `status_callback` - UDP status messages (5 Hz)
+- `heartbeat_callback` - UDP heartbeat messages (1 Hz)
+- `response_callback` - TCP command responses
+- `connection_callback` - TCP connection state changes
+
+### WindowsTools Best Practices
+
+**Python Style:**
 - ✅ Follow PEP 8 style guidelines
 - ✅ Use type hints where appropriate
-- ✅ Docstrings for all classes and functions
-- ✅ Clear variable names (no single letters except counters)
+- ✅ Document functions with docstrings
+- ✅ Keep functions focused and small
+
+**GUI Threading:**
+- ✅ Never block the GUI thread
+- ✅ Use `threading.Thread(daemon=True)` for background tasks
+- ✅ Use `.after()` or callbacks to update GUI from threads
+- ✅ Test that GUI remains responsive
 
 **Error Handling:**
-```python
-try:
-    # Risky operation
-except SpecificException as e:
-    logger.error(f"Error: {e}")
-    messagebox.showerror("Error", f"Operation failed: {e}")
-```
+- ✅ Catch and log network errors
+- ✅ Display user-friendly error messages
+- ✅ Don't crash on malformed protocol messages
+- ✅ Validate JSON before parsing
 
-**Threading:**
-- ✅ Use `threading.Thread(daemon=True)` for background tasks
-- ✅ Never block the GUI thread
-- ✅ Use callbacks to update GUI from background threads
+**Configuration:**
+- ✅ Store user settings in `config.json`
+- ✅ Provide sensible defaults
+- ✅ Validate IP addresses and ports
+- ✅ Save configuration on exit
 
-**GUI Updates:**
-```python
-# Good: Update GUI from main thread
-def callback_from_network():
-    self.after(0, self._update_ui_safely)
+### WindowsTools Development Workflow
 
-# Bad: Update GUI from network thread (will crash)
-def callback_from_network():
-    self.status_label.config(text="Connected")  # ❌ CRASH!
-```
+**When adding a new feature:**
 
-### Callback Chaining Pattern
+1. **Plan the feature**
+   - Which tab does it belong in?
+   - What protocol messages does it need?
+   - What callbacks are required?
 
-**CRITICAL:** When multiple components need callbacks, CHAIN them, don't replace:
+2. **Update appropriate component file**
+   - `tab_connection.py` - Connection status features
+   - `tab_protocol.py` - Protocol inspection features
+   - `tab_command.py` - Command sending features
+   - `tab_camera.py` - Camera status features
+   - `tab_system.py` - System health features
 
-```python
-# ✅ GOOD: Chain callbacks
-original_callback = client.on_connected
+3. **Chain callbacks properly**
+   - Get existing callback first
+   - Create chained callback
+   - Set chained callback
 
-def my_callback():
-    if original_callback:
-        original_callback()  # Call original first
-    # Then do my stuff
-    self.do_my_thing()
+4. **Test thoroughly**
+   - Test with Air-Side running
+   - Test with Air-Side not running
+   - Test rapid message flow
+   - Test GUI responsiveness
 
-client.on_connected = my_callback
-
-# ❌ BAD: Replace callbacks (breaks other components)
-client.on_connected = self.my_callback  # Original lost!
-```
-
-**This was the bug that caused connection status not updating!**
-
-### Integration with Air-Side
-
-**Network Ports:**
-- TCP 5000: Command channel (handshake, commands, responses)
-- UDP 5001: Status broadcasts from Air-Side (5 Hz)
-- UDP 5002: Heartbeat bidirectional (1 Hz)
-
-**Typical Flow:**
-1. User clicks "Connect"
-2. TCP connects to Air-Side (10.0.1.53:5000)
-3. Send handshake message
-4. Air-Side responds
-5. UDP listeners auto-start (status 5Hz, heartbeat 1Hz)
-6. Heartbeat sender auto-starts (1Hz)
-7. Real-time updates flow to dashboards
-
-**Message Flow:**
-```
-WindowsTools                    Air-Side
-    │                              │
-    ├──── TCP: Handshake ────────→│
-    │←──── TCP: Response ──────────┤
-    │                              │
-    ├──── TCP: Command ───────────→│
-    │←──── TCP: Response ──────────┤
-    │                              │
-    │←──── UDP 5001: Status ───────┤ (5 Hz continuous)
-    │←──── UDP 5002: Heartbeat ────┤ (1 Hz)
-    ├──── UDP 5002: Heartbeat ────→│ (1 Hz)
-```
-
-### WindowsTools Testing Checklist
-
-**Before committing:**
-- [ ] Application starts without errors
-- [ ] All tabs load correctly
-- [ ] Can connect to Air-Side (if available)
-- [ ] No Python exceptions in console
-- [ ] Log files created correctly in `logs/`
-- [ ] Configuration persists in `config.json`
-- [ ] Only modified files in `WindowsTools/` directory
-- [ ] Commit message has `[WINDOWS][FEATURE]` or `[WINDOWS][FIX]` prefix
-
-**Phase 2 Features to Test:**
-- [ ] Protocol Inspector captures all messages
-- [ ] Command Sender sends commands correctly
-- [ ] Camera Dashboard updates from UDP status
-- [ ] System Monitor updates from UDP status
-- [ ] Heartbeat sender/receiver working (check Protocol Inspector)
-- [ ] Connection status updates properly when connected/disconnected
+5. **Update documentation**
+   - Update `WindowsTools/PROGRESS_AND_TODO.md`
+   - Update `WindowsTools/README.md` if user-facing
+   - Document any new dependencies
 
 ### WindowsTools Troubleshooting
 
-**Issue: "tkinter not available"**
+**Issue: "Application won't start"**
 ```bash
-# Windows: tkinter usually included with Python
-# If missing:
-pip install tk
+# Check Python version
+python --version  # Must be 3.9+
 
-# Or reinstall Python with tcl/tk option enabled
-```
+# Check tkinter installed
+python -c "import tkinter"  # Should not error
 
-**Issue: "Protocol files not found"**
-```bash
-# Check you're running from correct directory
-pwd  # Should be in DPM-V2/WindowsTools or DPM-V2
-
-# Check protocol files exist
-ls ../protocol/
-# Should see: commands.json, camera_properties.json
+# Check for syntax errors
+python -m py_compile DiagnosticTool.py
 ```
 
 **Issue: "Can't connect to Air-Side"**
 ```bash
-# Check Air-Side is running
-# Check IP address in config.json (default: 10.0.1.53)
-# Check firewall not blocking ports 5000-5002
-# Check you're on the same network as Air-Side
+# Check IP configuration in config.json
+cat config.json  # Verify air_side_ip is correct
 
-# Test with ping
-ping 10.0.1.53
+# Check network connectivity
+ping 192.168.144.20  # Or your Air-Side IP
+
+# Check Air-Side is running
+# Use Protocol Inspector tab to see if messages arriving
 ```
 
 **Issue: "UDP messages not received"**
@@ -1644,21 +1654,22 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 ## 📝 SUMMARY - THE GOLDEN RULES
 
-### Universal Rules (Both Platforms)
+### Universal Rules (All Platforms)
 
-1. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
-2. 🔴 **ALWAYS confirm current Git branch (should be `main`)**
-3. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
-4. 🔴 **ALWAYS pull latest from Git before starting work**
-5. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
-6. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
-7. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-8. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-9. 🔴 **ALWAYS use [TYPE] prefix in commit messages**
-10. 🔴 **ALWAYS verify build succeeds before committing**
-11. 🔴 **ALWAYS commit before ending session**
-12. 🔴 **ALWAYS work incrementally (one thing at a time)**
-13. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
+1. 🔴 **ALWAYS ask which platform at session start (NEW!)**
+2. 🔴 **ALWAYS use platform prefix in Git commits (NEW!)**
+3. 🔴 **ALWAYS confirm current Git branch (should be `main`)**
+4. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
+5. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
+6. 🔴 **ALWAYS pull latest from Git before starting work**
+7. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
+8. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
+9. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
+10. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+11. 🔴 **ALWAYS verify build succeeds before committing**
+12. 🔴 **ALWAYS commit before ending session**
+13. 🔴 **ALWAYS work incrementally (one thing at a time)**
+14. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
 
 ### Platform-Specific Rules
 
@@ -1668,12 +1679,14 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - 🟡 Use smart pointers, avoid raw new/delete
 - 🟡 Check Sony SDK return values
 - 🟡 Test with Docker if applicable
+- 🟡 Use `[AIR]` prefix in all Git commits
 
 **Ground-Side (Android):**
 - 🟡 Follow MVVM architecture pattern
 - 🟡 Use Coroutines for async operations
 - 🟡 Check commented-out methods in NetworkClient.kt
 - 🟡 Test on device/emulator before committing
+- 🟡 Use `[GROUND]` prefix in all Git commits
 
 **WindowsTools (Python):**
 - 🟡 **ONLY modify files in WindowsTools/ directory**
@@ -1681,7 +1694,7 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - 🟡 Follow PEP 8 style guidelines
 - 🟡 Never block GUI thread (use threading.Thread(daemon=True))
 - 🟡 Test application starts before committing
-- 🟡 Use [WINDOWS][FEATURE] or [WINDOWS][FIX] commit prefixes
+- 🟡 Use `[WINDOWS]` prefix in all Git commits
 
 ---
 
@@ -1690,27 +1703,30 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 ### First Session on This Project:
 
 1. ✅ Read this file (CC_READ_THIS_FIRST.md) - you're doing it!
-2. ✅ Identify platform (air-side, ground-side, or WindowsTools)
-3. ✅ Read appropriate PROGRESS_AND_TODO.md thoroughly
+2. ✅ **ASK USER: Which platform are you working on? (AIR/GROUND/WINDOWS/DOCS)**
+3. ✅ Confirm current Git branch (should be `main`)
+4. ✅ Identify platform and set context
+5. ✅ Read appropriate PROGRESS_AND_TODO.md thoroughly
    - Air-Side: `sbc/docs/PROGRESS_AND_TODO.md`
    - Ground-Side: `android/docs/PROGRESS_AND_TODO.md`
    - WindowsTools: `WindowsTools/PROGRESS_AND_TODO.md`
-4. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
-5. ✅ Read protocol documentation (commands.json, camera_properties.json)
-6. ✅ Check `git log --oneline -20` (understand recent history)
-7. ✅ Identify current phase and next task
-8. ✅ **[Air-Side Only]** Bookmark Sony SDK HTML documentation location
-9. ✅ Start working!
+6. ✅ Skim Project_Summary_and_Action_Plan.md (overview only)
+7. ✅ Read protocol documentation (commands.json, camera_properties.json)
+8. ✅ Check `git log --oneline -20` (understand recent history)
+9. ✅ Identify current phase and next task
+10. ✅ **[Air-Side Only]** Bookmark Sony SDK HTML documentation location
+11. ✅ Start working!
 
 ### Subsequent Sessions:
 
 1. ✅ Read this file (CC_READ_THIS_FIRST.md)
-2. ✅ Confirm current Git branch (should be `main`)
-3. ✅ Pull latest from Git
-4. ✅ Check protocol synchronization
-5. ✅ Read appropriate PROGRESS_AND_TODO.md
-6. ✅ Check `git status` and `git log --oneline -5`
-7. ✅ Continue work
+2. ✅ **ASK USER: Which platform are you working on? (AIR/GROUND/WINDOWS/DOCS)**
+3. ✅ Confirm current Git branch (should be `main`)
+4. ✅ Pull latest from Git
+5. ✅ Check protocol synchronization
+6. ✅ Read appropriate PROGRESS_AND_TODO.md
+7. ✅ Check `git status` and `git log --oneline -5`
+8. ✅ Continue work
 
 ---
 
@@ -1718,6 +1734,9 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 **Before ending EVERY work session, verify:**
 
+- [ ] Platform was identified at session start
+- [ ] All Git commits use correct `[PLATFORM]` prefix
+- [ ] Current branch is `main`
 - [ ] PROGRESS_AND_TODO.md updated with today's work
 - [ ] All task checkboxes reflect reality
 - [ ] Completion percentages updated
@@ -1725,10 +1744,10 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - [ ] "Last Updated" timestamp is current
 - [ ] Issue Tracker reflects current bugs/blockers
 - [ ] Protocol JSON files updated if implemented commands/properties
-- [ ] All code changes are committed
-- [ ] All commits have descriptive messages with [TYPE] prefix
+- [ ] All code changes are committed with `[PLATFORM][TYPE]` format
+- [ ] All commits have descriptive messages
 - [ ] All commits pushed to origin/main
-- [ ] Build succeeds (make/gradle)
+- [ ] Build succeeds (make/gradle/python)
 - [ ] No compiler errors or unresolved warnings
 - [ ] Memory leaks checked (air-side with valgrind)
 - [ ] No orphaned documentation
@@ -1738,10 +1757,13 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 ---
 
-**Document Status:** ✅ Active - Combined Air-Side & Ground-Side & WindowsTools
-**Version:** 2.4 - Added mandatory branch confirmation rule
-**Last Updated:** October 29, 2025
-**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)
+**Document Status:** ✅ Active - v2.5 with Platform Rules & START Command  
+**Version:** 2.5 - Platform identification + START command + all v2.4 features  
+**Last Updated:** October 29, 2025  
+**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)  
 **Maintained By:** Human oversight, enforced by Claude Code
 
 **🔴 REMEMBER: Read this document at the start of EVERY session! 🔴**
+**🔴 NEW: Always identify your platform (AIR/GROUND/WINDOWS/DOCS) first! 🔴**
+**🔴 NEW: Always use [PLATFORM][TYPE] in Git commits! 🔴**
+**🔴 NEW: Always confirm Git branch is `main` before starting! 🔴**
