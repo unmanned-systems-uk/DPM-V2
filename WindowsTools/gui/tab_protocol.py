@@ -23,6 +23,11 @@ class ProtocolInspectorTab(ttk.Frame):
         self.messages = []  # Store all messages
         self.filter_var = tk.StringVar(value="All")
 
+        # Performance optimization for high-frequency messages
+        self.MAX_MESSAGES = 500  # Keep only last 500 messages
+        self.pending_updates = []  # Queue for batched GUI updates
+        self.update_scheduled = False  # Flag to prevent multiple update schedules
+
         self._create_ui()
 
         logger.debug("Protocol Inspector tab initialized")
@@ -107,7 +112,7 @@ class ProtocolInspectorTab(ttk.Frame):
         ttk.Checkbutton(button_frame, text="Auto-scroll", variable=self.auto_scroll_var).pack(side=tk.RIGHT, padx=10)
 
     def add_message(self, message: Dict[str, Any], direction: str):
-        """Add a message to the inspector"""
+        """Add a message to the inspector (batched for performance)"""
         # Store message with metadata
         msg_data = {
             "timestamp": datetime.now(),
@@ -117,19 +122,58 @@ class ProtocolInspectorTab(ttk.Frame):
 
         self.messages.append(msg_data)
 
-        # Add to tree if it passes filter
-        if self._passes_filter(msg_data):
+        # Limit message history to prevent memory issues
+        if len(self.messages) > self.MAX_MESSAGES:
+            # Remove oldest messages beyond limit
+            excess = len(self.messages) - self.MAX_MESSAGES
+            self.messages = self.messages[excess:]
+
+        # Queue message for batched GUI update
+        self.pending_updates.append(msg_data)
+
+        # Schedule GUI update if not already scheduled (throttle to 200ms)
+        if not self.update_scheduled:
+            self.update_scheduled = True
+            self.after(200, self._process_pending_updates)
+
+    def _process_pending_updates(self):
+        """Process queued messages and update GUI (batched)"""
+        if not self.pending_updates:
+            self.update_scheduled = False
+            return
+
+        # Get all pending messages
+        messages_to_process = self.pending_updates[:]
+        self.pending_updates.clear()
+
+        # Process each message with filters
+        search_text = self.search_var.get().lower()
+
+        for msg_data in messages_to_process:
+            # Check filter
+            if not self._passes_filter(msg_data):
+                continue
+
+            # Check search
+            if search_text:
+                msg_str = json.dumps(msg_data["message"]).lower()
+                if search_text not in msg_str:
+                    continue
+
+            # Add to tree
             self._add_to_tree(msg_data)
+
+        # Auto-scroll to bottom if enabled
+        if self.auto_scroll_var.get():
+            children = self.tree.get_children()
+            if children:
+                self.tree.see(children[-1])
 
         # Update statistics
         self._update_stats()
 
-        # Auto-scroll if enabled
-        if self.auto_scroll_var.get():
-            # Scroll to bottom
-            children = self.tree.get_children()
-            if children:
-                self.tree.see(children[-1])
+        # Reset flag
+        self.update_scheduled = False
 
     def _add_to_tree(self, msg_data: Dict[str, Any]):
         """Add message to TreeView"""
