@@ -71,6 +71,41 @@ class RemoteControlTab(ttk.Frame):
                   command=lambda: self._execute_command("docker ps -a",
                                                        "Checking container status...")).pack(side=tk.LEFT, padx=5, pady=5)
 
+        # SDK Testing Mode Switch
+        sdk_frame = ttk.LabelFrame(self, text="SDK Testing Mode", padding=10)
+        sdk_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        sdk_info = ttk.Frame(sdk_frame)
+        sdk_info.pack(fill=tk.X, pady=5)
+
+        ttk.Label(sdk_info, text="Quick switch between Production and SDK Test modes",
+                 font=('Arial', 8, 'italic'), foreground="gray").pack(side=tk.LEFT, padx=5)
+
+        # Mode indicator
+        self.mode_indicator = ttk.Label(sdk_info, text="Mode: Unknown",
+                                       font=('Arial', 9, 'bold'), foreground="gray")
+        self.mode_indicator.pack(side=tk.RIGHT, padx=10)
+
+        sdk_buttons = ttk.Frame(sdk_frame)
+        sdk_buttons.pack(fill=tk.X, pady=5)
+
+        ttk.Button(sdk_buttons, text="🔧 Switch to SDK Test Mode",
+                  command=self._switch_to_sdk_mode,
+                  width=25).pack(side=tk.LEFT, padx=5, pady=5)
+
+        ttk.Button(sdk_buttons, text="🚀 Switch to Production Mode",
+                  command=self._switch_to_production_mode,
+                  width=25).pack(side=tk.LEFT, padx=5, pady=5)
+
+        ttk.Button(sdk_buttons, text="Check Current Mode",
+                  command=self._check_current_mode,
+                  width=20).pack(side=tk.LEFT, padx=5, pady=5)
+
+        ttk.Label(sdk_frame, text="SDK Test Mode: Stops payload-manager, starts remotecli-v2",
+                 font=('Arial', 8), foreground="blue").pack(anchor=tk.W, padx=5, pady=2)
+        ttk.Label(sdk_frame, text="Production Mode: Stops remotecli-v2, starts payload-manager",
+                 font=('Arial', 8), foreground="green").pack(anchor=tk.W, padx=5, pady=2)
+
         # System Control
         system_frame = ttk.LabelFrame(self, text="System Control", padding=10)
         system_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -159,6 +194,211 @@ class RemoteControlTab(ttk.Frame):
             self.ssh_status_label.config(text="SSH: Connected", foreground="green")
         else:
             self.ssh_status_label.config(text="SSH: Not Connected", foreground="gray")
+
+    def _switch_to_sdk_mode(self):
+        """Switch to SDK Test Mode - Stop payload-manager, start remotecli-v2"""
+        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
+
+        if not ssh_client or not ssh_client.is_connected():
+            messagebox.showwarning("Not Connected",
+                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+            return
+
+        # Confirm switch
+        result = messagebox.askyesno(
+            "Switch to SDK Test Mode",
+            "This will:\n"
+            "  1. Stop payload-manager container\n"
+            "  2. Start remotecli-v2 container\n\n"
+            "Continue?",
+            icon='question'
+        )
+
+        if not result:
+            return
+
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  SWITCHING TO SDK TEST MODE\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+
+        self.status_label.config(text="Switching to SDK Test Mode...")
+
+        def switch_mode():
+            try:
+                # Step 1: Stop payload-manager
+                self.after(0, lambda: self._append_output("Step 1: Stopping payload-manager...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker stop payload-manager", timeout=30)
+
+                if exit_code == 0:
+                    self.after(0, lambda: self._append_output("  ✅ payload-manager stopped successfully\n\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output(f"  ⚠️  Warning: {stderr}\n\n", "info"))
+
+                # Step 2: Start remotecli-v2
+                self.after(0, lambda: self._append_output("Step 2: Starting remotecli-v2...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker start remotecli-v2", timeout=30)
+
+                if exit_code == 0:
+                    self.after(0, lambda: self._append_output("  ✅ remotecli-v2 started successfully\n\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output(f"  ❌ Error starting remotecli-v2: {stderr}\n\n", "error"))
+
+                # Step 3: Verify status
+                self.after(0, lambda: self._append_output("Step 3: Verifying container status...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker ps --format 'table {{.Names}}\t{{.Status}}'", timeout=10)
+
+                if exit_code == 0:
+                    self.after(0, lambda s=stdout: self._append_output(f"{s}\n", "success"))
+
+                self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+                self.after(0, lambda: self._append_output("✅ Mode switch complete!\n", "success"))
+                self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+
+                # Update mode indicator
+                self.after(0, lambda: self.mode_indicator.config(text="Mode: SDK Test", foreground="blue"))
+                self.after(0, lambda: self.status_label.config(text="Switched to SDK Test Mode"))
+
+            except Exception as e:
+                logger.exception(f"Error switching to SDK mode: {e}")
+                self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Mode switch failed"))
+
+        threading.Thread(target=switch_mode, daemon=True).start()
+
+    def _switch_to_production_mode(self):
+        """Switch to Production Mode - Stop remotecli-v2, start payload-manager"""
+        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
+
+        if not ssh_client or not ssh_client.is_connected():
+            messagebox.showwarning("Not Connected",
+                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+            return
+
+        # Confirm switch
+        result = messagebox.askyesno(
+            "Switch to Production Mode",
+            "This will:\n"
+            "  1. Stop remotecli-v2 container\n"
+            "  2. Start payload-manager container\n\n"
+            "Continue?",
+            icon='question'
+        )
+
+        if not result:
+            return
+
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  SWITCHING TO PRODUCTION MODE\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+
+        self.status_label.config(text="Switching to Production Mode...")
+
+        def switch_mode():
+            try:
+                # Step 1: Stop remotecli-v2
+                self.after(0, lambda: self._append_output("Step 1: Stopping remotecli-v2...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker stop remotecli-v2", timeout=30)
+
+                if exit_code == 0:
+                    self.after(0, lambda: self._append_output("  ✅ remotecli-v2 stopped successfully\n\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output(f"  ⚠️  Warning: {stderr}\n\n", "info"))
+
+                # Step 2: Start payload-manager
+                self.after(0, lambda: self._append_output("Step 2: Starting payload-manager...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker start payload-manager", timeout=30)
+
+                if exit_code == 0:
+                    self.after(0, lambda: self._append_output("  ✅ payload-manager started successfully\n\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output(f"  ❌ Error starting payload-manager: {stderr}\n\n", "error"))
+
+                # Step 3: Verify status
+                self.after(0, lambda: self._append_output("Step 3: Verifying container status...\n", "command"))
+                exit_code, stdout, stderr = ssh_client.execute_command("docker ps --format 'table {{.Names}}\t{{.Status}}'", timeout=10)
+
+                if exit_code == 0:
+                    self.after(0, lambda s=stdout: self._append_output(f"{s}\n", "success"))
+
+                self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+                self.after(0, lambda: self._append_output("✅ Mode switch complete!\n", "success"))
+                self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+
+                # Update mode indicator
+                self.after(0, lambda: self.mode_indicator.config(text="Mode: Production", foreground="green"))
+                self.after(0, lambda: self.status_label.config(text="Switched to Production Mode"))
+
+            except Exception as e:
+                logger.exception(f"Error switching to production mode: {e}")
+                self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Mode switch failed"))
+
+        threading.Thread(target=switch_mode, daemon=True).start()
+
+    def _check_current_mode(self):
+        """Check which mode is currently active"""
+        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
+
+        if not ssh_client or not ssh_client.is_connected():
+            messagebox.showwarning("Not Connected",
+                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+            return
+
+        self.status_label.config(text="Checking current mode...")
+
+        def check_mode():
+            try:
+                # Check running containers
+                exit_code, stdout, stderr = ssh_client.execute_command(
+                    "docker ps --format '{{.Names}}'", timeout=10)
+
+                if exit_code == 0:
+                    running_containers = stdout.strip().split('\n')
+
+                    payload_running = 'payload-manager' in running_containers
+                    remotecli_running = 'remotecli-v2' in running_containers
+
+                    # Determine mode
+                    if payload_running and not remotecli_running:
+                        mode = "Production"
+                        color = "green"
+                        self.after(0, lambda: self.mode_indicator.config(text=f"Mode: {mode}", foreground=color))
+                        self.after(0, lambda: self._append_output(f"\n✅ Current Mode: {mode}\n", "success"))
+                    elif remotecli_running and not payload_running:
+                        mode = "SDK Test"
+                        color = "blue"
+                        self.after(0, lambda: self.mode_indicator.config(text=f"Mode: {mode}", foreground=color))
+                        self.after(0, lambda: self._append_output(f"\n🔧 Current Mode: {mode}\n", "info"))
+                    elif payload_running and remotecli_running:
+                        mode = "Both Running (Conflict)"
+                        color = "orange"
+                        self.after(0, lambda: self.mode_indicator.config(text=f"Mode: {mode}", foreground=color))
+                        self.after(0, lambda: self._append_output(f"\n⚠️  Warning: Both containers running!\n", "info"))
+                    else:
+                        mode = "Neither Running"
+                        color = "red"
+                        self.after(0, lambda: self.mode_indicator.config(text=f"Mode: {mode}", foreground=color))
+                        self.after(0, lambda: self._append_output(f"\n❌ Warning: No containers running!\n", "error"))
+
+                    # Show container status
+                    self.after(0, lambda: self._append_output(f"\nRunning containers:\n", "command"))
+                    for container in running_containers:
+                        if container:
+                            self.after(0, lambda c=container: self._append_output(f"  • {c}\n", "success"))
+
+                    self.after(0, lambda: self.status_label.config(text=f"Current mode: {mode}"))
+                else:
+                    self.after(0, lambda: self._append_output(f"\n❌ Error checking containers\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Mode check failed"))
+
+            except Exception as e:
+                logger.exception(f"Error checking mode: {e}")
+                self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Mode check failed"))
+
+        threading.Thread(target=check_mode, daemon=True).start()
 
     def _confirm_reboot(self):
         """Confirm before rebooting SBC"""

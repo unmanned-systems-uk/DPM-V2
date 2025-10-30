@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from utils.logger import logger
 from utils.config import config
 from utils.protocol_loader import protocol
+from version import get_version_string, get_build_info_string
 
 # Network components
 from network.tcp_client import TCPClient
@@ -35,6 +36,7 @@ from gui.tab_system import SystemMonitorTab
 from gui.tab_logs import LogInspectorTab
 from gui.tab_activity import ActivityLogTab
 from gui.tab_remote_control import RemoteControlTab
+from gui.tab_h16_diagnostics import H16DiagnosticsTab
 
 
 class DiagnosticApp:
@@ -58,11 +60,13 @@ class DiagnosticApp:
         self.log_tab = None
         self.activity_tab = None
         self.remote_control_tab = None
+        self.h16_diagnostics_tab = None
 
     def initialize(self):
         """Initialize all components"""
         logger.info("=" * 60)
-        logger.info("DPM Diagnostic Tool v1.0 (Phase 2) Starting...")
+        logger.info(f"DPM Diagnostic Tool {get_version_string()} Starting...")
+        logger.info(f"Build: {get_build_info_string()}")
         logger.info("=" * 60)
 
         # Load protocol definitions
@@ -150,6 +154,9 @@ class DiagnosticApp:
         # Activity Log tab (Phase 2)
         self.activity_tab = ActivityLogTab(self.window.notebook)
 
+        # H16 ADB Diagnostics tab (Phase 3)
+        self.h16_diagnostics_tab = H16DiagnosticsTab(self.window.notebook)
+
         # Add tabs to window (in display order)
         tabs = {
             "Connection Monitor": self.connection_tab,
@@ -159,6 +166,7 @@ class DiagnosticApp:
             "System Monitor": self.system_tab,
             "Log Inspector": self.log_tab,
             "Remote Control": self.remote_control_tab,
+            "H16 ADB Diagnostics": self.h16_diagnostics_tab,
             "Activity Log": self.activity_tab,
             "Configuration": self.config_tab,
         }

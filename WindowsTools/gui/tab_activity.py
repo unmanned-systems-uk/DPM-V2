@@ -115,6 +115,7 @@ class ActivityLogTab(ttk.Frame):
 
         ttk.Button(button_frame, text="Clear All", command=self._clear_events).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Export to File...", command=self._export_events).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Copy Selected", command=self._copy_selected).pack(side=tk.LEFT, padx=2)
 
         # Auto-scroll toggle
         self.auto_scroll_var = tk.BooleanVar(value=True)
@@ -250,6 +251,30 @@ class ActivityLogTab(ttk.Frame):
             self.tree.delete(*self.tree.get_children())
             self._update_stats()
             logger.info("Activity events cleared")
+
+    def _copy_selected(self):
+        """Copy selected event(s) to clipboard"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select one or more events to copy.")
+            return
+
+        try:
+            lines = []
+            for item in selection:
+                values = self.tree.item(item)['values']
+                if len(values) >= 3:
+                    timestamp, category, message = values[0], values[1], values[2]
+                    lines.append(f"[{timestamp}] [{category}] {message}")
+
+            if lines:
+                text = '\n'.join(lines)
+                self.clipboard_clear()
+                self.clipboard_append(text)
+                self.update()
+                messagebox.showinfo("Success", f"{len(lines)} event(s) copied to clipboard!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _export_events(self):
         """Export events to text file"""
