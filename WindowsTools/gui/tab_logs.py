@@ -13,6 +13,8 @@ import threading
 from utils.logger import logger
 from utils.config import config
 from network.ssh_client import SSHClient
+from utils.log_parser import LogParser
+from gui.log_subtabs import CameraEventsTab, ActiveClientsTab
 
 
 class LogInspectorTab(ttk.Frame):
@@ -30,6 +32,13 @@ class LogInspectorTab(ttk.Frame):
         self.follow_enabled = False
         self.follow_thread: Optional[threading.Thread] = None
         self.follow_stop_event: Optional[threading.Event] = None
+
+        # Log parser for sub-tabs
+        self.log_parser = LogParser()
+
+        # Sub-tab references
+        self.camera_events_tab: Optional[CameraEventsTab] = None
+        self.active_clients_tab: Optional[ActiveClientsTab] = None
 
         self._create_ui()
 
@@ -146,13 +155,21 @@ class LogInspectorTab(ttk.Frame):
 
         ttk.Button(search_frame, text="Clear Search", command=self._clear_search).pack(side=tk.LEFT, padx=5)
 
-        # Log display
-        log_frame = ttk.LabelFrame(self, text="Docker Logs (payload-manager)", padding=5)
+        # Log display with sub-tabs
+        log_frame = ttk.LabelFrame(self, text="Log Inspector", padding=5)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Text widget with scrollbar
-        text_frame = ttk.Frame(log_frame)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        # Create notebook for sub-tabs
+        self.log_notebook = ttk.Notebook(log_frame)
+        self.log_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # Tab 1: Raw Logs (existing functionality)
+        raw_logs_frame = ttk.Frame(self.log_notebook)
+        self.log_notebook.add(raw_logs_frame, text="Raw Logs")
+
+        # Text widget with scrollbar for raw logs
+        text_frame = ttk.Frame(raw_logs_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         self.log_text = tk.Text(text_frame, wrap=tk.NONE, font=('Courier', 9))
         self.log_text.config(state=tk.DISABLED)  # Read-only
@@ -174,6 +191,14 @@ class LogInspectorTab(ttk.Frame):
         self.log_text.tag_config("error", foreground="red")
         self.log_text.tag_config("warning", foreground="orange")
         self.log_text.tag_config("info", foreground="blue")
+
+        # Tab 2: Camera Events
+        self.camera_events_tab = CameraEventsTab(self.log_notebook, self.log_parser)
+        self.log_notebook.add(self.camera_events_tab, text="Camera Events")
+
+        # Tab 3: Active Clients
+        self.active_clients_tab = ActiveClientsTab(self.log_notebook, self.log_parser)
+        self.log_notebook.add(self.active_clients_tab, text="Active Clients")
 
         # Bottom controls
         bottom_frame = ttk.Frame(self)
