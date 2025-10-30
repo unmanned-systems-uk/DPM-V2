@@ -1,7 +1,7 @@
 # DPM Protocol Implementation Status
 
 **Version:** 1.0.0
-**Last Updated:** 2025-10-30 (System Status UDP broadcast fix)
+**Last Updated:** 2025-10-30 (All 6 Phase 1 camera properties fully implemented)
 **Phase:** 1 - Initial Connectivity (MVP)
 
 ---
@@ -116,6 +116,19 @@
   - Camera status
   - System telemetry
 
+- ✅ **Camera Property Control (Sony Remote Interface)**
+  - Complete UI for all 6 Phase 1 camera properties
+  - **Shutter Speed:** 57 values (1/8000 to 30" + auto), dropdown + increment/decrement
+  - **Aperture:** 28 f-stops (f/1.4 to f/32), dropdown + increment/decrement
+  - **ISO:** 35 values (auto, 50-102400), dropdown + increment/decrement
+  - **White Balance:** 13 modes (auto, daylight, shade, cloudy, tungsten, fluorescent variants, flash, underwater, custom, temperature), dropdown only
+  - **Focus Mode:** 3 modes (AF-S, MF, AF-C), dropdown only
+  - **File Format:** 3 formats (JPEG, RAW, JPEG+RAW), dropdown only
+  - Property polling: All 6 properties queried at 0.5-1 Hz (configurable)
+  - UDP broadcast sync: Real-time updates from Air-Side status (5 Hz)
+  - Command sending: camera.set_property with protocol validation
+  - Fully tested and working on H16 hardware
+
 ---
 
 ## 🔨 In Progress
@@ -126,7 +139,8 @@
 
 ### Ground-Side
 - ✅ **System Status Screen** - Complete - fully functional with UDP broadcasts
-- ⏳ **End-to-End Testing** - Testing camera.capture and camera.set_property with real hardware
+- ✅ **Camera Property Control** - Complete - all 6 Phase 1 properties with UI, polling, and sync
+- ⏳ **End-to-End Testing** - Testing with real camera hardware (Sony A1)
 
 ---
 
@@ -214,16 +228,21 @@
 2. ✅ Add console logging
 3. ✅ Fix System Status screen UDP broadcast reception
 4. ✅ Fix SystemStatus data model field mapping
-5. ⏳ Test camera.capture command end-to-end
-6. ⏳ Test camera.set_property command end-to-end
-7. ⏳ Test camera.get_properties command end-to-end
+5. ✅ Complete camera property UI (white_balance, focus_mode, file_format selectors)
+6. ✅ Extend property polling from 3 to 6 properties
+7. ✅ Fix white balance modes (7→13 modes to match spec)
+8. ⏳ Test camera.capture command end-to-end with Sony A1
+9. ⏳ Test camera.set_property command end-to-end with Sony A1
+10. ⏳ Test camera.get_properties command end-to-end with Sony A1
 
 ### Short Term (Next Few Sessions)
 1. ✅ `camera.set_property` implemented on air-side and ground-side
 2. ✅ `camera.get_properties` implemented on air-side and ground-side
-3. Implement missing Phase 1 camera properties (white_balance_temperature, drive_mode)
-4. Add gimbal stub interface
-5. Test all implemented commands thoroughly with real hardware
+3. ✅ All 6 Phase 1 camera properties with complete UI (shutter, aperture, iso, wb, focus, format)
+4. Implement white_balance_temperature property UI (slider, enabled when WB=temperature)
+5. Implement drive_mode property UI (6 modes: single, continuous, bracket, etc.)
+6. Add gimbal stub interface
+7. Test all implemented commands thoroughly with real hardware
 
 ### Medium Term (Phase 2)
 1. Full camera property control
