@@ -32,4 +32,11 @@ logs/
 
 # OS
 .DS_Store
-EOF
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+.Python
