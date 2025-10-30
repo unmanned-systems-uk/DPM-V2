@@ -302,16 +302,15 @@ class RemoteControlTab(ttk.Frame):
                 # Get configured ports from config
                 from utils.config import config
                 tcp_port = str(config.get('network', 'tcp_port', 5000))
-                windows_status_port = str(config.get('network', 'udp_status_port', 50001))
-                windows_heartbeat_port = str(config.get('network', 'udp_heartbeat_port', 50002))
+                udp_status_port = str(config.get('network', 'udp_status_port', 5001))
+                udp_heartbeat_port = str(config.get('network', 'udp_heartbeat_port', 5002))
 
                 # Port configuration: (port, description)
+                # Note: UDP ports are used for broadcasts from Air-Side to clients (H16 & Windows tool)
                 port_checks = [
-                    (tcp_port, "TCP Command Port"),
-                    ("5001", "H16 Status Port"),
-                    ("5002", "H16 Heartbeat Port"),
-                    (windows_status_port, f"WPC Status Port (this tool)"),
-                    (windows_heartbeat_port, f"WPC Heartbeat Port (this tool)"),
+                    (tcp_port, "TCP Command Port (shared)"),
+                    (udp_status_port, f"UDP Status Port (shared - broadcast destination)"),
+                    (udp_heartbeat_port, f"UDP Heartbeat Port (shared - broadcast destination)"),
                 ]
 
                 exit_code, stdout, stderr = ssh_client.execute_command("ss -tuln", timeout=10)
@@ -376,8 +375,8 @@ class RemoteControlTab(ttk.Frame):
                 self.after(0, lambda: self._append_output("=" * 80 + "\n\n", "info"))
 
                 # Calculate health score
-                # We checked: uptime, disk, memory, docker service, payload-manager, restarts, 5 ports, errors, camera disconnects
-                total_checks = len(report) + 5 + 5  # report items + 5 ports + 5 other checks (approximate)
+                # We checked: uptime, disk, memory, docker service, payload-manager, restarts, 3 ports, errors, camera disconnects
+                total_checks = len(report) + 3 + 5  # report items + 3 ports + 5 other checks (approximate)
                 issues_weight = len(issues_found) * 20
                 warnings_weight = len(warnings_found) * 10
                 health_score = max(0, 100 - issues_weight - warnings_weight)
