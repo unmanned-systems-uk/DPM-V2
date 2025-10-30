@@ -9,6 +9,7 @@ from tkinter import ttk, messagebox
 from utils.logger import logger
 from utils.config import config
 from gui.widgets import ConnectionStatusBar
+from version import get_version_string, VERSION, VERSION_NAME, BUILD_DATE
 
 
 class MainWindow:
@@ -16,7 +17,7 @@ class MainWindow:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("DPM Diagnostic Tool v1.0")
+        self.root.title(f"DPM Diagnostic Tool {get_version_string()}")
         self.root.geometry("1200x800")
 
         # Set minimum size
@@ -82,7 +83,8 @@ class MainWindow:
         """Show about dialog"""
         messagebox.showinfo(
             "About DPM Diagnostic Tool",
-            "DPM Diagnostic Tool v1.0\n\n"
+            f"DPM Diagnostic Tool {get_version_string()}\n"
+            f"Build Date: {BUILD_DATE}\n\n"
             "Windows diagnostic and testing tool for DPM Payload Manager.\n\n"
             "Features:\n"
             "- Real-time protocol monitoring\n"
