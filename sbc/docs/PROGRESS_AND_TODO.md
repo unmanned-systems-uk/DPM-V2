@@ -22,11 +22,76 @@ Camera Integration:    ███████████████████
 
 **Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready! Dual-port UDP broadcasting!)
 
-**Last Updated:** October 29, 2025 - Added dual-port UDP broadcasting (ports 50001/50002 for Windows Tools firewall compatibility)
+**Last Updated:** October 30, 2025 - Enhanced system monitoring with real-time CPU, memory, network metrics
 
 ---
 
-## RECENT UPDATES (October 23-29, 2025)
+## RECENT UPDATES (October 23-30, 2025)
+
+### ✅ Enhanced System Monitoring Implemented! (October 30, 2025)
+
+**Objective:**
+- Provide comprehensive real-time system metrics for Ground-Station Android and Windows Tools
+- Enable monitoring of CPU, memory, disk, and network performance
+- Support system health diagnostics and troubleshooting
+
+**Implementation:**
+
+**SystemInfo Enhancements:**
+
+1. **Improved CPU Monitoring** (`sbc/src/utils/system_info.cpp:45-90`):
+   - Delta-based calculation for accurate CPU usage percentage
+   - Tracks idle vs active time between samples
+   - Accounts for user, system, nice, iowait, IRQ, and steal time
+   - Returns 0% on first call, accurate percentage thereafter
+
+2. **Network RX Monitoring** (`sbc/src/utils/system_info.cpp:157-215`):
+   - Reads `/proc/net/dev` for all interfaces (excludes loopback)
+   - Calculates rate in Mbps between samples
+   - Tracks both Ethernet and WiFi traffic
+   - Converts bytes/second to Megabits/second
+
+3. **Network TX Monitoring** (`sbc/src/utils/system_info.cpp:217-279`):
+   - Same approach as RX monitoring
+   - Separate tracking for transmit bandwidth
+   - Real-time rate calculation
+
+4. **Existing Metrics** (already working):
+   - ✅ Uptime (seconds)
+   - ✅ Memory used/total (MB)
+   - ✅ Disk free space (GB)
+
+**Status Structure Broadcast via UDP (5 Hz):**
+```json
+{
+  "system": {
+    "uptime_seconds": 11054,
+    "cpu_percent": 8.2,
+    "memory_mb": 2234,
+    "memory_total_mb": 7930,
+    "disk_free_gb": 44.1,
+    "network_rx_mbps": 1.5,
+    "network_tx_mbps": 3.8
+  }
+}
+```
+
+**Technical Details:**
+- Static variables track previous readings for delta calculations
+- Thread-safe (called from UDP broadcast thread at 5 Hz)
+- Graceful error handling (returns 0.0 on errors)
+- First call initializes tracking, subsequent calls return calculated rates
+- Accounts for counter rollovers and interface changes
+
+**Testing Results:**
+- ✅ All metrics reporting correctly
+- ✅ UDP broadcasts show varying message sizes (385-416 bytes) confirming dynamic data
+- ✅ Data sources verified: /proc/stat, /proc/meminfo, /proc/net/dev
+- ✅ Android and Windows Tools System Monitor tabs ready to display data
+
+**Status:** ✅ **SYSTEM MONITORING FULLY OPERATIONAL** - Real-time metrics streaming at 5 Hz!
+
+---
 
 ### ✅ Dual-Port UDP Broadcasting Added! (October 29, 2025)
 

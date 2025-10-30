@@ -6,6 +6,12 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+// Initialize static members
+SystemInfo::NetworkStats SystemInfo::last_network_stats_ = {0, 0, std::chrono::steady_clock::now()};
+bool SystemInfo::network_stats_initialized_ = false;
+SystemInfo::CPUStats SystemInfo::last_cpu_stats_ = {0, 0, std::chrono::steady_clock::now()};
+bool SystemInfo::cpu_stats_initialized_ = false;
+
 messages::SystemStatus SystemInfo::getStatus() {
     messages::SystemStatus status;
 
@@ -37,29 +43,44 @@ int64_t SystemInfo::getUptimeSeconds() {
 }
 
 double SystemInfo::getCPUPercent() {
-    // Simple CPU usage calculation
-    // For Phase 1, we'll use a basic approach
-    // Read /proc/stat twice with a small delay for more accurate measurement
-
     try {
         std::string content = readFile("/proc/stat");
         std::istringstream iss(content);
         std::string cpu;
-        int64_t user, nice, system, idle, iowait, irq, softirq;
+        int64_t user, nice, system, idle, iowait, irq, softirq, steal;
 
-        iss >> cpu >> user >> nice >> system >> idle >> iowait >> irq >> softirq;
+        iss >> cpu >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
 
         if (cpu != "cpu") {
             return 0.0;
         }
 
-        int64_t total = user + nice + system + idle + iowait + irq + softirq;
-        int64_t work = user + nice + system;
+        int64_t total = user + nice + system + idle + iowait + irq + softirq + steal;
+        int64_t idle_total = idle + iowait;
+        auto now = std::chrono::steady_clock::now();
 
-        // For Phase 1, return a simple estimate
-        // In a real implementation, we'd compare with previous reading
-        if (total > 0) {
-            return (work * 100.0) / total;
+        // On first call, just store the values and return 0
+        if (!cpu_stats_initialized_) {
+            last_cpu_stats_.total = total;
+            last_cpu_stats_.idle = idle_total;
+            last_cpu_stats_.timestamp = now;
+            cpu_stats_initialized_ = true;
+            return 0.0;
+        }
+
+        // Calculate deltas
+        int64_t total_delta = total - last_cpu_stats_.total;
+        int64_t idle_delta = idle_total - last_cpu_stats_.idle;
+
+        // Update last stats
+        last_cpu_stats_.total = total;
+        last_cpu_stats_.idle = idle_total;
+        last_cpu_stats_.timestamp = now;
+
+        // Calculate CPU usage percentage
+        if (total_delta > 0) {
+            double usage = 100.0 * (1.0 - static_cast<double>(idle_delta) / total_delta);
+            return (usage < 0.0) ? 0.0 : (usage > 100.0) ? 100.0 : usage;
         }
     } catch (...) {
         // Ignore errors
@@ -134,14 +155,126 @@ double SystemInfo::getDiskFreeGB() {
 }
 
 double SystemInfo::getNetworkRxMbps() {
-    // For Phase 1, return placeholder
-    // In a real implementation, we'd read /proc/net/dev and calculate rate
+    try {
+        std::string content = readFile("/proc/net/dev");
+        std::istringstream iss(content);
+        std::string line;
+
+        int64_t total_rx = 0;
+
+        // Skip header lines
+        std::getline(iss, line);
+        std::getline(iss, line);
+
+        // Sum up all network interfaces (excluding lo)
+        while (std::getline(iss, line)) {
+            size_t colon_pos = line.find(':');
+            if (colon_pos == std::string::npos) continue;
+
+            std::string interface = trim(line.substr(0, colon_pos));
+            if (interface == "lo") continue; // Skip loopback
+
+            std::istringstream line_iss(line.substr(colon_pos + 1));
+            int64_t rx_bytes, rx_packets, rx_errs, rx_drop;
+            line_iss >> rx_bytes >> rx_packets >> rx_errs >> rx_drop;
+
+            total_rx += rx_bytes;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+
+        // On first call, just store the values
+        if (!network_stats_initialized_) {
+            last_network_stats_.rx_bytes = total_rx;
+            last_network_stats_.timestamp = now;
+            return 0.0;
+        }
+
+        // Calculate rate
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_network_stats_.timestamp).count();
+        if (duration > 0 && total_rx >= last_network_stats_.rx_bytes) {
+            int64_t bytes_delta = total_rx - last_network_stats_.rx_bytes;
+            double seconds = duration / 1000.0;
+            double mbps = (bytes_delta * 8.0) / (seconds * 1000000.0); // Convert bytes/sec to Mbps
+
+            last_network_stats_.rx_bytes = total_rx;
+            last_network_stats_.timestamp = now;
+
+            return mbps;
+        }
+
+        // Update last value even if calculation failed
+        last_network_stats_.rx_bytes = total_rx;
+        last_network_stats_.timestamp = now;
+
+    } catch (...) {
+        // Ignore errors
+    }
+
     return 0.0;
 }
 
 double SystemInfo::getNetworkTxMbps() {
-    // For Phase 1, return placeholder
-    // In a real implementation, we'd read /proc/net/dev and calculate rate
+    try {
+        std::string content = readFile("/proc/net/dev");
+        std::istringstream iss(content);
+        std::string line;
+
+        int64_t total_tx = 0;
+
+        // Skip header lines
+        std::getline(iss, line);
+        std::getline(iss, line);
+
+        // Sum up all network interfaces (excluding lo)
+        while (std::getline(iss, line)) {
+            size_t colon_pos = line.find(':');
+            if (colon_pos == std::string::npos) continue;
+
+            std::string interface = trim(line.substr(0, colon_pos));
+            if (interface == "lo") continue; // Skip loopback
+
+            std::istringstream line_iss(line.substr(colon_pos + 1));
+            int64_t rx_bytes, rx_packets, rx_errs, rx_drop;
+            int64_t tx_bytes, tx_packets, tx_errs, tx_drop;
+            line_iss >> rx_bytes >> rx_packets >> rx_errs >> rx_drop
+                     >> rx_drop >> rx_drop >> rx_drop >> rx_drop  // Skip remaining RX columns
+                     >> tx_bytes >> tx_packets >> tx_errs >> tx_drop;
+
+            total_tx += tx_bytes;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+
+        // On first call, just store the values
+        if (!network_stats_initialized_) {
+            last_network_stats_.tx_bytes = total_tx;
+            last_network_stats_.timestamp = now;
+            network_stats_initialized_ = true;
+            return 0.0;
+        }
+
+        // Calculate rate
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_network_stats_.timestamp).count();
+        if (duration > 0 && total_tx >= last_network_stats_.tx_bytes) {
+            int64_t bytes_delta = total_tx - last_network_stats_.tx_bytes;
+            double seconds = duration / 1000.0;
+            double mbps = (bytes_delta * 8.0) / (seconds * 1000000.0); // Convert bytes/sec to Mbps
+
+            last_network_stats_.tx_bytes = total_tx;
+            last_network_stats_.timestamp = now;
+
+            return mbps;
+        }
+
+        // Update last value even if calculation failed
+        last_network_stats_.tx_bytes = total_tx;
+        last_network_stats_.timestamp = now;
+
+    } catch (...) {
+        // Ignore errors
+    }
+
     return 0.0;
 }
 
