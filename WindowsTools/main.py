@@ -46,6 +46,7 @@ class DiagnosticApp:
         self.status_listener = None
         self.heartbeat_listener = None
         self.heartbeat_sender = None
+        self._cleanup_done = False
 
         # Tabs
         self.config_tab = None
@@ -89,9 +90,9 @@ class DiagnosticApp:
         logger.info("Creating network components...")
         self._create_network_components(air_side_ip, tcp_port, status_port, heartbeat_port)
 
-        # Create main window
+        # Create main window with cleanup callback
         logger.info("Creating main window...")
-        self.window = MainWindow()
+        self.window = MainWindow(cleanup_callback=self.cleanup)
 
         # Create tabs
         logger.info("Creating tabs...")
@@ -346,31 +347,50 @@ class DiagnosticApp:
             self.window.run()
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
+            self.cleanup()  # Cleanup on Ctrl+C
         except Exception as e:
             logger.exception(f"Fatal error: {e}")
-        finally:
-            self.cleanup()
+            self.cleanup()  # Cleanup on fatal error
 
     def cleanup(self):
-        """Cleanup on shutdown"""
+        """Cleanup on shutdown - safe to call multiple times"""
+        if hasattr(self, '_cleanup_done') and self._cleanup_done:
+            return  # Already cleaned up
+
+        self._cleanup_done = True
         logger.info("Cleaning up...")
 
         # Stop network components
         if self.tcp_client and self.tcp_client.is_connected():
-            self.tcp_client.disconnect()
+            try:
+                self.tcp_client.disconnect()
+            except Exception as e:
+                logger.error(f"Error disconnecting TCP: {e}")
 
         if self.status_listener and self.status_listener.is_running():
-            self.status_listener.stop()
+            try:
+                self.status_listener.stop()
+            except Exception as e:
+                logger.error(f"Error stopping status listener: {e}")
 
         if self.heartbeat_listener and self.heartbeat_listener.is_running():
-            self.heartbeat_listener.stop()
+            try:
+                self.heartbeat_listener.stop()
+            except Exception as e:
+                logger.error(f"Error stopping heartbeat listener: {e}")
 
         if self.heartbeat_sender and self.heartbeat_sender.is_running():
-            self.heartbeat_sender.stop()
+            try:
+                self.heartbeat_sender.stop()
+            except Exception as e:
+                logger.error(f"Error stopping heartbeat sender: {e}")
 
         # Cleanup SSH connection in Log Inspector
         if self.log_tab:
-            self.log_tab.cleanup()
+            try:
+                self.log_tab.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up SSH: {e}")
 
         logger.info("Application shutdown complete")
 
