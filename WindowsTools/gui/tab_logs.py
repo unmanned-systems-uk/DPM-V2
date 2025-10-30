@@ -14,7 +14,7 @@ from utils.logger import logger
 from utils.config import config
 from network.ssh_client import SSHClient
 from utils.log_parser import LogParser
-from gui.log_subtabs import CameraEventsTab, ActiveClientsTab
+from gui.log_subtabs import CameraEventsTab, ActiveClientsTab, CameraComparisonTab
 
 
 class LogInspectorTab(ttk.Frame):
@@ -39,6 +39,7 @@ class LogInspectorTab(ttk.Frame):
         # Sub-tab references
         self.camera_events_tab: Optional[CameraEventsTab] = None
         self.active_clients_tab: Optional[ActiveClientsTab] = None
+        self.camera_comparison_tab: Optional[CameraComparisonTab] = None
 
         # Sub-tab update scheduling
         self.subtab_update_scheduled = False
@@ -203,6 +204,10 @@ class LogInspectorTab(ttk.Frame):
         # Tab 3: Active Clients
         self.active_clients_tab = ActiveClientsTab(self.log_notebook, self.log_parser)
         self.log_notebook.add(self.active_clients_tab, text="Active Clients")
+
+        # Tab 4: Camera Status Comparison
+        self.camera_comparison_tab = CameraComparisonTab(self.log_notebook, self.log_parser)
+        self.log_notebook.add(self.camera_comparison_tab, text="Status Comparison")
 
         # Bottom controls
         bottom_frame = ttk.Frame(self)
@@ -556,12 +561,21 @@ class LogInspectorTab(ttk.Frame):
             if self.active_clients_tab:
                 self.active_clients_tab.update_clients()
 
+            # Update Camera Comparison tab
+            if self.camera_comparison_tab:
+                self.camera_comparison_tab.update_comparison()
+
         except Exception as e:
             logger.error(f"Error updating sub-tabs: {e}")
 
         finally:
             # Reset scheduled flag
             self.subtab_update_scheduled = False
+
+    def update_udp_camera_status(self, camera_connected: bool):
+        """Update camera status from UDP broadcast"""
+        if self.camera_comparison_tab:
+            self.camera_comparison_tab.update_comparison(udp_camera_connected=camera_connected)
 
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""

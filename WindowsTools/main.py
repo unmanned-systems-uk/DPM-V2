@@ -232,6 +232,11 @@ class DiagnosticApp:
             self.window.root.after_idle(lambda: self.camera_tab.update_camera_status(message))
             self.window.root.after_idle(lambda: self.system_tab.update_system_status(message))
 
+            # Update log inspector camera comparison tab
+            if "camera" in message:
+                camera_connected = message["camera"].get("connected", False)
+                self.window.root.after_idle(lambda: self.log_tab.update_udp_camera_status(camera_connected))
+
         self.status_listener.on_message_received = on_status_message
 
         # Wire UDP Heartbeat listener callback
