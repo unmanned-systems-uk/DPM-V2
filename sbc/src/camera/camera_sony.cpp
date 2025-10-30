@@ -905,6 +905,9 @@ private:
         else if (property == "drive_mode") {
             prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_DriveMode;
         }
+        else if (property == "exposure_compensation") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureBiasCompensation;
+        }
         else {
             Logger::error("Unknown property for get: " + property);
             return "";
@@ -1005,8 +1008,52 @@ private:
                         result = std::to_string(raw_value);
                     }
                 }
+                else if (property == "white_balance") {
+                    // Reverse lookup in white balance map
+                    static const std::unordered_map<uint16_t, std::string> WB_REVERSE = {
+                        {0x0000, "auto"}, {0x0011, "daylight"}, {0x0012, "shade"}, {0x0013, "cloudy"},
+                        {0x0014, "tungsten"}, {0x0021, "fluorescent_warm"}, {0x0022, "fluorescent_cool"},
+                        {0x0023, "fluorescent_day"}, {0x0024, "fluorescent_daylight"}, {0x0030, "flash"},
+                        {0x0100, "temperature"}, {0x0104, "custom"}
+                    };
+                    auto it = WB_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != WB_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "focus_mode") {
+                    // Reverse lookup in focus mode map
+                    static const std::unordered_map<uint16_t, std::string> FOCUS_REVERSE = {
+                        {0x0001, "manual"}, {0x0002, "af_s"}, {0x0003, "af_c"},
+                        {0x0004, "af_a"}, {0x0006, "dmf"}
+                    };
+                    auto it = FOCUS_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != FOCUS_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "file_format") {
+                    // Reverse lookup in file format map
+                    static const std::unordered_map<uint16_t, std::string> FORMAT_REVERSE = {
+                        {0x0001, "jpeg"}, {0x0002, "raw"}, {0x0003, "jpeg_raw"}
+                    };
+                    auto it = FORMAT_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != FORMAT_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "exposure_compensation") {
+                    // Convert from Sony SDK format (value × 1000) to EV decimal string
+                    // Example: 1000 → "+1.0", -300 → "-0.3", 0 → "0.0"
+                    // Sony SDK uses signed 16-bit values
+                    int16_t sdk_value = static_cast<int16_t>(raw_value & 0xFFFF);
+                    double ev_value = sdk_value / 1000.0;
+
+                    // Format as decimal string with sign
+                    char buffer[32];
+                    if (ev_value >= 0) {
+                        snprintf(buffer, sizeof(buffer), "+%.1f", ev_value);
+                    } else {
+                        snprintf(buffer, sizeof(buffer), "%.1f", ev_value);
+                    }
+                    result = std::string(buffer);
+                }
                 else {
-                    // For other properties, return hex value for now
+                    // For other properties not yet implemented, return hex value
                     result = "0x" + std::to_string(raw_value);
                 }
 
