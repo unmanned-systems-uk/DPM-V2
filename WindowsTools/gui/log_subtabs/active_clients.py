@@ -50,7 +50,7 @@ class ActiveClientsTab(ttk.Frame):
         self.tree.column("ip", width=150)
         self.tree.column("ports", width=200)
         self.tree.column("heartbeats", width=120)
-        self.tree.column("last_hb", text="Last Heartbeat", width=180)
+        self.tree.column("last_hb", width=180)
         self.tree.column("avg_interval", width=120)
         self.tree.column("status", width=150)
 
