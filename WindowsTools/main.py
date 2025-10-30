@@ -235,7 +235,11 @@ class DiagnosticApp:
             # Update log inspector camera comparison tab
             if "camera" in message:
                 camera_connected = message["camera"].get("connected", False)
-                self.window.root.after_idle(lambda: self.log_tab.update_udp_camera_status(camera_connected))
+                logger.debug(f"Camera status from UDP: {camera_connected}")
+                try:
+                    self.window.root.after_idle(lambda conn=camera_connected: self.log_tab.update_udp_camera_status(conn))
+                except Exception as e:
+                    logger.error(f"Error updating log inspector camera status: {e}")
 
         self.status_listener.on_message_received = on_status_message
 

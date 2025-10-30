@@ -574,8 +574,12 @@ class LogInspectorTab(ttk.Frame):
 
     def update_udp_camera_status(self, camera_connected: bool):
         """Update camera status from UDP broadcast"""
+        logger.debug(f"Log Inspector received UDP camera status: {camera_connected}")
         if self.camera_comparison_tab:
+            logger.debug("Updating camera comparison tab with UDP status")
             self.camera_comparison_tab.update_comparison(udp_camera_connected=camera_connected)
+        else:
+            logger.warning("Camera comparison tab is None - cannot update UDP status")
 
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""
