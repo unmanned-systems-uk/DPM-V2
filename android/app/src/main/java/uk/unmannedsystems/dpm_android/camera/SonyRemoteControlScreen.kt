@@ -234,6 +234,9 @@ fun SonyRemoteControlScreen(
             onSetISO = viewModel::setISO,
             onIncrementExposureComp = { viewModel.adjustExposureCompensation(0.3f) },
             onDecrementExposureComp = { viewModel.adjustExposureCompensation(-0.3f) },
+            onSetWhiteBalance = viewModel::setWhiteBalance,
+            onSetFocusMode = viewModel::setFocusMode,
+            onSetFileFormat = viewModel::setFileFormat,
             onModeSelected = { modeName ->
                 val mode = CameraMode.entries.find { it.displayName == modeName }
                 mode?.let { viewModel.setMode(it) }
@@ -264,6 +267,9 @@ private fun SonyRemoteSidebar(
     onSetISO: (ISO) -> Unit,
     onIncrementExposureComp: () -> Unit,
     onDecrementExposureComp: () -> Unit,
+    onSetWhiteBalance: (WhiteBalance) -> Unit,
+    onSetFocusMode: (FocusMode) -> Unit,
+    onSetFileFormat: (FileFormat) -> Unit,
     onModeSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -297,7 +303,10 @@ private fun SonyRemoteSidebar(
                 onDecrementISO = onDecrementISO,
                 onSetISO = onSetISO,
                 onIncrementExposureComp = onIncrementExposureComp,
-                onDecrementExposureComp = onDecrementExposureComp
+                onDecrementExposureComp = onDecrementExposureComp,
+                onSetWhiteBalance = onSetWhiteBalance,
+                onSetFocusMode = onSetFocusMode,
+                onSetFileFormat = onSetFileFormat
             )
         }
 
@@ -562,7 +571,7 @@ private fun SonyRadioButton(
 }
 
 /**
- * Main Settings section - Exposure triangle controls
+ * Main Settings section - Exposure triangle controls + white balance, focus, format
  */
 @Composable
 private fun MainSettingsSection(
@@ -577,7 +586,10 @@ private fun MainSettingsSection(
     onDecrementISO: () -> Unit,
     onSetISO: (ISO) -> Unit,
     onIncrementExposureComp: () -> Unit,
-    onDecrementExposureComp: () -> Unit
+    onDecrementExposureComp: () -> Unit,
+    onSetWhiteBalance: (WhiteBalance) -> Unit,
+    onSetFocusMode: (FocusMode) -> Unit,
+    onSetFileFormat: (FileFormat) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -647,6 +659,81 @@ private fun MainSettingsSection(
                 value = "±0.0",
                 onIncrement = { /* TODO */ },
                 onDecrement = { /* TODO */ }
+            )
+        }
+
+        // Row 3: White Balance, Focus Mode, File Format
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // White Balance
+            SonyParameterControl(
+                label = "WB",
+                value = cameraState.whiteBalance.shortName,
+                availableValues = WhiteBalance.entries.map { it.shortName },
+                onIncrement = { /* Not used for dropdown-only control */ },
+                onDecrement = { /* Not used for dropdown-only control */ },
+                onSelect = { selectedValue ->
+                    WhiteBalance.entries.find { it.shortName == selectedValue }?.let { onSetWhiteBalance(it) }
+                }
+            )
+
+            // Focus Mode
+            SonyParameterControl(
+                label = "Focus",
+                value = when (cameraState.focusMode) {
+                    FocusMode.AUTO -> "AF-S"
+                    FocusMode.MANUAL -> "MF"
+                    FocusMode.CONTINUOUS -> "AF-C"
+                },
+                availableValues = FocusMode.entries.map {
+                    when (it) {
+                        FocusMode.AUTO -> "AF-S"
+                        FocusMode.MANUAL -> "MF"
+                        FocusMode.CONTINUOUS -> "AF-C"
+                    }
+                },
+                onIncrement = { /* Not used for dropdown-only control */ },
+                onDecrement = { /* Not used for dropdown-only control */ },
+                onSelect = { selectedValue ->
+                    val focusMode = when (selectedValue) {
+                        "AF-S" -> FocusMode.AUTO
+                        "MF" -> FocusMode.MANUAL
+                        "AF-C" -> FocusMode.CONTINUOUS
+                        else -> null
+                    }
+                    focusMode?.let { onSetFocusMode(it) }
+                }
+            )
+
+            // File Format
+            SonyParameterControl(
+                label = "Format",
+                value = when (cameraState.fileFormat) {
+                    FileFormat.JPEG -> "JPG"
+                    FileFormat.RAW -> "RAW"
+                    FileFormat.JPEG_PLUS_RAW -> "JPG+RAW"
+                },
+                availableValues = FileFormat.entries.map {
+                    when (it) {
+                        FileFormat.JPEG -> "JPG"
+                        FileFormat.RAW -> "RAW"
+                        FileFormat.JPEG_PLUS_RAW -> "JPG+RAW"
+                    }
+                },
+                onIncrement = { /* Not used for dropdown-only control */ },
+                onDecrement = { /* Not used for dropdown-only control */ },
+                onSelect = { selectedValue ->
+                    val fileFormat = when (selectedValue) {
+                        "JPG" -> FileFormat.JPEG
+                        "RAW" -> FileFormat.RAW
+                        "JPG+RAW" -> FileFormat.JPEG_PLUS_RAW
+                        else -> null
+                    }
+                    fileFormat?.let { onSetFileFormat(it) }
+                }
             )
         }
     }

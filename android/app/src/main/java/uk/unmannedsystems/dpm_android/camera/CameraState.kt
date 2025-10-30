@@ -199,15 +199,22 @@ enum class ISO(val displayValue: String, val value: Int) {
 
 /**
  * White balance modes
+ * Matches camera_properties.json specification (13 modes total)
  */
 enum class WhiteBalance(val displayName: String, val shortName: String) {
     AUTO("Auto", "AWB"),
     DAYLIGHT("Daylight", "DAY"),
+    SHADE("Shade", "SHA"),
     CLOUDY("Cloudy", "CLY"),
     TUNGSTEN("Tungsten", "TUN"),
-    FLUORESCENT("Fluorescent", "FLU"),
+    FLUORESCENT_WARM("Fluorescent Warm", "FWM"),
+    FLUORESCENT_COOL("Fluorescent Cool", "FCL"),
+    FLUORESCENT_DAY("Fluorescent Day", "FDY"),
+    FLUORESCENT_DAYLIGHT("Fluorescent Daylight", "FDL"),
     FLASH("Flash", "FLS"),
-    CUSTOM("Custom", "CUS")
+    UNDERWATER("Underwater", "UW"),
+    CUSTOM("Custom", "CUS"),
+    TEMPERATURE("Temperature", "K")
 }
 
 /**
