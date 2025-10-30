@@ -173,10 +173,19 @@ class SystemMonitorTab(ttk.Frame):
 
     def update_system_status(self, status_data: Dict[str, Any]):
         """Update system status from UDP status broadcast"""
-        if "system" not in status_data:
+        # Handle both direct format and payload-wrapped format
+        if "payload" in status_data:
+            # UDP format: {"message_type": "status", "payload": {"system": {...}}}
+            payload = status_data["payload"]
+            if "system" not in payload:
+                return
+            system = payload["system"]
+        elif "system" in status_data:
+            # Direct format
+            system = status_data["system"]
+        else:
             return
 
-        system = status_data["system"]
         self.system_data = system
 
         # Uptime

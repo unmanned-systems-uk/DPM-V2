@@ -264,8 +264,15 @@ class DiagnosticApp:
                 self.activity_tab.CATEGORY_UDP, "Received status broadcast"))
 
             # Update log inspector camera comparison tab
-            if "camera" in message:
-                camera_connected = message["camera"].get("connected", False)
+            # Extract camera status from payload
+            camera_data = None
+            if "payload" in message and "camera" in message["payload"]:
+                camera_data = message["payload"]["camera"]
+            elif "camera" in message:
+                camera_data = message["camera"]
+
+            if camera_data:
+                camera_connected = camera_data.get("connected", False)
                 logger.debug(f"Camera status from UDP: {camera_connected}")
 
                 # Log camera status changes to activity log

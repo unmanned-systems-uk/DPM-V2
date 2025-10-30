@@ -167,10 +167,18 @@ class CameraDashboardTab(ttk.Frame):
 
     def update_camera_status(self, status_data: Dict[str, Any]):
         """Update camera status from UDP status broadcast"""
-        if "camera" not in status_data:
+        # Handle both direct format and payload-wrapped format
+        if "payload" in status_data:
+            # UDP format: {"message_type": "status", "payload": {"camera": {...}}}
+            payload = status_data["payload"]
+            if "camera" not in payload:
+                return
+            camera = payload["camera"]
+        elif "camera" in status_data:
+            # Direct format
+            camera = status_data["camera"]
+        else:
             return
-
-        camera = status_data["camera"]
 
         # Connection status
         self.camera_connected = camera.get("connected", False)
