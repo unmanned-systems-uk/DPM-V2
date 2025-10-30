@@ -20,13 +20,58 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Multi-client UDP broadcasting! Dual-port UDP broadcasting! Complete storage reporting!)
+**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Multi-client UDP broadcasting! Dual-port UDP broadcasting! Complete storage reporting! Exposure compensation control!)
 
-**Last Updated:** October 30, 2025 - Multi-client UDP broadcasting + complete storage reporting (disk_total_gb)
+**Last Updated:** October 30, 2025 - Exposure compensation camera control implemented
 
 ---
 
 ## RECENT UPDATES (October 23-30, 2025)
+
+### ✅ Exposure Compensation Control Implemented! (October 30, 2025)
+
+**Feature Added:**
+- Exposure compensation camera control (-5.0 to +5.0 EV)
+- Completes the exposure control suite alongside shutter speed, aperture, and ISO
+- Android app UI already built - just needs wiring to backend
+
+**Implementation (Air-Side):**
+- **File:** `sbc/src/camera/camera_sony.cpp` (lines 782-812)
+- **Property:** exposure_compensation
+- **Protocol format:** Decimal string values (e.g., "+1.0", "-0.3", "0.0")
+- **Sony SDK format:** Fixed-point integer (EV × 1000)
+- **Range:** -5.0 to +5.0 EV
+- **Increment:** Typically 1/3 stops (0.3 EV)
+
+**Value Conversion Examples:**
+- "+1.0" EV → 1000 (SDK value)
+- "-0.3" EV → -300 (SDK value)
+- "+2.5" EV → 2500 (SDK value)
+- "0.0" EV → 0 (SDK value)
+
+**Sony SDK Details:**
+- Property code: `CrDeviceProperty_ExposureBiasCompensation`
+- Data type: `CrDataType_UInt16` (uses int16_t for signed values)
+- Not available in Manual (M) mode
+
+**Testing:**
+```bash
+# Test via TCP command (camera must be connected and in A/S/P mode):
+echo '{"protocol_version":"1.0","message_type":"command","sequence_id":1,"timestamp":1698000000,"payload":{"command":"camera.set_property","parameters":{"property":"exposure_compensation","value":"+1.0"}}}' | nc 192.168.144.20 5000
+```
+
+**Ground-Side Status:**
+- ✅ Android UI exists (slider -3 to +3 EV on Camera screen)
+- ❌ Not yet wired to `networkManager.setCameraProperty()` call
+- **Next step:** Wire Ground-Side UI to call the command
+
+**Documentation Updated:**
+- `/home/dpm/DPM-V2/protocol/camera_properties.json` - Marked air_side: true
+- Implementation notes added with date and format details
+
+**Status:** ✅ **AIR-SIDE COMPLETE** - Ready for Ground-Side integration!
+
+---
 
 ### ✅ Multi-Client UDP Broadcasting Implemented! (October 30, 2025)
 
