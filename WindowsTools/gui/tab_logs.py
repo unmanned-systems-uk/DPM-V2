@@ -8,6 +8,7 @@ from tkinter import ttk, filedialog, messagebox
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import threading
 
 from utils.logger import logger
 from utils.config import config
@@ -24,6 +25,11 @@ class LogInspectorTab(ttk.Frame):
         self.auto_refresh_enabled = False
         self.refresh_interval = 5000  # ms
         self.current_logs = ""
+
+        # Follow mode (live streaming)
+        self.follow_enabled = False
+        self.follow_thread: Optional[threading.Thread] = None
+        self.follow_stop_event: Optional[threading.Event] = None
 
         self._create_ui()
 
@@ -102,10 +108,20 @@ class LogInspectorTab(ttk.Frame):
 
         ttk.Button(refresh_row, text="Refresh Now", command=self._refresh_logs).pack(side=tk.LEFT, padx=5)
 
+        # Follow logs toggle (real-time streaming)
+        self.follow_var = tk.BooleanVar(value=False)
+        self.follow_check = ttk.Checkbutton(refresh_row, text="Follow Logs (live)",
+                                            variable=self.follow_var,
+                                            command=self._toggle_follow)
+        self.follow_check.pack(side=tk.LEFT, padx=5)
+
+        ttk.Separator(refresh_row, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+
         self.auto_refresh_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(refresh_row, text="Auto-refresh",
-                       variable=self.auto_refresh_var,
-                       command=self._toggle_auto_refresh).pack(side=tk.LEFT, padx=5)
+        self.auto_refresh_check = ttk.Checkbutton(refresh_row, text="Auto-refresh",
+                                                   variable=self.auto_refresh_var,
+                                                   command=self._toggle_auto_refresh)
+        self.auto_refresh_check.pack(side=tk.LEFT, padx=5)
 
         ttk.Label(refresh_row, text="Interval (sec):").pack(side=tk.LEFT, padx=(20, 5))
         self.interval_var = tk.IntVar(value=5)
@@ -379,6 +395,111 @@ class LogInspectorTab(ttk.Frame):
         if self.current_logs:
             self._update_log_display(self.current_logs)
 
+    def _toggle_follow(self):
+        """Toggle follow logs (live streaming) on/off"""
+        self.follow_enabled = self.follow_var.get()
+
+        if self.follow_enabled:
+            if not self.ssh_client or not self.ssh_client.is_connected():
+                messagebox.showwarning("Not Connected", "Please connect SSH first")
+                self.follow_var.set(False)
+                self.follow_enabled = False
+                return
+
+            # Disable auto-refresh when following
+            if self.auto_refresh_enabled:
+                self.auto_refresh_var.set(False)
+                self.auto_refresh_enabled = False
+
+            logger.info("Starting to follow Docker logs in real-time...")
+            self._start_follow()
+
+        else:
+            logger.info("Stopping log follow...")
+            self._stop_follow()
+
+    def _start_follow(self):
+        """Start following logs in background thread"""
+        # Clear current logs
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.DISABLED)
+
+        # Create stop event
+        self.follow_stop_event = threading.Event()
+
+        # Get tail parameter from view mode
+        tail = None
+        view_mode = self.view_mode_var.get()
+        if view_mode == "tail":
+            tail = 100
+        elif view_mode == "tail_500":
+            tail = 500
+
+        # Start follow thread
+        def follow_worker():
+            self.ssh_client.follow_docker_logs(
+                container="payload-manager",
+                tail=tail,
+                on_log_line=self._on_log_line_received,
+                stop_event=self.follow_stop_event
+            )
+
+        self.follow_thread = threading.Thread(target=follow_worker, daemon=True)
+        self.follow_thread.start()
+
+        # Update UI
+        self.last_update_label.config(text="Following...")
+
+    def _stop_follow(self):
+        """Stop following logs"""
+        if self.follow_stop_event:
+            self.follow_stop_event.set()
+
+        if self.follow_thread and self.follow_thread.is_alive():
+            # Give it a moment to stop
+            self.follow_thread.join(timeout=2.0)
+
+        self.follow_thread = None
+        self.follow_stop_event = None
+
+        # Update UI
+        self.last_update_label.config(text=datetime.now().strftime("%H:%M:%S"))
+
+    def _on_log_line_received(self, line: str):
+        """Callback for each new log line (called from follow thread)"""
+        # Schedule GUI update on main thread
+        self.after(0, lambda: self._append_log_line(line))
+
+    def _append_log_line(self, line: str):
+        """Append a log line to the display"""
+        # Enable editing
+        self.log_text.config(state=tk.NORMAL)
+
+        # Append line
+        self.log_text.insert(tk.END, line + "\n")
+
+        # Apply highlighting to the new line
+        line_number = int(self.log_text.index(tk.END).split('.')[0]) - 1
+        line_lower = line.lower()
+
+        if "error" in line_lower or "exception" in line_lower or "traceback" in line_lower:
+            self.log_text.tag_add("error", f"{line_number}.0", f"{line_number}.end")
+        elif "warning" in line_lower or "warn" in line_lower:
+            self.log_text.tag_add("warning", f"{line_number}.0", f"{line_number}.end")
+        elif "info" in line_lower:
+            self.log_text.tag_add("info", f"{line_number}.0", f"{line_number}.end")
+
+        # Auto-scroll to bottom
+        self.log_text.see(tk.END)
+
+        # Disable editing
+        self.log_text.config(state=tk.DISABLED)
+
+        # Update line count
+        total_lines = int(self.log_text.index(tk.END).split('.')[0]) - 1
+        self.line_count_label.config(text=f"Lines: {total_lines}")
+
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""
         self.auto_refresh_enabled = self.auto_refresh_var.get()
@@ -389,6 +510,12 @@ class LogInspectorTab(ttk.Frame):
                 self.auto_refresh_var.set(False)
                 self.auto_refresh_enabled = False
                 return
+
+            # Disable follow mode when auto-refreshing
+            if self.follow_enabled:
+                self.follow_var.set(False)
+                self._stop_follow()
+                self.follow_enabled = False
 
             logger.info(f"Log auto-refresh enabled ({self.interval_var.get()}s)")
             self._schedule_refresh()
@@ -462,5 +589,14 @@ class LogInspectorTab(ttk.Frame):
 
     def cleanup(self):
         """Cleanup on tab close"""
+        # Stop following if active
+        if self.follow_enabled:
+            self._stop_follow()
+
+        # Stop auto-refresh if active
+        if self.auto_refresh_enabled:
+            self.auto_refresh_enabled = False
+
+        # Disconnect SSH
         if self.ssh_client and self.ssh_client.is_connected():
             self.ssh_client.disconnect()

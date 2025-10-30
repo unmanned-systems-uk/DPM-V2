@@ -124,16 +124,14 @@ class SSHClient:
 
     def get_docker_logs(self, container: str = "payload-manager",
                         tail: Optional[int] = None,
-                        since: Optional[str] = None,
-                        follow: bool = False) -> tuple[int, str, str]:
+                        since: Optional[str] = None) -> tuple[int, str, str]:
         """
-        Get Docker container logs
+        Get Docker container logs (one-time fetch)
 
         Args:
             container: Container name (default: payload-manager)
             tail: Number of lines from end (e.g., 100)
             since: Time duration (e.g., "5m", "1h")
-            follow: Live tail (not implemented for single call)
 
         Returns:
             (exit_code, stdout, stderr)
@@ -147,6 +145,74 @@ class SSHClient:
             command += f" --since {since}"
 
         return self.execute_command(command, timeout=60)
+
+    def follow_docker_logs(self, container: str = "payload-manager",
+                          tail: Optional[int] = None,
+                          on_log_line: Optional[Callable[[str], None]] = None,
+                          stop_event: Optional[threading.Event] = None):
+        """
+        Follow Docker container logs in real-time (like docker logs -f)
+
+        Args:
+            container: Container name (default: payload-manager)
+            tail: Number of initial lines to show
+            on_log_line: Callback for each new log line
+            stop_event: Event to signal stop following
+
+        This runs in a loop until stop_event is set
+        """
+        if not self.connected or not self.client:
+            logger.error("SSH: Not connected")
+            return
+
+        try:
+            # Build command
+            command = f"docker logs -f {container}"
+            if tail:
+                command += f" --tail {tail}"
+
+            logger.info(f"SSH: Starting log follow: {command}")
+
+            # Execute command with channel for streaming
+            transport = self.client.get_transport()
+            channel = transport.open_session()
+            channel.exec_command(command)
+
+            # Read output continuously
+            while not (stop_event and stop_event.is_set()):
+                # Check if channel has data ready
+                if channel.recv_ready():
+                    # Read available data
+                    data = channel.recv(4096).decode('utf-8', errors='replace')
+                    if data and on_log_line:
+                        # Split by lines and call callback for each
+                        for line in data.splitlines():
+                            if line.strip():
+                                on_log_line(line)
+
+                # Also check stderr
+                if channel.recv_stderr_ready():
+                    data = channel.recv_stderr(4096).decode('utf-8', errors='replace')
+                    if data and on_log_line:
+                        for line in data.splitlines():
+                            if line.strip():
+                                on_log_line(line)
+
+                # Check if channel closed
+                if channel.exit_status_ready():
+                    break
+
+                # Small delay to prevent CPU spinning
+                threading.Event().wait(0.1)
+
+            # Clean up
+            channel.close()
+            logger.info("SSH: Stopped following logs")
+
+        except Exception as e:
+            logger.error(f"SSH: Error following logs: {e}")
+            if on_log_line:
+                on_log_line(f"ERROR: {e}")
 
     def is_connected(self) -> bool:
         """Check if SSH is connected"""
