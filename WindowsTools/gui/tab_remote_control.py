@@ -299,18 +299,31 @@ class RemoteControlTab(ttk.Frame):
                 # 3. Network Health
                 self.after(0, lambda: self._append_output("🌐 NETWORK HEALTH\n", "command"))
 
-                # Check critical ports (Command, Status, Heartbeat)
-                critical_ports = ["5000", "5001", "5002"]
+                # Get configured ports from config
+                from utils.config import config
+                tcp_port = str(config.get('network', 'tcp_port', 5000))
+                windows_status_port = str(config.get('network', 'udp_status_port', 50001))
+                windows_heartbeat_port = str(config.get('network', 'udp_heartbeat_port', 50002))
+
+                # Port configuration: (port, description)
+                port_checks = [
+                    (tcp_port, "TCP Command Port"),
+                    ("5001", "H16 Status Port"),
+                    ("5002", "H16 Heartbeat Port"),
+                    (windows_status_port, f"WPC Status Port (this tool)"),
+                    (windows_heartbeat_port, f"WPC Heartbeat Port (this tool)"),
+                ]
+
                 exit_code, stdout, stderr = ssh_client.execute_command("ss -tuln", timeout=10)
                 if exit_code == 0:
-                    for port in critical_ports:
+                    for port, description in port_checks:
                         if f":{port}" in stdout:
-                            self.after(0, lambda p=port: self._append_output(
-                                f"  ✅ Port {p}: Listening\n", "success"))
+                            self.after(0, lambda p=port, d=description: self._append_output(
+                                f"  ✅ Port {p} ({d}): Listening\n", "success"))
                         else:
-                            warnings_found.append(f"Port {port} not listening")
-                            self.after(0, lambda p=port: self._append_output(
-                                f"  ⚠️  Port {p}: Not Listening\n", "info"))
+                            warnings_found.append(f"Port {port} ({description}) not listening")
+                            self.after(0, lambda p=port, d=description: self._append_output(
+                                f"  ⚠️  Port {p} ({d}): Not Listening\n", "info"))
 
                 self.after(0, lambda: self._append_output("\n", None))
 
