@@ -376,7 +376,8 @@ class RemoteControlTab(ttk.Frame):
                 self.after(0, lambda: self._append_output("=" * 80 + "\n\n", "info"))
 
                 # Calculate health score
-                total_checks = len(report) + len(critical_ports) + 5  # Approximate
+                # We checked: uptime, disk, memory, docker service, payload-manager, restarts, 5 ports, errors, camera disconnects
+                total_checks = len(report) + 5 + 5  # report items + 5 ports + 5 other checks (approximate)
                 issues_weight = len(issues_found) * 20
                 warnings_weight = len(warnings_found) * 10
                 health_score = max(0, 100 - issues_weight - warnings_weight)
