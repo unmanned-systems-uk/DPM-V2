@@ -299,8 +299,8 @@ class RemoteControlTab(ttk.Frame):
                 # 3. Network Health
                 self.after(0, lambda: self._append_output("🌐 NETWORK HEALTH\n", "command"))
 
-                # Check critical ports
-                critical_ports = ["5000", "50001", "50002"]
+                # Check critical ports (Command, Status, Heartbeat)
+                critical_ports = ["5000", "5001", "5002"]
                 exit_code, stdout, stderr = ssh_client.execute_command("ss -tuln", timeout=10)
                 if exit_code == 0:
                     for port in critical_ports:
