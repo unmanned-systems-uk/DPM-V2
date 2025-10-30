@@ -23,6 +23,14 @@ class ProtocolInspectorTab(ttk.Frame):
         self.messages = []  # Store all messages
         self.filter_var = tk.StringVar(value="All")
 
+        # Performance optimization for high-frequency messages
+        self.MAX_MESSAGES = 500  # Keep only last 500 messages
+        self.pending_updates = []  # Queue for batched GUI updates
+        self.update_scheduled = False  # Flag to prevent multiple update schedules
+
+        # Track tree item to message mapping for correct detail display
+        self.tree_item_to_msg_index = {}  # Maps tree item ID -> message list index
+
         self._create_ui()
 
         logger.debug("Protocol Inspector tab initialized")
@@ -107,7 +115,7 @@ class ProtocolInspectorTab(ttk.Frame):
         ttk.Checkbutton(button_frame, text="Auto-scroll", variable=self.auto_scroll_var).pack(side=tk.RIGHT, padx=10)
 
     def add_message(self, message: Dict[str, Any], direction: str):
-        """Add a message to the inspector"""
+        """Add a message to the inspector (batched for performance)"""
         # Store message with metadata
         msg_data = {
             "timestamp": datetime.now(),
@@ -117,22 +125,69 @@ class ProtocolInspectorTab(ttk.Frame):
 
         self.messages.append(msg_data)
 
-        # Add to tree if it passes filter
-        if self._passes_filter(msg_data):
-            self._add_to_tree(msg_data)
+        # Limit message history to prevent memory issues
+        if len(self.messages) > self.MAX_MESSAGES:
+            # Remove oldest messages beyond limit
+            excess = len(self.messages) - self.MAX_MESSAGES
+            self.messages = self.messages[excess:]
 
-        # Update statistics
-        self._update_stats()
+        # Queue message for batched GUI update
+        self.pending_updates.append(msg_data)
 
-        # Auto-scroll if enabled
+        # Schedule GUI update if not already scheduled (throttle to 200ms)
+        if not self.update_scheduled:
+            self.update_scheduled = True
+            self.after(200, self._process_pending_updates)
+
+    def _process_pending_updates(self):
+        """Process queued messages and update GUI (batched)"""
+        if not self.pending_updates:
+            self.update_scheduled = False
+            return
+
+        # Get all pending messages
+        messages_to_process = self.pending_updates[:]
+        self.pending_updates.clear()
+
+        # Process each message with filters
+        search_text = self.search_var.get().lower()
+
+        # Find the index of each pending message in self.messages
+        for msg_data in messages_to_process:
+            # Check filter
+            if not self._passes_filter(msg_data):
+                continue
+
+            # Check search
+            if search_text:
+                msg_str = json.dumps(msg_data["message"]).lower()
+                if search_text not in msg_str:
+                    continue
+
+            # Find the index of this message in self.messages
+            # Since we just appended it, it should be near the end
+            try:
+                msg_index = self.messages.index(msg_data)
+            except ValueError:
+                msg_index = len(self.messages) - 1  # Fallback to last message
+
+            # Add to tree with index tracking
+            self._add_to_tree(msg_data, msg_index)
+
+        # Auto-scroll to bottom if enabled
         if self.auto_scroll_var.get():
-            # Scroll to bottom
             children = self.tree.get_children()
             if children:
                 self.tree.see(children[-1])
 
-    def _add_to_tree(self, msg_data: Dict[str, Any]):
-        """Add message to TreeView"""
+        # Update statistics
+        self._update_stats()
+
+        # Reset flag
+        self.update_scheduled = False
+
+    def _add_to_tree(self, msg_data: Dict[str, Any], msg_index: int):
+        """Add message to TreeView with index tracking"""
         message = msg_data["message"]
         timestamp = msg_data["timestamp"]
         direction = msg_data["direction"]
@@ -147,8 +202,9 @@ class ProtocolInspectorTab(ttk.Frame):
         # Direction symbol
         dir_symbol = "→" if direction == "sent" else "←"
 
-        # Add to tree
-        self.tree.insert("", tk.END, values=(time_str, msg_type, dir_symbol, summary))
+        # Add to tree and store the item ID -> message index mapping
+        item_id = self.tree.insert("", tk.END, values=(time_str, msg_type, dir_symbol, summary))
+        self.tree_item_to_msg_index[item_id] = msg_index
 
     def _create_summary(self, message: Dict[str, Any]) -> str:
         """Create a one-line summary of the message"""
@@ -208,13 +264,14 @@ class ProtocolInspectorTab(ttk.Frame):
 
     def _rebuild_tree(self):
         """Rebuild tree with current filters"""
-        # Clear tree
+        # Clear tree and mapping
         self.tree.delete(*self.tree.get_children())
+        self.tree_item_to_msg_index.clear()
 
         # Re-add filtered messages
         search_text = self.search_var.get().lower()
 
-        for msg_data in self.messages:
+        for msg_index, msg_data in enumerate(self.messages):
             # Check filter
             if not self._passes_filter(msg_data):
                 continue
@@ -225,8 +282,8 @@ class ProtocolInspectorTab(ttk.Frame):
                 if search_text not in msg_str:
                     continue
 
-            # Add to tree
-            self._add_to_tree(msg_data)
+            # Add to tree with index tracking
+            self._add_to_tree(msg_data, msg_index)
 
     def _on_message_selected(self, event=None):
         """Handle message selection"""
@@ -234,20 +291,27 @@ class ProtocolInspectorTab(ttk.Frame):
         if not selection:
             return
 
-        # Get selected index
-        item = selection[0]
-        index = self.tree.index(item)
+        # Get selected item ID
+        item_id = selection[0]
 
-        # Get corresponding message (accounting for filters)
-        # This is simplified - in production would track indices
-        if index < len(self.messages):
-            msg_data = self.messages[index]
+        # Look up the message index from our mapping
+        if item_id not in self.tree_item_to_msg_index:
+            logger.warning(f"Selected tree item {item_id} not found in mapping")
+            return
+
+        msg_index = self.tree_item_to_msg_index[item_id]
+
+        # Get corresponding message
+        if msg_index < len(self.messages):
+            msg_data = self.messages[msg_index]
             message = msg_data["message"]
 
             # Display formatted JSON
             self.detail_text.delete(1.0, tk.END)
             formatted = json.dumps(message, indent=2)
             self.detail_text.insert(1.0, formatted)
+        else:
+            logger.warning(f"Message index {msg_index} out of range (total: {len(self.messages)})")
 
     def _update_stats(self):
         """Update statistics label"""
@@ -264,6 +328,7 @@ class ProtocolInspectorTab(ttk.Frame):
         if messagebox.askyesno("Clear Messages", "Clear all captured messages?"):
             self.messages.clear()
             self.tree.delete(*self.tree.get_children())
+            self.tree_item_to_msg_index.clear()
             self.detail_text.delete(1.0, tk.END)
             self._update_stats()
             logger.info("Protocol messages cleared")
@@ -316,12 +381,18 @@ class ProtocolInspectorTab(ttk.Frame):
             return
 
         try:
-            # Get selected message
-            item = selection[0]
-            index = self.tree.index(item)
+            # Get selected message using mapping (fixes copy with filters active)
+            item_id = selection[0]
 
-            if index < len(self.messages):
-                msg_data = self.messages[index]
+            if item_id not in self.tree_item_to_msg_index:
+                logger.warning(f"Selected tree item {item_id} not found in mapping")
+                messagebox.showwarning("Error", "Could not find selected message")
+                return
+
+            msg_index = self.tree_item_to_msg_index[item_id]
+
+            if msg_index < len(self.messages):
+                msg_data = self.messages[msg_index]
                 message = msg_data["message"]
 
                 # Format as JSON
@@ -333,6 +404,9 @@ class ProtocolInspectorTab(ttk.Frame):
                 self.update()
 
                 messagebox.showinfo("Success", "Message copied to clipboard!")
+            else:
+                logger.warning(f"Message index {msg_index} out of range (total: {len(self.messages)})")
+                messagebox.showwarning("Error", "Message index out of range")
 
         except Exception as e:
             logger.error(f"Error copying message: {e}")

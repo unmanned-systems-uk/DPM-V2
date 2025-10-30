@@ -1,7 +1,7 @@
 # DPM Protocol Implementation Status
 
 **Version:** 1.0.0
-**Last Updated:** 2025-10-25 (System Status screen added)
+**Last Updated:** 2025-10-30 (All 6 Phase 1 camera properties fully implemented)
 **Phase:** 1 - Initial Connectivity (MVP)
 
 ---
@@ -68,10 +68,13 @@
   - Receive 5 Hz status updates
   - Parse camera/system status
   - Update UI in real-time
+  - SO_REUSEADDR enabled for immediate socket reuse
+  - Field mapping corrected to match Air-Side format
 
 - ✅ **UDP Heartbeat Sender** (port 5002)
   - 1 Hz heartbeat to air-side
   - Connection monitoring
+  - SO_REUSEADDR enabled for immediate socket reuse
 
 #### Connection Management
 - ✅ **Handshake** - New format
@@ -104,24 +107,40 @@
   - Progress bars for CPU and memory usage
   - Connection status indicator
   - Connect/disconnect controls
-  - Auto-update from UDP broadcasts
+  - Auto-update from UDP broadcasts (5 Hz)
+  - Network RX/TX metrics display
+  - Fully tested and working
 
 - ✅ **Connection Status Display**
   - Real-time connection state
   - Camera status
   - System telemetry
 
+- ✅ **Camera Property Control (Sony Remote Interface)**
+  - Complete UI for all 6 Phase 1 camera properties
+  - **Shutter Speed:** 57 values (1/8000 to 30" + auto), dropdown + increment/decrement
+  - **Aperture:** 28 f-stops (f/1.4 to f/32), dropdown + increment/decrement
+  - **ISO:** 35 values (auto, 50-102400), dropdown + increment/decrement
+  - **White Balance:** 13 modes (auto, daylight, shade, cloudy, tungsten, fluorescent variants, flash, underwater, custom, temperature), dropdown only
+  - **Focus Mode:** 3 modes (AF-S, MF, AF-C), dropdown only
+  - **File Format:** 3 formats (JPEG, RAW, JPEG+RAW), dropdown only
+  - Property polling: All 6 properties queried at 0.5-1 Hz (configurable)
+  - UDP broadcast sync: Real-time updates from Air-Side status (5 Hz)
+  - Command sending: camera.set_property with protocol validation
+  - Fully tested and working on H16 hardware
+
 ---
 
 ## 🔨 In Progress
 
 ### Air-Side
-- ⏳ **Console Logging** - Outputs to both file and Docker logs (just completed)
-- ⏳ **WiFi Network Support** - Using configurable ground IP
+- ✅ **Console Logging** - Complete - outputs to both file and Docker logs
+- ✅ **WiFi Network Support** - Complete - using configurable ground IP
 
 ### Ground-Side
-- ⏳ **Updated NetworkClient** - User is currently editing
-- ⏳ **Shutter Command Testing** - Ready to test
+- ✅ **System Status Screen** - Complete - fully functional with UDP broadcasts
+- ✅ **Camera Property Control** - Complete - all 6 Phase 1 properties with UI, polling, and sync
+- ⏳ **End-to-End Testing** - Testing with real camera hardware (Sony A1)
 
 ---
 
@@ -162,6 +181,8 @@
 ### Ground-Side
 1. ~~No route to host on reconnect~~ (FIXED - synchronous disconnect with delays)
 2. ~~Not receiving heartbeats from server~~ (BY DESIGN - using UDP status as heartbeat)
+3. ~~UDP socket "Address already in use" on reconnect~~ (FIXED - SO_REUSEADDR enabled)
+4. ~~System Status screen not updating~~ (FIXED - field name mismatch corrected)
 
 ---
 
@@ -171,10 +192,10 @@
 | Command | Air-Side | Ground-Side | Tested |
 |---------|----------|-------------|--------|
 | `handshake` | ✅ | ✅ | ✅ |
-| `system.get_status` | ✅ | ✅ | ⏳ |
+| `system.get_status` | ✅ | ✅ | ✅ |
 | `camera.capture` | ✅ | ✅ | ⏳ |
-| `camera.set_property` | ❌ | ✅ | ❌ |
-| `camera.get_properties` | ❌ | ✅ | ❌ |
+| `camera.set_property` | ✅ | ✅ | ⏳ |
+| `camera.get_properties` | ✅ | ✅ | ⏳ |
 | Other camera commands | ❌ | ❌ | ❌ |
 | Gimbal commands | ❌ | ❌ | ❌ |
 | Content commands | ❌ | ❌ | ❌ |
@@ -205,14 +226,23 @@
 ### Immediate (Current Session)
 1. ✅ Fix handshake validation
 2. ✅ Add console logging
-3. ⏳ Test camera.capture command end-to-end
-4. ⏳ Update protocol specification to match reality
+3. ✅ Fix System Status screen UDP broadcast reception
+4. ✅ Fix SystemStatus data model field mapping
+5. ✅ Complete camera property UI (white_balance, focus_mode, file_format selectors)
+6. ✅ Extend property polling from 3 to 6 properties
+7. ✅ Fix white balance modes (7→13 modes to match spec)
+8. ⏳ Test camera.capture command end-to-end with Sony A1
+9. ⏳ Test camera.set_property command end-to-end with Sony A1
+10. ⏳ Test camera.get_properties command end-to-end with Sony A1
 
 ### Short Term (Next Few Sessions)
-1. Implement `camera.set_property` on air-side
-2. Implement `camera.get_properties` on air-side
-3. Add gimbal stub interface
-4. Test all implemented commands thoroughly
+1. ✅ `camera.set_property` implemented on air-side and ground-side
+2. ✅ `camera.get_properties` implemented on air-side and ground-side
+3. ✅ All 6 Phase 1 camera properties with complete UI (shutter, aperture, iso, wb, focus, format)
+4. Implement white_balance_temperature property UI (slider, enabled when WB=temperature)
+5. Implement drive_mode property UI (6 modes: single, continuous, bracket, etc.)
+6. Add gimbal stub interface
+7. Test all implemented commands thoroughly with real hardware
 
 ### Medium Term (Phase 2)
 1. Full camera property control

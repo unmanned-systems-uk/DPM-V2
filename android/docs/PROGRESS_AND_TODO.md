@@ -23,109 +23,110 @@ Testing:               ██████░░░░░░░░░░░░░
 Integration:           ████████████████░░░░░░░░░░░░░░░░  50% In Progress
 ```
 
-**Overall Completion:** 65% (Phase 1 MVP)
+**Overall Completion:** 70% (Phase 1 MVP)
 
-**Last Updated:** October 30, 2025 - System Status screen UDP fix & field mapping correction
+**Last Updated:** October 30, 2025 - All 6 Phase 1 camera properties fully implemented
 
 ---
 
 ## RECENT UPDATES
 
+### 📸 Complete Camera Property Implementation (October 30, 2025) ✅
+
+**Feature Complete: All 6 Phase 1 Camera Properties Fully Working**
+
+**Issue:**
+- Only shutter_speed, aperture, and ISO had UI selectors
+- White balance, focus mode, and file format had backend support but NO UI
+- Property polling only requested 3 of 6 properties
+- White balance enum missing 6 modes from specification
+
+**Implementation:**
+
+1. **UI Selectors Added** (SonyRemoteControlScreen.kt)
+   - ✅ Added Row 3 to Main Settings section with 3 new dropdown controls
+   - ✅ White Balance: 13-mode dropdown (AWB/DAY/SHA/CLY/TUN/FWM/FCL/FDY/FDL/FLS/UW/CUS/K)
+   - ✅ Focus Mode: 3-mode dropdown (AF-S/MF/AF-C)
+   - ✅ File Format: 3-format dropdown (JPG/RAW/JPG+RAW)
+   - ✅ All wired to viewModel setters via SonyParameterControl component
+
+2. **Property Polling Extended** (CameraViewModel.kt:530-537)
+   - ✅ Extended from 3 to 6 properties
+   - ✅ Now queries: shutter_speed, aperture, iso, white_balance, focus_mode, file_format
+   - ✅ Air-Side logs confirm all 6 properties being requested
+
+3. **Property Sync Implemented** (CameraViewModel.kt)
+   - ✅ UDP broadcast sync for white_balance, focus_mode, file_format (lines 481-525)
+   - ✅ Polling response parsing for all 6 properties (lines 692-749)
+   - ✅ Protocol value mapping (e.g., "shade" → WhiteBalance.SHADE)
+
+4. **White Balance Modes Expanded** (CameraState.kt:200-218)
+   - ✅ Expanded from 7 to 13 modes to match camera_properties.json
+   - ✅ Added: shade, fluorescent_cool, fluorescent_day, fluorescent_daylight, underwater, temperature
+   - ✅ Fixed: "shade" value from Air-Side now recognized (was silently failing)
+
+**Testing Results:**
+```
+✅ Property query response: {
+  aperture=f/2.8,
+  file_format=jpeg_raw,
+  focus_mode=manual,
+  iso=160,
+  shutter_speed=1/4000,
+  white_balance=shade
+}
+
+✅ Log: "Updating white balance from query: shade"
+```
+
+**Complete Property Matrix:**
+
+| Property | Values | UI | Polling | Sync | Status |
+|---|---|---|---|---|---|
+| shutter_speed | 57 values (1/8000-30") | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+| aperture | 28 f-stops (f/1.4-f/32) | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+| iso | 35 values (auto, 50-102400) | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+| white_balance | 13 modes (full spec) | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+| focus_mode | 3 modes (AF-S/MF/AF-C) | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+| file_format | 3 formats (JPG/RAW/JPG+RAW) | ✅ | ✅ | ✅ | ✅ **COMPLETE** |
+
+**Files Modified:**
+- `CameraState.kt`: WhiteBalance enum expanded 7→13 modes
+- `CameraViewModel.kt`: Polling/parsing/sync for all 6 properties
+- `SonyRemoteControlScreen.kt`: Row 3 UI with WB/Focus/Format selectors
+
+**Commit:** 332a42c - Pushed to origin/main ✅
+
+**Impact:**
+- ✅ All Phase 1 camera properties now have complete UI control
+- ✅ Real-time synchronization from Air-Side (polling + UDP broadcasts)
+- ✅ Full protocol compliance with camera_properties.json specification
+- ✅ Users can control all 6 properties from Sony Remote interface
+
+---
+
 ### 🔧 System Status UDP Broadcast Fix (October 30, 2025) ✅
 
 **Issue Fixed:**
 - System Status screen not updating despite UDP connection active
-- Root causes identified:
-  1. UDP socket "Address already in use" errors on reconnection
-  2. Field name mismatch between Air-Side and Ground-Side data models
+- Root causes: UDP socket binding errors + field name mismatch
 
-**Problem #1: UDP Socket Binding Errors**
-- When NetworkClient was reinitialized (e.g., navigating between screens), old UDP socket didn't release port binding fast enough
-- New connection attempts failed with `java.net.BindException: Address already in use`
-- UDP status listener (port 5001) and heartbeat receiver (port 5002) both affected
+**Solutions:**
+1. **UDP Socket Fix** (NetworkClient.kt)
+   - Added SO_REUSEADDR to prevent "Address already in use" errors
+   - Applied to both UDP status listener (port 5001) and heartbeat receiver (port 5002)
 
-**Solution #1: SO_REUSEADDR Socket Option**
-```kotlin
-// Before (NetworkClient.kt:294)
-udpSocket = DatagramSocket(settings.statusListenPort)
-
-// After
-udpSocket = DatagramSocket(null).apply {
-    reuseAddress = true
-    bind(java.net.InetSocketAddress(settings.statusListenPort))
-}
-```
-- Applied to both UDP status listener (port 5001) and heartbeat receiver (port 5002)
-- Allows socket reuse immediately after disconnect
-
-**Problem #2: Field Name Mismatch**
-Air-Side was sending:
-```json
-{
-  "system": {
-    "cpu_percent": 1.25,
-    "memory_mb": 2114,
-    "memory_total_mb": 7930,
-    "disk_free_gb": 43.66,
-    "uptime_seconds": 30845
-  }
-}
-```
-
-Ground-Side was expecting:
-```kotlin
-data class SystemStatus(
-    val cpuUsagePercent: Float,    // ❌ Wrong field name
-    val memoryUsagePercent: Float, // ❌ Wrong format
-    val storageFreeGb: Float       // ❌ Wrong field name
-)
-```
-
-**Solution #2: Updated Data Model (ProtocolMessages.kt:79-93)**
-```kotlin
-data class SystemStatus(
-    @SerializedName("uptime_seconds") val uptimeSeconds: Long,
-    @SerializedName("cpu_percent") val cpuPercent: Float,
-    @SerializedName("memory_mb") val memoryMb: Int,
-    @SerializedName("memory_total_mb") val memoryTotalMb: Int,
-    @SerializedName("disk_free_gb") val diskFreeGb: Float,
-    @SerializedName("network_rx_mbps") val networkRxMbps: Float? = null,
-    @SerializedName("network_tx_mbps") val networkTxMbps: Float? = null
-) {
-    val memoryUsagePercent: Float
-        get() = if (memoryTotalMb > 0) {
-            (memoryMb.toFloat() / memoryTotalMb.toFloat()) * 100f
-        } else 0f
-}
-```
-
-**Files Modified:**
-- `app/src/main/java/uk/unmannedsystems/dpm_android/network/NetworkClient.kt`:
-  * Added SO_REUSEADDR to UDP status listener (lines 294-299)
-  * Added SO_REUSEADDR to heartbeat receiver (lines 383-387)
-  * Added debug logging for UDP message parsing (lines 307, 318, 321)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/network/ProtocolMessages.kt`:
-  * Updated SystemStatus data class to match Air-Side format (lines 79-93)
-- `app/src/main/java/uk/unmannedsystems/dpm_android/system/SystemStatusScreen.kt`:
-  * Updated field references: `cpuUsagePercent` → `cpuPercent` (line 340)
-  * Updated field references: `storageFreeGb` → `diskFreeGb` (line 354)
+2. **Field Mapping Fix** (ProtocolMessages.kt, SystemStatusScreen.kt)
+   - Updated SystemStatus data class to match Air-Side format
+   - Fixed field names: cpu_usage_percent→cpu_percent, storage_free_gb→disk_free_gb
+   - Added computed property for memoryUsagePercent
 
 **Testing Results:**
 - ✅ UDP status broadcasts receiving at 5 Hz (every 200ms)
-- ✅ Parsing successful - no JSON errors
-- ✅ System Status screen updating in real-time:
-  * Uptime: 8.6 hours
-  * CPU: 0-1.2%
-  * Memory: 2,114 / 7,930 MB (26.7%)
-  * Disk Free: 43.66 GB
-  * Network RX: 0-0.03 Mbps
-  * Network TX: 0 Mbps
+- ✅ System Status screen updating in real-time
+- ✅ All metrics displaying correctly (uptime, CPU, memory, disk, network)
 
-**Impact:**
-- ✅ System Status screen now fully functional with live updates
-- ✅ UDP socket binding issues resolved
-- ✅ Protocol field mapping corrected and documented
-- ✅ Enhanced debug logging for future troubleshooting
+**Commits:** 91b7c1f, aa88c7d - Pushed to origin/main ✅
 
 ---
 

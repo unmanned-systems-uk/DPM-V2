@@ -134,11 +134,17 @@ class CameraViewModel : ViewModel() {
         return when (wb) {
             WhiteBalance.AUTO -> "auto"
             WhiteBalance.DAYLIGHT -> "daylight"
+            WhiteBalance.SHADE -> "shade"
             WhiteBalance.CLOUDY -> "cloudy"
             WhiteBalance.TUNGSTEN -> "tungsten"
-            WhiteBalance.FLUORESCENT -> "fluorescent_warm"
+            WhiteBalance.FLUORESCENT_WARM -> "fluorescent_warm"
+            WhiteBalance.FLUORESCENT_COOL -> "fluorescent_cool"
+            WhiteBalance.FLUORESCENT_DAY -> "fluorescent_day"
+            WhiteBalance.FLUORESCENT_DAYLIGHT -> "fluorescent_daylight"
             WhiteBalance.FLASH -> "flash"
+            WhiteBalance.UNDERWATER -> "underwater"
             WhiteBalance.CUSTOM -> "custom"
+            WhiteBalance.TEMPERATURE -> "temperature"
         }
     }
 
@@ -472,9 +478,57 @@ class CameraViewModel : ViewModel() {
                 }
             }
 
-            // TODO: Sync white balance when Air Side implements it
-            // TODO: Sync focus mode when Air Side implements it
-            // TODO: Sync file format when Air Side implements it
+            // Sync white balance (if not empty)
+            if (settings.whiteBalance.isNotEmpty()) {
+                val whiteBalance = when (settings.whiteBalance) {
+                    "auto" -> WhiteBalance.AUTO
+                    "daylight" -> WhiteBalance.DAYLIGHT
+                    "shade" -> WhiteBalance.SHADE
+                    "cloudy" -> WhiteBalance.CLOUDY
+                    "tungsten" -> WhiteBalance.TUNGSTEN
+                    "fluorescent_warm" -> WhiteBalance.FLUORESCENT_WARM
+                    "fluorescent_cool" -> WhiteBalance.FLUORESCENT_COOL
+                    "fluorescent_day" -> WhiteBalance.FLUORESCENT_DAY
+                    "fluorescent_daylight" -> WhiteBalance.FLUORESCENT_DAYLIGHT
+                    "flash" -> WhiteBalance.FLASH
+                    "underwater" -> WhiteBalance.UNDERWATER
+                    "custom" -> WhiteBalance.CUSTOM
+                    "temperature" -> WhiteBalance.TEMPERATURE
+                    else -> null
+                }
+                if (whiteBalance != null && whiteBalance != state.whiteBalance) {
+                    Log.d(TAG, "Syncing white balance: ${settings.whiteBalance}")
+                    newState = newState.copy(whiteBalance = whiteBalance)
+                }
+            }
+
+            // Sync focus mode (if not empty)
+            if (settings.focusMode.isNotEmpty()) {
+                val focusMode = when (settings.focusMode) {
+                    "af_s" -> FocusMode.AUTO
+                    "af_c" -> FocusMode.CONTINUOUS
+                    "manual" -> FocusMode.MANUAL
+                    else -> null
+                }
+                if (focusMode != null && focusMode != state.focusMode) {
+                    Log.d(TAG, "Syncing focus mode: ${settings.focusMode}")
+                    newState = newState.copy(focusMode = focusMode)
+                }
+            }
+
+            // Sync file format (if not empty)
+            if (settings.fileFormat.isNotEmpty()) {
+                val fileFormat = when (settings.fileFormat) {
+                    "jpeg" -> FileFormat.JPEG
+                    "raw" -> FileFormat.RAW
+                    "jpeg_raw" -> FileFormat.JPEG_PLUS_RAW
+                    else -> null
+                }
+                if (fileFormat != null && fileFormat != state.fileFormat) {
+                    Log.d(TAG, "Syncing file format: ${settings.fileFormat}")
+                    newState = newState.copy(fileFormat = fileFormat)
+                }
+            }
 
             newState
         }
@@ -482,7 +536,8 @@ class CameraViewModel : ViewModel() {
 
     /**
      * Start periodic property polling from Air-Side
-     * Queries shutter speed, ISO, and aperture at configured frequency
+     * Queries all 6 Phase 1 camera properties at configured frequency:
+     * shutter_speed, aperture, iso, white_balance, focus_mode, file_format
      */
     fun startPropertyPolling() {
         // Stop any existing polling
@@ -523,10 +578,18 @@ class CameraViewModel : ViewModel() {
 
     /**
      * Query camera properties from Air-Side and update state
+     * Queries all 6 Phase 1 camera properties
      */
     private suspend fun queryAndUpdateProperties() {
         try {
-            val properties = listOf("shutter_speed", "aperture", "iso")
+            val properties = listOf(
+                "shutter_speed",
+                "aperture",
+                "iso",
+                "white_balance",
+                "focus_mode",
+                "file_format"
+            )
             val result = NetworkManager.getClient()?.getCameraProperties(properties)
 
             result?.fold(
@@ -622,6 +685,64 @@ class CameraViewModel : ViewModel() {
                     if (iso != null && iso != state.iso) {
                         Log.d(TAG, "Updating ISO from query: $isoStr")
                         newState = newState.copy(iso = iso)
+                    }
+                }
+            }
+
+            // Parse white balance
+            (resultMap["white_balance"] as? String)?.let { wbStr ->
+                if (wbStr.isNotEmpty()) {
+                    val whiteBalance = when (wbStr) {
+                        "auto" -> WhiteBalance.AUTO
+                        "daylight" -> WhiteBalance.DAYLIGHT
+                        "shade" -> WhiteBalance.SHADE
+                        "cloudy" -> WhiteBalance.CLOUDY
+                        "tungsten" -> WhiteBalance.TUNGSTEN
+                        "fluorescent_warm" -> WhiteBalance.FLUORESCENT_WARM
+                        "fluorescent_cool" -> WhiteBalance.FLUORESCENT_COOL
+                        "fluorescent_day" -> WhiteBalance.FLUORESCENT_DAY
+                        "fluorescent_daylight" -> WhiteBalance.FLUORESCENT_DAYLIGHT
+                        "flash" -> WhiteBalance.FLASH
+                        "underwater" -> WhiteBalance.UNDERWATER
+                        "custom" -> WhiteBalance.CUSTOM
+                        "temperature" -> WhiteBalance.TEMPERATURE
+                        else -> null
+                    }
+                    if (whiteBalance != null && whiteBalance != state.whiteBalance) {
+                        Log.d(TAG, "Updating white balance from query: $wbStr")
+                        newState = newState.copy(whiteBalance = whiteBalance)
+                    }
+                }
+            }
+
+            // Parse focus mode
+            (resultMap["focus_mode"] as? String)?.let { focusStr ->
+                if (focusStr.isNotEmpty()) {
+                    val focusMode = when (focusStr) {
+                        "af_s" -> FocusMode.AUTO
+                        "af_c" -> FocusMode.CONTINUOUS
+                        "manual" -> FocusMode.MANUAL
+                        else -> null
+                    }
+                    if (focusMode != null && focusMode != state.focusMode) {
+                        Log.d(TAG, "Updating focus mode from query: $focusStr")
+                        newState = newState.copy(focusMode = focusMode)
+                    }
+                }
+            }
+
+            // Parse file format
+            (resultMap["file_format"] as? String)?.let { formatStr ->
+                if (formatStr.isNotEmpty()) {
+                    val fileFormat = when (formatStr) {
+                        "jpeg" -> FileFormat.JPEG
+                        "raw" -> FileFormat.RAW
+                        "jpeg_raw" -> FileFormat.JPEG_PLUS_RAW
+                        else -> null
+                    }
+                    if (fileFormat != null && fileFormat != state.fileFormat) {
+                        Log.d(TAG, "Updating file format from query: $formatStr")
+                        newState = newState.copy(fileFormat = fileFormat)
                     }
                 }
             }
