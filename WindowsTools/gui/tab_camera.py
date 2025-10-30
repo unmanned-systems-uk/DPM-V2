@@ -194,7 +194,7 @@ class CameraDashboardTab(ttk.Frame):
         self.model_label.config(text=model)
 
         # Battery level
-        battery = camera.get("battery_level", 0)
+        battery = camera.get("battery_percent", 0)
         self.battery_var.set(battery)
         self.battery_label.config(text=f"{battery}%")
 
@@ -202,8 +202,8 @@ class CameraDashboardTab(ttk.Frame):
         shots = camera.get("remaining_shots", "N/A")
         self.shots_label.config(text=str(shots))
 
-        # Current properties
-        current_props = camera.get("current_properties", {})
+        # Current properties (called "settings" in status message)
+        current_props = camera.get("settings", {})
         self._update_properties(current_props)
 
         # Update timestamp
