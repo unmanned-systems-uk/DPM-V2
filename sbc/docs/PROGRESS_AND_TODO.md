@@ -20,13 +20,143 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Dynamic IP discovery ready! Dual-port UDP broadcasting!)
+**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Multi-client UDP broadcasting! Dual-port UDP broadcasting! Complete storage reporting!)
 
-**Last Updated:** October 30, 2025 - Enhanced system monitoring with real-time CPU, memory, network metrics
+**Last Updated:** October 30, 2025 - Multi-client UDP broadcasting + complete storage reporting (disk_total_gb)
 
 ---
 
 ## RECENT UPDATES (October 23-30, 2025)
+
+### ✅ Multi-Client UDP Broadcasting Implemented! (October 30, 2025)
+
+**Critical Issue Resolved:**
+- Air-Side could only broadcast to ONE client at a time
+- H16 (Ethernet 192.168.144.11) OR Windows Tools (WiFi 10.0.1.x) - not both
+- When second client connected, it overwrote the first client's IP
+- Only one client would receive UDP status/heartbeat broadcasts
+
+**Root Cause:**
+- UDPBroadcaster and Heartbeat used single `target_ip_` string
+- TCP server's `setTargetIP()` replaced the IP instead of adding to a list
+- No mechanism to track multiple simultaneous clients
+
+**Solution Implemented:**
+
+**Architecture Changes:**
+1. **UDPBroadcaster** (`sbc/src/protocol/udp_broadcaster.h/cpp`):
+   - Changed from `std::string target_ip_` to `std::set<std::string> client_ips_`
+   - Added `std::string default_target_ip_` for initial configuration
+   - Added thread-safe `addClient()` and `removeClient()` methods
+   - Modified `sendStatus()` to loop through ALL registered clients
+   - Each client receives broadcasts on both primary AND alternative ports
+
+2. **Heartbeat** (`sbc/src/protocol/heartbeat.h/cpp`):
+   - Same multi-client architecture as UDPBroadcaster
+   - Changed to `std::set<std::string> client_ips_`
+   - Thread-safe client management with mutex protection
+   - Modified `sendLoop()` to broadcast to ALL clients
+
+3. **TCP Server** (`sbc/src/protocol/tcp_server.cpp`):
+   - Added client registration on TCP connect
+   - Added client unregistration on disconnect
+   - Calls `addClient()` when client connects (via existing `setTargetIP()` which now adds to set)
+   - Calls `removeClient()` when client disconnects
+
+**Implementation Details:**
+```cpp
+// Multi-client storage (thread-safe)
+std::set<std::string> client_ips_;
+mutable std::mutex clients_mutex_;
+
+// Add client when TCP connects
+void addClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    if (client_ips_.insert(client_ip).second) {
+        Logger::info("Added client " + client_ip + " (total: " + std::to_string(client_ips_.size()) + ")");
+    }
+}
+
+// Broadcast to all clients
+for (const auto& client_ip : clients) {
+    // Send to primary port (5001)
+    // Send to alternative port (50001)
+}
+```
+
+**Testing Results:**
+- ✅ Both H16 (Ethernet) and Windows Tools (WiFi) receive broadcasts simultaneously
+- ✅ No overwriting - each client maintains independent connection
+- ✅ Client count correctly shows 2 when both connected
+- ✅ Automatic removal when client disconnects
+- ✅ Thread-safe concurrent access to client list
+
+**Status:** ✅ **MULTI-CLIENT BROADCASTING FULLY OPERATIONAL** - H16 and Windows Tools can connect simultaneously!
+
+---
+
+### ✅ Complete Storage Reporting Added! (October 30, 2025)
+
+**Issue:**
+- System status broadcasted `disk_free_gb` but not `disk_total_gb`
+- Ground apps couldn't display proper storage usage percentages
+- Windows Tools and Android System Monitor tabs needed total disk size
+
+**Solution:**
+- Added `disk_total_gb` field to `SystemStatus` structure
+- Implemented `getDiskTotalGB()` using `statvfs` with `f_blocks`
+- Updated JSON serialization to include both free and total
+
+**Implementation:**
+```cpp
+// messages.h - SystemStatus structure
+struct SystemStatus {
+    int64_t uptime_seconds;
+    double cpu_percent;
+    int64_t memory_mb;
+    int64_t memory_total_mb;
+    double disk_free_gb;
+    double disk_total_gb;        // NEW
+    double network_rx_mbps;
+    double network_tx_mbps;
+};
+
+// system_info.cpp - Disk total calculation
+double SystemInfo::getDiskTotalGB() {
+    struct statvfs stat;
+    if (statvfs("/home", &stat) == 0) {
+        double total_bytes = static_cast<double>(stat.f_blocks) * stat.f_frsize;
+        return total_bytes / (1024.0 * 1024.0 * 1024.0);
+    }
+    return 0.0;
+}
+```
+
+**Status Message (now includes both):**
+```json
+{
+  "system": {
+    "uptime_seconds": 11054,
+    "cpu_percent": 8.2,
+    "memory_mb": 2234,
+    "memory_total_mb": 7930,
+    "disk_free_gb": 44.1,
+    "disk_total_gb": 58.4,
+    "network_rx_mbps": 1.5,
+    "network_tx_mbps": 3.8
+  }
+}
+```
+
+**Testing Results:**
+- ✅ UDP message size increased to ~544-560 bytes (was ~385-416)
+- ✅ Both disk_free_gb and disk_total_gb reported correctly
+- ✅ Ground apps can now show storage usage bars
+- ✅ No performance impact
+
+**Status:** ✅ **COMPLETE STORAGE REPORTING ACTIVE** - Ground apps have full disk information!
+
+---
 
 ### ✅ Enhanced System Monitoring Implemented! (October 30, 2025)
 
