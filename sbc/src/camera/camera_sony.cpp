@@ -91,6 +91,7 @@ public:
     }
 
     ~CameraSony() override {
+        stopPropertyRefresh();  // Ensure refresh thread is stopped
         disconnect();
         shutdownSDK();
     }
@@ -197,12 +198,23 @@ public:
 
             // DIAGNOSTIC: Query and log available ISO values
             logAvailableIsoValues();
+
+            // Start periodic property refresh thread - it will populate cached properties
+            // NOTE: We do NOT call updateCachedProperties() here because calling
+            // GetDeviceProperties() immediately after connection can block indefinitely.
+            // The background refresh thread handles property queries safely.
+            Logger::info("Starting property refresh thread...");
+            startPropertyRefresh();
+            Logger::info("Property refresh thread started successfully");
         }
 
         return callback_->isConnected();
     }
 
     void disconnect() override {
+        // Stop property refresh thread first (before acquiring lock)
+        stopPropertyRefresh();
+
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!isConnectedLocked()) {
@@ -779,9 +791,40 @@ private:
             prop.SetCurrentValue(it->second);
             prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
         }
+        else if (property == "exposure_compensation") {
+            // Exposure compensation: convert EV value to Sony SDK fixed-point format
+            // Protocol format: decimal string (e.g., "+1.0", "-0.3", "0.0")
+            // Sony SDK format: value × 1000 as signed 16-bit integer
+            // Range: -5.0 to +5.0 EV in 1/3 stop increments
+            // Examples: +1.0 EV = 1000, -0.3 EV = -300, 0.0 EV = 0
+            prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureBiasCompensation);
+
+            try {
+                double ev_value = std::stod(value);
+
+                // Validate range: -5.0 to +5.0 EV
+                if (ev_value < -5.0 || ev_value > 5.0) {
+                    Logger::error("Exposure compensation out of range (-5.0 to +5.0 EV): " + value);
+                    return false;
+                }
+
+                // Convert to Sony SDK format: EV × 1000
+                // Use int16_t for signed values (can be negative)
+                int16_t sdk_value = static_cast<int16_t>(ev_value * 1000.0);
+
+                Logger::debug("Exposure compensation: " + value + " EV -> SDK value " + std::to_string(sdk_value));
+
+                prop.SetCurrentValue(static_cast<uint16_t>(sdk_value));
+                prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+            } catch (const std::exception& e) {
+                Logger::error("Failed to parse exposure compensation value '" + value + "': " + std::string(e.what()));
+                Logger::error("Expected decimal number (e.g., '+1.0', '-0.3', '0.0')");
+                return false;
+            }
+        }
         else {
             Logger::error("Unknown or unsupported property: " + property);
-            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode");
+            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode, exposure_compensation");
             return false;
         }
 
@@ -873,6 +916,9 @@ private:
         }
         else if (property == "drive_mode") {
             prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_DriveMode;
+        }
+        else if (property == "exposure_compensation") {
+            prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureBiasCompensation;
         }
         else {
             Logger::error("Unknown property for get: " + property);
@@ -974,8 +1020,52 @@ private:
                         result = std::to_string(raw_value);
                     }
                 }
+                else if (property == "white_balance") {
+                    // Reverse lookup in white balance map
+                    static const std::unordered_map<uint16_t, std::string> WB_REVERSE = {
+                        {0x0000, "auto"}, {0x0011, "daylight"}, {0x0012, "shade"}, {0x0013, "cloudy"},
+                        {0x0014, "tungsten"}, {0x0021, "fluorescent_warm"}, {0x0022, "fluorescent_cool"},
+                        {0x0023, "fluorescent_day"}, {0x0024, "fluorescent_daylight"}, {0x0030, "flash"},
+                        {0x0100, "temperature"}, {0x0104, "custom"}
+                    };
+                    auto it = WB_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != WB_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "focus_mode") {
+                    // Reverse lookup in focus mode map
+                    static const std::unordered_map<uint16_t, std::string> FOCUS_REVERSE = {
+                        {0x0001, "manual"}, {0x0002, "af_s"}, {0x0003, "af_c"},
+                        {0x0004, "af_a"}, {0x0006, "dmf"}
+                    };
+                    auto it = FOCUS_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != FOCUS_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "file_format") {
+                    // Reverse lookup in file format map
+                    static const std::unordered_map<uint16_t, std::string> FORMAT_REVERSE = {
+                        {0x0001, "jpeg"}, {0x0002, "raw"}, {0x0003, "jpeg_raw"}
+                    };
+                    auto it = FORMAT_REVERSE.find(static_cast<uint16_t>(raw_value));
+                    result = (it != FORMAT_REVERSE.end()) ? it->second : "unknown(" + toHexString(raw_value) + ")";
+                }
+                else if (property == "exposure_compensation") {
+                    // Convert from Sony SDK format (value × 1000) to EV decimal string
+                    // Example: 1000 → "+1.0", -300 → "-0.3", 0 → "0.0"
+                    // Sony SDK uses signed 16-bit values
+                    int16_t sdk_value = static_cast<int16_t>(raw_value & 0xFFFF);
+                    double ev_value = sdk_value / 1000.0;
+
+                    // Format as decimal string with sign
+                    char buffer[32];
+                    if (ev_value >= 0) {
+                        snprintf(buffer, sizeof(buffer), "+%.1f", ev_value);
+                    } else {
+                        snprintf(buffer, sizeof(buffer), "%.1f", ev_value);
+                    }
+                    result = std::string(buffer);
+                }
                 else {
-                    // For other properties, return hex value for now
+                    // For other properties not yet implemented, return hex value
                     result = "0x" + std::to_string(raw_value);
                 }
 
@@ -994,6 +1084,35 @@ private:
         return result;
     }
 
+    // Update cached camera properties for status broadcasts
+    void updateCachedProperties() {
+        Logger::info("updateCachedProperties: Entry");
+        if (!isConnected()) {
+            Logger::error("updateCachedProperties: Camera not connected, returning");
+            return;
+        }
+
+        Logger::info("updateCachedProperties: Querying properties...");
+        // NOTE: No mutex lock needed here - getProperty() acquires it for each call
+        // Query current camera settings and update cache
+        cached_status_.iso = getProperty("iso");
+        Logger::info("updateCachedProperties: Got ISO");
+        cached_status_.shutter_speed = getProperty("shutter_speed");
+        Logger::info("updateCachedProperties: Got shutter_speed");
+        cached_status_.aperture = getProperty("aperture");
+        Logger::info("updateCachedProperties: Got aperture");
+        cached_status_.white_balance = getProperty("white_balance");
+        Logger::info("updateCachedProperties: Got white_balance");
+        cached_status_.focus_mode = getProperty("focus_mode");
+        Logger::info("updateCachedProperties: Got focus_mode");
+        cached_status_.file_format = getProperty("file_format");
+        Logger::info("updateCachedProperties: Got file_format");
+
+        Logger::info("Updated cached camera properties: ISO=" + cached_status_.iso +
+                    ", Shutter=" + cached_status_.shutter_speed +
+                    ", Aperture=" + cached_status_.aperture);
+    }
+
 private:
     mutable std::mutex mutex_;
     bool sdk_initialized_;
@@ -1004,6 +1123,52 @@ private:
 
     // Cached status for non-blocking getStatus() calls
     mutable messages::CameraStatus cached_status_;
+
+    // Periodic property refresh
+    std::atomic<bool> property_refresh_running_{false};
+    std::thread property_refresh_thread_;
+
+    // Property refresh loop - runs in separate thread
+    void propertyRefreshLoop() {
+        Logger::info("Camera property refresh thread started (interval: 2 seconds)");
+
+        while (property_refresh_running_) {
+            if (isConnected()) {
+                try {
+                    updateCachedProperties();
+                } catch (const std::exception& e) {
+                    Logger::error("Exception in property refresh: " + std::string(e.what()));
+                }
+            }
+
+            // Wait 2 seconds before next refresh
+            for (int i = 0; i < 20 && property_refresh_running_; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+
+        Logger::info("Camera property refresh thread stopped");
+    }
+
+    // Start periodic property refresh
+    void startPropertyRefresh() {
+        if (!property_refresh_running_) {
+            property_refresh_running_ = true;
+            property_refresh_thread_ = std::thread(&CameraSony::propertyRefreshLoop, this);
+            Logger::info("Started periodic camera property refresh");
+        }
+    }
+
+    // Stop periodic property refresh
+    void stopPropertyRefresh() {
+        if (property_refresh_running_) {
+            property_refresh_running_ = false;
+            if (property_refresh_thread_.joinable()) {
+                property_refresh_thread_.join();
+            }
+            Logger::info("Stopped periodic camera property refresh");
+        }
+    }
 };
 
 // Factory function to create camera interface

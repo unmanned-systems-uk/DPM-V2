@@ -1,0 +1,18 @@
+# RemoteCli v2 - Git Ignore
+
+# Log files
+logs/
+*.log
+
+# Build artifacts
+remotecli_v2/build/
+remotecli_v2/bin/
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker build context
+/tmp/

@@ -419,10 +419,10 @@
         "priority": "medium"
       },
       "implemented": {
-        "air_side": false,
+        "air_side": true,
         "ground_side": false,
         "version": "1.1.0",
-        "notes": ""
+        "notes": "✅ AIR-SIDE IMPLEMENTED Oct 30, 2025. Converts decimal EV values (e.g., '+1.0', '-0.3') to Sony SDK fixed-point format (value × 1000). Ground-side UI exists but not yet wired up."
       }
     }
   },
