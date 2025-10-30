@@ -104,7 +104,7 @@ class RemoteControlTab(ttk.Frame):
                                                        "Checking network interfaces...")).pack(side=tk.LEFT, padx=5, pady=5)
 
         ttk.Button(network_frame, text="Check Open Ports",
-                  command=lambda: self._execute_command("sudo netstat -tulpn | grep LISTEN",
+                  command=lambda: self._execute_command("ss -tuln",
                                                        "Checking listening ports...")).pack(side=tk.LEFT, padx=5, pady=5)
 
         # Output display
@@ -130,6 +130,9 @@ class RemoteControlTab(ttk.Frame):
 
         ttk.Button(bottom_frame, text="Copy Output",
                   command=self._copy_output).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(bottom_frame, text="Copy Selected",
+                  command=self._copy_selected).pack(side=tk.LEFT, padx=5)
 
         # Status
         self.status_label = ttk.Label(bottom_frame, text="Ready",
@@ -231,5 +234,20 @@ class RemoteControlTab(ttk.Frame):
             self.clipboard_append(output)
             self.update()
             messagebox.showinfo("Success", "Output copied to clipboard!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy:\n{e}")
+
+    def _copy_selected(self):
+        """Copy selected text to clipboard"""
+        try:
+            # Check if there's a selection
+            if self.output_text.tag_ranges(tk.SEL):
+                selected_text = self.output_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+                self.update()
+                messagebox.showinfo("Success", "Selected text copied to clipboard!")
+            else:
+                messagebox.showwarning("No Selection", "Please select text to copy.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
