@@ -438,12 +438,8 @@ public:
 
                 // CRITICAL FIX #3: Try to enable LiveView to enable FocalDistanceInMeter
                 // Some cameras require live view to be active for focus operations
-                SDK::CrDeviceProperty lv_prop;
-                lv_prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_LiveViewStatus);
-                lv_prop.SetCurrentValue(0x01);  // Enable LiveView
-                lv_prop.SetValueType(SDK::CrDataType_UInt16);
-
-                auto lv_result = SDK::SetDeviceProperty(device_handle_, &lv_prop);
+                // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
+                auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
                 if (CR_SUCCEEDED(lv_result)) {
                     Logger::info("LiveView enabled - waiting for property updates");
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give camera time to update
@@ -479,12 +475,8 @@ public:
             Logger::warning("Failed to query FocalDistanceInMeter property - attempting to enable LiveView first");
 
             // Try to enable LiveView - this often makes focus properties available
-            SDK::CrDeviceProperty lv_prop;
-            lv_prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_LiveViewStatus);
-            lv_prop.SetCurrentValue(0x01);  // Enable LiveView
-            lv_prop.SetValueType(SDK::CrDataType_UInt16);
-
-            auto lv_result = SDK::SetDeviceProperty(device_handle_, &lv_prop);
+            // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
+            auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
             if (CR_SUCCEEDED(lv_result)) {
                 Logger::info("LiveView enabled - waiting for property updates");
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
