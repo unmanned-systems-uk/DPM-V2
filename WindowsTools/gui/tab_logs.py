@@ -154,17 +154,24 @@ class LogInspectorTab(ttk.Frame):
 
         ttk.Label(search_frame, text="Search:").pack(side=tk.LEFT, padx=5)
         self.search_var = tk.StringVar()
-        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
+        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=40)
         self.search_entry.pack(side=tk.LEFT, padx=5)
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
 
         ttk.Button(search_frame, text="Clear", command=self._clear_search).pack(side=tk.LEFT, padx=5)
 
-        # Filter toggle (grep mode)
+        # AND logic hint
+        ttk.Label(search_frame, text="Tip: Use & for AND (e.g., \"192.168.144.11 & focus\")",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=10)
+
+        # Filter toggle (grep mode) - move to new row
+        filter_frame = ttk.Frame(controls_frame)
+        filter_frame.pack(fill=tk.X, pady=(0, 5))
+
         self.filter_mode_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(search_frame, text="Filter (grep - only show matches)",
+        ttk.Checkbutton(filter_frame, text="Filter Mode (only show matching lines)",
                        variable=self.filter_mode_var,
-                       command=self._on_filter_mode_changed).pack(side=tk.LEFT, padx=10)
+                       command=self._on_filter_mode_changed).pack(side=tk.LEFT, padx=5)
 
         # Bottom controls (pack BEFORE expanding log frame so it stays visible)
         bottom_frame = ttk.Frame(self)
@@ -406,11 +413,25 @@ class LogInspectorTab(ttk.Frame):
         self.last_update_label.config(text=datetime.now().strftime("%H:%M:%S"))
 
     def _filter_logs(self, logs: str, search_text: str) -> str:
-        """Filter logs by search text"""
+        """Filter logs by search text - supports AND logic with &"""
         filtered_lines = []
-        for line in logs.splitlines():
-            if search_text in line.lower():
-                filtered_lines.append(line)
+
+        # Check if AND logic is requested (using & separator)
+        if '&' in search_text:
+            # Split by & and trim whitespace
+            search_terms = [term.strip().lower() for term in search_text.split('&') if term.strip()]
+
+            # Filter lines that contain ALL search terms (AND logic)
+            for line in logs.splitlines():
+                line_lower = line.lower()
+                if all(term in line_lower for term in search_terms):
+                    filtered_lines.append(line)
+        else:
+            # Single term search (original behavior)
+            for line in logs.splitlines():
+                if search_text in line.lower():
+                    filtered_lines.append(line)
+
         return "\n".join(filtered_lines)
 
     def _apply_highlighting(self):
