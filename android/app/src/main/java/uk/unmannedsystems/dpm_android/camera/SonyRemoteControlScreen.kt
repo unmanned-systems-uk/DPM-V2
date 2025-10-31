@@ -252,6 +252,10 @@ fun SonyRemoteControlScreen(
                 val mode = CameraMode.entries.find { it.displayName == modeName }
                 mode?.let { viewModel.setMode(it) }
             },
+            onFocusNear = viewModel::focusNear,
+            onFocusFar = viewModel::focusFar,
+            onFocusStop = viewModel::focusStop,
+            onAutoFocusHold = viewModel::setAutoFocusHold,
             modifier = Modifier
                 .width(320.dp)
                 .fillMaxHeight()
@@ -282,6 +286,10 @@ private fun SonyRemoteSidebar(
     onSetFocusMode: (FocusMode) -> Unit,
     onSetFileFormat: (FileFormat) -> Unit,
     onModeSelected: (String) -> Unit,
+    onFocusNear: (Int) -> Unit,
+    onFocusFar: (Int) -> Unit,
+    onFocusStop: () -> Unit,
+    onAutoFocusHold: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -334,7 +342,13 @@ private fun SonyRemoteSidebar(
             title = "Focus",
             initiallyExpanded = false
         ) {
-            FocusSection(cameraState = cameraState)
+            FocusSection(
+                cameraState = cameraState,
+                onFocusNear = onFocusNear,
+                onFocusFar = onFocusFar,
+                onFocusStop = onFocusStop,
+                onAutoFocusHold = onAutoFocusHold
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -971,7 +985,13 @@ private fun SubSettingSmall(text: String) {
  * Phase 1: Manual Focus - 6-speed directional control + Auto-Focus Hold
  */
 @Composable
-private fun FocusSection(cameraState: CameraState) {
+private fun FocusSection(
+    cameraState: CameraState,
+    onFocusNear: (Int) -> Unit,
+    onFocusFar: (Int) -> Unit,
+    onFocusStop: () -> Unit,
+    onAutoFocusHold: (String) -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1000,7 +1020,7 @@ private fun FocusSection(cameraState: CameraState) {
         }
 
         // Manual focus directional controls (6 speeds)
-        // Near: < << <<<  |  Far: > >> >>>
+        // Near: < << <<<  |  Far: >>> >> >
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1014,16 +1034,16 @@ private fun FocusSection(cameraState: CameraState) {
             )
 
             // Near buttons (focus closer)
-            FocusButton("<", onClick = { /* Near speed 1 */ })
-            FocusButton("<<", onClick = { /* Near speed 2 */ })
-            FocusButton("<<<", onClick = { /* Near speed 3 */ })
+            FocusButtonPressHold("<", onPress = { onFocusNear(1) }, onRelease = { onFocusStop() })
+            FocusButtonPressHold("<<", onPress = { onFocusNear(2) }, onRelease = { onFocusStop() })
+            FocusButtonPressHold("<<<", onPress = { onFocusNear(3) }, onRelease = { onFocusStop() })
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Far buttons (focus farther/infinity)
-            FocusButton(">", onClick = { /* Far speed 1 */ })
-            FocusButton(">>", onClick = { /* Far speed 2 */ })
-            FocusButton(">>>", onClick = { /* Far speed 3 */ })
+            // Far buttons (focus farther/infinity) - REVERSED ORDER
+            FocusButtonPressHold(">>>", onPress = { onFocusFar(3) }, onRelease = { onFocusStop() })
+            FocusButtonPressHold(">>", onPress = { onFocusFar(2) }, onRelease = { onFocusStop() })
+            FocusButtonPressHold(">", onPress = { onFocusFar(1) }, onRelease = { onFocusStop() })
 
             // Mountain icon (far side)
             Text(
@@ -1040,26 +1060,46 @@ private fun FocusSection(cameraState: CameraState) {
             horizontalArrangement = Arrangement.Center
         ) {
             AutoFocusHoldButton(
-                onPressStart = { /* Enable AF Hold */ },
-                onPressEnd = { /* Disable AF Hold */ }
+                onPressStart = { onAutoFocusHold("press") },
+                onPressEnd = { onAutoFocusHold("release") }
             )
         }
     }
 }
 
 /**
- * Focus adjustment button
+ * Focus adjustment button with press-and-hold behavior
+ * Press to start focusing, release to stop
  */
 @Composable
-private fun FocusButton(
+private fun FocusButtonPressHold(
     symbol: String,
-    onClick: () -> Unit
+    onPress: () -> Unit,
+    onRelease: () -> Unit
 ) {
+    var isPressed by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .size(40.dp)
-            .background(Color(0xFF3A3A3A), RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick),
+            .background(
+                color = if (isPressed) Color(0xFF4CAF50) else Color(0xFF3A3A3A),
+                shape = RoundedCornerShape(4.dp)
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        onPress()
+                        try {
+                            awaitRelease()
+                        } finally {
+                            isPressed = false
+                            onRelease()
+                        }
+                    }
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
