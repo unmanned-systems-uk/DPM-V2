@@ -96,10 +96,16 @@ This document provides complete implementation instructions for Android GCS deve
   "status": "success",
   "result": {
     "action": "near",
-    "speed": 3
+    "speed": 3,
+    "focus_distance_m": 5.5
   }
 }
 ```
+
+**Note:** `focus_distance_m` is the current focal distance in meters. Value can be:
+- A positive number (e.g., `5.5` = 5.5 meters)
+- String `"infinity"` (focused at infinity / ∞)
+- Omitted (if camera doesn't support or error reading)
 
 **Error Response:**
 ```json
@@ -202,6 +208,7 @@ CameraControlFragment
 │  └────┘  └────┘  └────┘  └──────────┘ │
 │                                         │
 │  [  Active: Focusing FAR at speed 3  ] │
+│  [  Distance: 5.5m                   ] │
 └─────────────────────────────────────────┘
 ```
 
@@ -370,6 +377,9 @@ class FocusControlViewModel(
     private val _currentSpeed = MutableStateFlow(3)
     val currentSpeed: StateFlow<Int> = _currentSpeed.asStateFlow()
 
+    private val _focalDistanceM = MutableStateFlow<Float?>(null)
+    val focalDistanceM: StateFlow<Float?> = _focalDistanceM.asStateFlow()
+
     private val _errorMessage = MutableSharedFlow<String>()
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
@@ -379,8 +389,16 @@ class FocusControlViewModel(
             _focusState.value = FocusState.FOCUSING_NEAR
 
             protocolClient.sendFocusCommand("near", speed)
-                .onSuccess {
+                .onSuccess { response ->
                     Timber.d("Focus NEAR started at speed $speed")
+                    // Extract focal distance from response
+                    response.result?.let { result ->
+                        when (val distance = result["focus_distance_m"]) {
+                            is Number -> _focalDistanceM.value = distance.toFloat()
+                            "infinity" -> _focalDistanceM.value = -1f
+                            else -> _focalDistanceM.value = null
+                        }
+                    }
                 }
                 .onFailure { error ->
                     _focusState.value = FocusState.IDLE
@@ -487,6 +505,7 @@ fun ManualFocusPanel(
 ) {
     val focusState by viewModel.focusState.collectAsState()
     val currentSpeed by viewModel.currentSpeed.collectAsState()
+    val focalDistanceM by viewModel.focalDistanceM.collectAsState()
     val context = LocalContext.current
 
     // Collect error messages
@@ -582,6 +601,22 @@ fun ManualFocusPanel(
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        // Focal distance display
+        focalDistanceM?.let { distance ->
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = when {
+                    distance < 0 -> "Distance: ∞ (infinity)"
+                    distance < 1.0 -> "Distance: ${(distance * 100).toInt()}cm"
+                    else -> "Distance: ${String.format("%.1f", distance)}m"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -1160,7 +1195,11 @@ A: Enable protocol logging in DPMProtocolClient. Check Air-Side logs: `docker lo
   "seq_id": 100,
   "command": "camera.focus",
   "status": "success",
-  "result": {"action": "near", "speed": 2}
+  "result": {
+    "action": "near",
+    "speed": 2,
+    "focus_distance_m": 12.5
+  }
 }
 
 // 2. User releases button after 2 seconds
