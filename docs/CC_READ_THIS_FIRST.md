@@ -642,6 +642,212 @@ git add protocol/
 git commit -m "[DOCS] Protocol: Marked shutter_speed implemented all sides"
 ```
 
+### 🔴 NEW REQUIREMENT: Cross-Platform Implementation Instructions
+
+**CRITICAL: When Claude Code works on one platform and the changes will impact another platform, the commit message MUST include detailed implementation instructions for that platform!**
+
+**Why This Matters:**
+- The other platform's Claude Code instance needs to understand what was done
+- Detailed commit messages enable the other platform to integrate smoothly
+- Prevents miscommunication and implementation errors
+- Provides context that code alone cannot convey
+
+**When This Applies:**
+- ✅ Implementing a feature on Air-Side that Ground-Side will need to use
+- ✅ Implementing a feature on Ground-Side that Air-Side will need to support
+- ✅ Fixing a bug on one side that affects the other side
+- ✅ Making protocol changes that both sides need to understand
+- ✅ Implementing diagnostic features that reveal issues on other platforms
+
+**Commit Message Format for Cross-Platform Work:**
+
+```bash
+[PLATFORM][TYPE] Component: Brief summary
+
+Root Cause / Context:
+- What problem this solves
+- Why this approach was chosen
+- What was wrong before
+
+Technical Details:
+- Specific implementation details
+- SDK functions used (if Air-Side)
+- UI components added (if Ground-Side)
+- Protocol messages involved
+- Timing/sequencing requirements
+- Error handling approach
+
+Fixes / Implements:
+- List specific issues resolved
+- List specific features enabled
+- Note any side effects or limitations
+
+Testing:
+- How it was tested
+- Test results
+- What scenarios were verified
+
+Files Changed:
+- path/to/file.cpp (method_name, lines X-Y)
+- path/to/other_file.h (added new_function)
+
+Documentation:
+- Links to any docs created
+- Summary docs if extensive
+- API documentation updates
+
+For [OTHER_PLATFORM] Integration:
+- Specific instructions for the other platform
+- Expected behavior from this side
+- Protocol expectations
+- Error codes to handle
+- Timing considerations
+```
+
+**Excellent Example (Air-Side Fix with Ground-Side Instructions):**
+
+```bash
+[AIR][FIX] Camera: Fix focus control SDK error 0x8402
+
+Root Cause:
+- FocalDistanceInMeter property not properly validated as "enabled"
+- SDK requires property state checks before Focus_Operation calls
+- Missing timing delays caused interference between operations
+
+Technical Details:
+- Added Focus_Speed_Range query to validate and clamp speed values (1-3)
+- Added property state checks before Focus_Operation attempts
+- Added timing delays: 50ms post-query, 100ms post-command
+- Enhanced error logging with specific failure diagnostics
+- Created diagnostic version for troubleshooting camera-specific issues
+
+Sony SDK Functions Used:
+- CrDeviceProperty_FocalDistanceInMeter (validation)
+- CrDeviceProperty_Focus_Speed_Range (speed clamping)
+- CrDeviceProperty_Focus_Operation (near/far/stop)
+- CrDeviceProperty_AutoFocusHold (press/release)
+
+Fixes:
+- SDK error 0x8402 (CrError_Api_InvalidCalled) on all focus commands
+- Focus operations (near/far/stop) now work reliably
+- Property readback slowdown after focus commands resolved
+- Auto-focus hold (press/release) now functional
+
+Testing:
+- Verified focus commands execute without errors
+- Focal distance updates correctly during operation
+- Property queries remain responsive after focus commands
+- Tested all 6 speed levels (near 1-3, far 1-3)
+- Tested auto-focus hold press and release
+
+Files Changed:
+- sbc/src/camera/camera_sony.cpp (focus() method, lines 356-430)
+- sbc/src/camera/camera_sony.h (added focus speed validation)
+- sbc/include/protocol/messages.h (added focus error codes)
+
+Documentation:
+- Added docs/FOCUS_FIX_INSTRUCTIONS.md (implementation guide)
+- Added docs/FOCUS_FIX_SUMMARY.md (executive summary)
+- Created diagnostic version in camera_sony_diagnostic.cpp
+- Created production fix in camera_sony_fixed.cpp
+
+For GROUND-SIDE Integration:
+- Focus commands now work as documented in protocol
+- Expected response time: <100ms for command acknowledgment
+- Focal distance updates arrive via UDP status broadcasts
+- Error codes to handle:
+  * 0x8402: Camera not ready (retry after 100ms)
+  * Focus speed auto-clamped to 1-3 range (no error if out of range)
+- Timing: Wait 100ms between consecutive focus commands
+- UI Recommendation: Disable focus buttons during active operation
+- Testing: Use diagnostic mode logs if issues occur
+```
+
+**Good Example (Ground-Side UI with Air-Side Context):**
+
+```bash
+[GROUND][FEATURE] Camera: Add manual focus controls UI
+
+Context:
+- Implements Phase 1 manual focus per Focus_Control_Implementation_Guide.md
+- Air-Side focus commands implemented and tested in commit c83a58a
+- Provides 6-speed directional control (near/far, speeds 1-3)
+
+UI Implementation:
+- Added FocusSection component with 6 direction/speed buttons
+- Added AutoFocusHoldButton with press-and-hold behavior
+- Added focus mode display (MF/AF-S/AF-C) from camera status
+- Visual feedback: AF button changes gray→green when pressed
+- Icons: 👤 for near (person), 🏔️ for far (mountain)
+
+NetworkClient Methods:
+- focusCamera(action: String, speed: Int) sends camera.focus command
+- setAutoFocusHold(state: String) sends camera.auto_focus_hold command
+- Parameters validated before sending
+
+Protocol Messages:
+- camera.focus: {action: "near"/"far"/"stop", speed: 1-3}
+- camera.auto_focus_hold: {state: "press"/"release"}
+
+Files Changed:
+- app/src/main/java/com/dpm/groundstation/ui/SonyRemoteControlScreen.kt
+  * Added FocusSection component (lines 958-1037)
+  * Added AutoFocusHoldButton composable (lines 1063-1116)
+- app/src/main/java/com/dpm/groundstation/network/NetworkClient.kt
+  * Added focusCamera() method (line 245)
+  * Added setAutoFocusHold() method (line 267)
+
+Testing:
+- ✅ Buttons trigger correct protocol messages
+- ✅ AF Hold button responds to press/release correctly
+- ✅ Focus mode display updates from UDP status
+- ⏳ End-to-end testing with Air-Side pending
+
+For AIR-SIDE Context:
+- Ground-Side sends focus commands as documented
+- Expects camera.focus response within 100ms
+- Expects focal_distance updates via UDP status broadcasts
+- Will display focus mode from status.camera.focus_mode field
+- May send rapid commands if user holds button - Air-Side should debounce
+```
+
+**Bad Example (Missing Context):**
+
+```bash
+[AIR][FIX] Camera: Fixed focus
+
+- Fixed the focus bug
+- It works now
+```
+
+**Why This is Bad:**
+- No explanation of what was wrong
+- No technical details for debugging
+- No testing information
+- Ground-Side has no idea what changed or how to use it
+- Future Claude Code instances can't understand the fix
+
+**Enforcement:**
+
+✅ **DO:**
+- Include root cause analysis for fixes
+- List all technical changes in detail
+- Specify exact SDK functions/API calls used
+- Document timing and sequencing requirements
+- Provide test results and verification steps
+- Include explicit instructions for other platform
+- List all files changed with line numbers
+- Reference created documentation
+
+❌ **DON'T:**
+- Write vague commit messages like "fixed bug"
+- Assume other platform will figure it out
+- Skip technical details "to save time"
+- Forget to mention protocol changes
+- Leave out testing information
+- Omit error handling details
+- Forget timing requirements
+
 ### Rule #3: Never Leave Orphaned Documentation
 
 **Before making code changes:**
@@ -1658,18 +1864,19 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 1. 🔴 **ALWAYS ask which platform at session start (NEW!)**
 2. 🔴 **ALWAYS use platform prefix in Git commits (NEW!)**
-3. 🔴 **ALWAYS confirm current Git branch (should be `main`)**
-4. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
-5. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
-6. 🔴 **ALWAYS pull latest from Git before starting work**
-7. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
-8. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
-9. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
-10. 🔴 **ALWAYS commit regularly (every 30-60 min)**
-11. 🔴 **ALWAYS verify build succeeds before committing**
-12. 🔴 **ALWAYS commit before ending session**
-13. 🔴 **ALWAYS work incrementally (one thing at a time)**
-14. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
+3. 🔴 **ALWAYS include detailed cross-platform instructions in commits (NEW!)**
+4. 🔴 **ALWAYS confirm current Git branch (should be `main`)**
+5. 🔴 **ALWAYS read CC_READ_THIS_FIRST.md at session start**
+6. 🔴 **ALWAYS verify protocol files are at ~/DPM-V2/protocol/ NOT docs/protocol/**
+7. 🔴 **ALWAYS pull latest from Git before starting work**
+8. 🔴 **ALWAYS check protocol synchronization (protocol/commands.json + protocol/camera_properties.json)**
+9. 🔴 **ALWAYS read appropriate PROGRESS_AND_TODO.md**
+10. 🔴 **ALWAYS update PROGRESS_AND_TODO.md after significant changes**
+11. 🔴 **ALWAYS commit regularly (every 30-60 min)**
+12. 🔴 **ALWAYS verify build succeeds before committing**
+13. 🔴 **ALWAYS commit before ending session**
+14. 🔴 **ALWAYS work incrementally (one thing at a time)**
+15. 🔴 **NEVER hard-code camera property values - use ~/DPM-V2/protocol/camera_properties.json**
 
 ### Platform-Specific Rules
 
@@ -1736,6 +1943,7 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 - [ ] Platform was identified at session start
 - [ ] All Git commits use correct `[PLATFORM]` prefix
+- [ ] Cross-platform commits include detailed instructions for other platform
 - [ ] Current branch is `main`
 - [ ] PROGRESS_AND_TODO.md updated with today's work
 - [ ] All task checkboxes reflect reality
@@ -1745,7 +1953,7 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 - [ ] Issue Tracker reflects current bugs/blockers
 - [ ] Protocol JSON files updated if implemented commands/properties
 - [ ] All code changes are committed with `[PLATFORM][TYPE]` format
-- [ ] All commits have descriptive messages
+- [ ] All commits have descriptive messages with implementation details
 - [ ] All commits pushed to origin/main
 - [ ] Build succeeds (make/gradle/python)
 - [ ] No compiler errors or unresolved warnings
@@ -1757,13 +1965,14 @@ cat protocol/camera_properties.json | jq '.properties."property_name".validation
 
 ---
 
-**Document Status:** ✅ Active - v2.5 with Platform Rules & START Command  
-**Version:** 2.5 - Platform identification + START command + all v2.4 features  
-**Last Updated:** October 29, 2025  
-**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)  
+**Document Status:** ✅ Active - v2.6 with Cross-Platform Commit Message Requirements
+**Version:** 2.6 - Cross-platform implementation instructions + all v2.5 features
+**Last Updated:** October 31, 2025
+**Location:** Project root (DPM-V2/docs/CC_READ_THIS_FIRST.md)
 **Maintained By:** Human oversight, enforced by Claude Code
 
 **🔴 REMEMBER: Read this document at the start of EVERY session! 🔴**
 **🔴 NEW: Always identify your platform (AIR/GROUND/WINDOWS/DOCS) first! 🔴**
 **🔴 NEW: Always use [PLATFORM][TYPE] in Git commits! 🔴**
 **🔴 NEW: Always confirm Git branch is `main` before starting! 🔴**
+**🔴 NEW: Cross-platform commits MUST include detailed instructions for other platform! 🔴**
