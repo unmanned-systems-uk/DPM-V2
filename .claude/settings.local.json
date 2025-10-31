@@ -22,13 +22,20 @@
       "Bash(dir:*)",
       "Bash(cat:*)",
       "Bash(git rm:*)",
+      "Bash(git stash pop:*)",
       "Bash(gradlew assembleDebug:*)",
       "Bash(./gradlew.bat assembleDebug:*)",
       "Bash(Select-String -Pattern \"(error|Error|ERROR|BUILD|FAILED|SUCCESSFUL)\")",
       "Bash(adb install:*)",
       "Bash(adb:*)",
       "Bash(python -m py_compile:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(lsusb:*)",
+      "Bash(./build_remotecli.sh:*)",
+      "Bash(./run_diagnostic.sh:*)",
+      "Bash(timeout 5 nc:*)",
+      "Read(//home/dpm/**)",
+      "Read(///**)"
     ],
     "deny": [],
     "ask": []

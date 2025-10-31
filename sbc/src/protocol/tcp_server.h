@@ -62,6 +62,8 @@ private:
     json handleHandshake(const json& payload, int seq_id);
     json handleSystemGetStatus(const json& payload, int seq_id);
     json handleCameraCapture(const json& payload, int seq_id);
+    json handleCameraFocus(const json& payload, int seq_id);
+    json handleCameraAutoFocusHold(const json& payload, int seq_id);
     json handleCameraSetProperty(const json& payload, int seq_id);
     json handleCameraGetProperties(const json& payload, int seq_id);
 

@@ -22,6 +22,8 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Source files
+# Note: OpenCVWrapper.cpp excluded - requires OpenCV dependency
+# Only needed for live view compositing which isn't used in diagnostic mode
 set(SOURCES
     src/RemoteCli_v2.cpp
     src/CameraDevice.cpp
@@ -30,6 +32,7 @@ set(SOURCES
     src/MessageDefine.cpp
     src/PropertyValueTable.cpp
     src/Text.cpp
+    # src/OpenCVWrapper.cpp  # Excluded - not needed for diagnostics
 )
 
 # Executable

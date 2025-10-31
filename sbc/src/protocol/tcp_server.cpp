@@ -287,6 +287,10 @@ json TCPServer::processCommand(const json& command) {
             return handleSystemGetStatus(command["payload"], seq_id);
         } else if (cmd == "camera.capture") {
             return handleCameraCapture(command["payload"], seq_id);
+        } else if (cmd == "camera.focus") {
+            return handleCameraFocus(command["payload"], seq_id);
+        } else if (cmd == "camera.auto_focus_hold") {
+            return handleCameraAutoFocusHold(command["payload"], seq_id);
         } else if (cmd == "camera.set_property") {
             return handleCameraSetProperty(command["payload"], seq_id);
         } else if (cmd == "camera.get_properties") {
@@ -390,6 +394,174 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
     };
 
     return messages::createSuccessResponse(seq_id, "camera.capture", result);
+}
+
+json TCPServer::handleCameraFocus(const json& payload, int seq_id) {
+    // Check if camera is available
+    if (!camera_) {
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Camera interface not initialized"
+        );
+    }
+
+    // Check if camera is connected
+    if (!camera_->isConnected()) {
+        Logger::warning("Camera not connected - cannot focus");
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected. Reconnection in progress, please retry in a few seconds."
+        );
+    }
+
+    // Validate parameters object exists
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required 'parameters' object"
+        );
+    }
+
+    const json& params = payload["parameters"];
+
+    // Validate payload contains "action" field
+    if (!params.contains("action")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Missing required field: action"
+        );
+    }
+
+    std::string action = params["action"];
+
+    // Validate action value
+    if (action != "near" && action != "far" && action != "stop") {
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Invalid action value: " + action + " (valid: near, far, stop)"
+        );
+    }
+
+    // Get optional speed parameter (default: 3 = fast)
+    int speed = 3;
+    if (params.contains("speed")) {
+        speed = params["speed"];
+        // Validate speed range
+        if (speed < 1 || speed > 3) {
+            return messages::createErrorResponse(
+                seq_id, "camera.focus",
+                messages::ErrorCode::COMMAND_FAILED,
+                "Invalid speed value: " + std::to_string(speed) + " (valid: 1-3)"
+            );
+        }
+    }
+
+    // Execute focus operation
+    Logger::info("Executing camera.focus command: action=" + action + ", speed=" + std::to_string(speed));
+    bool success = camera_->focus(action, speed);
+
+    if (!success) {
+        return messages::createErrorResponse(
+            seq_id, "camera.focus",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Failed to execute focus action: " + action
+        );
+    }
+
+    // Read focal distance after focus operation
+    float focal_distance_m = camera_->getFocalDistanceMeters();
+
+    // Return success response
+    json result = {
+        {"action", action},
+        {"speed", speed}
+    };
+
+    // Include focal distance if available
+    if (focal_distance_m > 0.0f) {
+        result["focus_distance_m"] = focal_distance_m;
+    } else if (focal_distance_m == -1.0f) {
+        result["focus_distance_m"] = "infinity";
+    }
+    // If < 0 but not -1, omit (error reading)
+
+    return messages::createSuccessResponse(seq_id, "camera.focus", result);
+}
+
+json TCPServer::handleCameraAutoFocusHold(const json& payload, int seq_id) {
+    // Check if camera is available
+    if (!camera_) {
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Camera interface not initialized"
+        );
+    }
+
+    // Check if camera is connected
+    if (!camera_->isConnected()) {
+        Logger::warning("Camera not connected - cannot trigger auto-focus hold");
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Camera not connected. Reconnection in progress, please retry in a few seconds."
+        );
+    }
+
+    // Validate parameters object exists
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required 'parameters' object"
+        );
+    }
+
+    const json& params = payload["parameters"];
+
+    // Validate payload contains "state" field
+    if (!params.contains("state")) {
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Missing required field: state"
+        );
+    }
+
+    std::string state = params["state"];
+
+    // Validate state value
+    if (state != "press" && state != "release") {
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Invalid state value: " + state + " (valid: press, release)"
+        );
+    }
+
+    // Execute auto-focus hold operation
+    Logger::info("Executing camera.auto_focus_hold command: state=" + state);
+    bool success = camera_->autoFocusHold(state);
+
+    if (!success) {
+        return messages::createErrorResponse(
+            seq_id, "camera.auto_focus_hold",
+            messages::ErrorCode::COMMAND_FAILED,
+            "Failed to execute auto-focus hold: " + state
+        );
+    }
+
+    // Return success response
+    json result = {
+        {"state", state}
+    };
+
+    return messages::createSuccessResponse(seq_id, "camera.auto_focus_hold", result);
 }
 
 json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
