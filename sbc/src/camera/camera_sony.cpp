@@ -434,39 +434,84 @@ public:
                 auto current_value = focal_distance_list[0].GetCurrentValue();
                 Logger::debug("Current focal distance: " + std::to_string(current_value) + " mm");
             } else {
-                Logger::warning("FocalDistanceInMeter property is NOT enabled - focus may fail");
+                Logger::warning("FocalDistanceInMeter property is NOT enabled - attempting to enable LiveView");
 
-                // CRITICAL FIX #3: Try to enable the property by setting focus mode to Manual
-                // Some cameras require manual focus mode for Focus_Operation to work
-                CrInt32u focus_mode_codes[] = {
-                    SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode
-                };
-                SDK::CrDeviceProperty* focus_mode_list = nullptr;
-                int focus_mode_count = 0;
+                // CRITICAL FIX #3: Try to enable LiveView to enable FocalDistanceInMeter
+                // Some cameras require live view to be active for focus operations
+                SDK::CrDeviceProperty lv_prop;
+                lv_prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_LiveViewStatus);
+                lv_prop.SetCurrentValue(0x01);  // Enable LiveView
+                lv_prop.SetValueType(SDK::CrDataType_UInt16);
 
-                auto mode_result = SDK::GetSelectDeviceProperties(
-                    device_handle_,
-                    1,
-                    focus_mode_codes,
-                    &focus_mode_list,
-                    &focus_mode_count
-                );
+                auto lv_result = SDK::SetDeviceProperty(device_handle_, &lv_prop);
+                if (CR_SUCCEEDED(lv_result)) {
+                    Logger::info("LiveView enabled - waiting for property updates");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give camera time to update
 
-                if (CR_SUCCEEDED(mode_result) && focus_mode_list) {
-                    auto current_mode = focus_mode_list[0].GetCurrentValue();
-                    Logger::debug("Current focus mode: 0x" + toHexString(current_mode));
+                    // Re-check if FocalDistanceInMeter is now enabled
+                    SDK::CrDeviceProperty* focal_distance_recheck = nullptr;
+                    int focal_distance_recheck_count = 0;
+                    auto focal_recheck = SDK::GetSelectDeviceProperties(
+                        device_handle_,
+                        1,
+                        focal_distance_codes,
+                        &focal_distance_recheck,
+                        &focal_distance_recheck_count
+                    );
 
-                    // Check if we're NOT in manual focus mode (MF = 0x0001 typically)
-                    if (current_mode != SDK::CrFocusMode::CrFocus_MF) {
-                        Logger::warning("Camera is not in manual focus mode, Focus_Operation may fail");
+                    if (CR_SUCCEEDED(focal_recheck) && focal_distance_recheck && focal_distance_recheck_count > 0) {
+                        focal_distance_enabled = focal_distance_recheck[0].IsGetEnableCurrentValue();
+
+                        if (focal_distance_enabled) {
+                            Logger::info("FocalDistanceInMeter is now enabled after starting LiveView");
+                        } else {
+                            Logger::error("FocalDistanceInMeter still not enabled even after LiveView start");
+                        }
+                        SDK::ReleaseDeviceProperties(device_handle_, focal_distance_recheck);
                     }
-                    SDK::ReleaseDeviceProperties(device_handle_, focus_mode_list);
+                } else {
+                    Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
                 }
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, focal_distance_list);
         } else {
-            Logger::error("Failed to query FocalDistanceInMeter property - focus will likely fail");
+            Logger::warning("Failed to query FocalDistanceInMeter property - attempting to enable LiveView first");
+
+            // Try to enable LiveView - this often makes focus properties available
+            SDK::CrDeviceProperty lv_prop;
+            lv_prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_LiveViewStatus);
+            lv_prop.SetCurrentValue(0x01);  // Enable LiveView
+            lv_prop.SetValueType(SDK::CrDataType_UInt16);
+
+            auto lv_result = SDK::SetDeviceProperty(device_handle_, &lv_prop);
+            if (CR_SUCCEEDED(lv_result)) {
+                Logger::info("LiveView enabled - waiting for property updates");
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+                // Now re-try querying FocalDistanceInMeter
+                SDK::CrDeviceProperty* focal_distance_retry = nullptr;
+                int focal_distance_retry_count = 0;
+                auto focal_retry = SDK::GetSelectDeviceProperties(
+                    device_handle_,
+                    1,
+                    focal_distance_codes,
+                    &focal_distance_retry,
+                    &focal_distance_retry_count
+                );
+
+                if (CR_SUCCEEDED(focal_retry) && focal_distance_retry && focal_distance_retry_count > 0) {
+                    focal_distance_enabled = focal_distance_retry[0].IsGetEnableCurrentValue();
+                    if (focal_distance_enabled) {
+                        Logger::info("FocalDistanceInMeter is now available after enabling LiveView");
+                    }
+                    SDK::ReleaseDeviceProperties(device_handle_, focal_distance_retry);
+                } else {
+                    Logger::error("FocalDistanceInMeter still not queryable even after LiveView start");
+                }
+            } else {
+                Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
+            }
         }
 
         // CRITICAL FIX #4: Validate and clamp speed to camera's supported range
