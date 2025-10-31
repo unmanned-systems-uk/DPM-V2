@@ -2,8 +2,8 @@
 ## DPM Payload Manager Project Rules & Workflow
 
 **Date Created:** October 25, 2025
-**Last Updated:** October 30, 2025
-**Version:** 2.5 (Platform Identification & START Command)
+**Last Updated:** October 31, 2025
+**Version:** 2.6 (Cross-Platform Commit Message Requirements)
 **Status:** 🔴 **MANDATORY - READ EVERY SESSION**
 
 ---
