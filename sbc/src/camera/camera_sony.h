@@ -50,6 +50,12 @@ public:
     void disconnect() override;
     bool isConnected() const override;
     messages::CameraStatus getStatus() const override;
+    bool capture() override;
+    bool focus(const std::string& action, int speed = 3) override;
+    bool autoFocusHold(const std::string& state) override;
+    float getFocalDistanceMeters() const override;
+    bool setProperty(const std::string& property, const std::string& value) override;
+    std::string getProperty(const std::string& property) const override;
 
 private:
     bool initializeSDK();

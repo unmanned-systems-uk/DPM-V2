@@ -18,7 +18,15 @@
       "Bash(dir /O-D /B WindowsToolslogsdpm_diagnostic_*.log)",
       "Bash(python main.py:*)",
       "Bash(dir /O-D /B \"D:\\DPM\\DPM-V2\\WindowsTools\\logs\\dpm_diagnostic_*.log\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(git stash pop:*)",
+      "Bash(cat:*)",
+      "Read(//home/dpm/**)",
+      "Bash(lsusb:*)",
+      "Bash(./build_remotecli.sh:*)",
+      "Read(///**)",
+      "Bash(./run_diagnostic.sh:*)",
+      "Bash(timeout 5 nc:*)"
     ],
     "deny": [],
     "ask": []

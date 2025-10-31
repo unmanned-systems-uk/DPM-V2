@@ -26,7 +26,8 @@ namespace fs = std::filesystem;
 #include <thread>
 #include "CRSDK/CrDeviceProperty.h"
 #include "Text.h"
-#include "OpenCVWrapper.h"
+// OpenCVWrapper excluded - not needed for diagnostic mode (live view only)
+// #include "OpenCVWrapper.h"
 #include "CrDebugString.h"
 
 #if defined(__APPLE__) || defined(__linux__)
@@ -765,6 +766,26 @@ void CameraDevice::get_live_view_and_OSD()
         return;
     }
 
+    // OpenCV functionality disabled for diagnostic build
+    // Live view compositing not needed for basic camera testing
+    tout << "Live view feature disabled in diagnostic mode (requires OpenCV)\n";
+
+    // Clean up and return early
+    if (liveview_image_buff) {
+        delete[] liveview_image_buff;
+        liveview_image_buff = nullptr;
+    }
+    if (liveview_image_data) {
+        delete liveview_image_data;
+        liveview_image_data = nullptr;
+    }
+    delete[] osd_image_buff;
+    osd_image_buff = nullptr;
+    delete osd_image_data;
+    osd_image_data = nullptr;
+    return;
+
+    /* Original OpenCV code disabled:
     std::vector<uchar> lvbuf;
     CrInt32u lvsize = 0;
     if (isLVEnb==0) {
@@ -879,6 +900,7 @@ void CameraDevice::get_live_view_and_OSD()
     delete[] osd_image_buff; // Release
     delete osd_image_data; // Release
     delete[] image_buff; // Release
+    */ // End of commented-out OpenCV code
 }
 
 void CameraDevice::get_live_view()

@@ -196,6 +196,10 @@ public:
         } else {
             Logger::info("Camera fully connected and ready!");
 
+            // CRITICAL: Set priority to PC Remote mode
+            // This ensures SDK commands override physical camera controls
+            setPriorityToPCRemote();
+
             // DIAGNOSTIC: Query and log available ISO values
             logAvailableIsoValues();
 
@@ -349,6 +353,185 @@ public:
         return true;
     }
 
+    bool focus(const std::string& action, int speed = 3) override {
+        // Check connection using atomic flag first (fast, never blocks)
+        if (!isConnected()) {
+            Logger::error("Cannot focus: camera not connected");
+            return false;
+        }
+
+        // Acquire lock for entire operation to prevent concurrent SDK access
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            Logger::warning("Cannot focus: camera busy with another operation");
+            return false;
+        }
+
+        // Per SDK docs: Focus_Operation is only valid when FocalDistanceInMeter is enabled
+        // Query focal distance to ensure it's enabled before attempting focus operation
+        CrInt32u property_codes[] = {
+            SDK::CrDevicePropertyCode::CrDeviceProperty_FocalDistanceInMeter
+        };
+        SDK::CrDeviceProperty* property_list = nullptr;
+        int property_count = 0;
+        auto query_result = SDK::GetSelectDeviceProperties(
+            device_handle_,
+            1,
+            property_codes,
+            &property_list,
+            &property_count
+        );
+
+        if (CR_SUCCEEDED(query_result) && property_list) {
+            SDK::ReleaseDeviceProperties(device_handle_, property_list);
+            Logger::debug("Focal distance property is enabled");
+        } else {
+            Logger::warning("Focal distance property query failed - focus may not work");
+        }
+
+        // Map action and speed to Sony SDK focus operation value
+        // Per SDK docs: The value encodes both direction and speed as a signed integer:
+        // - Positive (1-7): Tele/Far focus with speed
+        // - Negative (-1 to -7): Wide/Near focus with speed
+        // - Zero (0): Stop focus
+        // Example: -3 = Wide focus at speed 3, +1 = Tele focus at speed 1
+        CrInt8 focus_operation;
+        if (action == "near") {
+            focus_operation = -speed;  // Negative for Wide/Near focus
+            Logger::info("Executing focus action: NEAR (closer objects), speed=" + std::to_string(speed));
+        } else if (action == "far") {
+            focus_operation = speed;   // Positive for Tele/Far focus
+            Logger::info("Executing focus action: FAR (distant objects), speed=" + std::to_string(speed));
+        } else if (action == "stop") {
+            focus_operation = 0;       // Zero to stop focus movement
+            Logger::info("Executing focus action: STOP");
+        } else {
+            Logger::error("Invalid focus action: " + action + " (valid: near, far, stop)");
+            return false;
+        }
+
+        // Create property to set focus operation (direction)
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_Focus_Operation);
+        prop.SetCurrentValue(static_cast<CrInt64u>(focus_operation));
+        prop.SetValueType(SDK::CrDataType_Int8);
+
+        // Send focus operation command
+        auto result = SDK::SetDeviceProperty(device_handle_, &prop);
+
+        if (CR_FAILED(result)) {
+            Logger::error("Failed to set focus operation. SDK error: 0x" +
+                         toHexString(result));
+            return false;
+        }
+
+        Logger::info("Focus action '" + action + "' executed successfully");
+        return true;
+    }
+
+    bool autoFocusHold(const std::string& state) override {
+        // Check connection using atomic flag first (fast, never blocks)
+        if (!isConnected()) {
+            Logger::error("Cannot trigger auto-focus hold: camera not connected");
+            return false;
+        }
+
+        // Acquire lock for entire operation to prevent concurrent SDK access
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            Logger::warning("Cannot trigger auto-focus hold: camera busy with another operation");
+            return false;
+        }
+
+        // Map state string to Sony SDK PushAutoFocus values
+        CrInt16 af_value;
+        if (state == "press") {
+            af_value = SDK::CrPushAutoFocus_Down;  // Press AF button
+            Logger::info("Auto-focus hold: PRESS (engaging auto-focus)");
+        } else if (state == "release") {
+            af_value = SDK::CrPushAutoFocus_Up;  // Release AF button
+            Logger::info("Auto-focus hold: RELEASE (stopping auto-focus)");
+        } else {
+            Logger::error("Invalid auto-focus hold state: " + state + " (valid: press, release)");
+            return false;
+        }
+
+        // Create property to trigger push auto-focus (AF-ON button equivalent)
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_PushAutoFocus);
+        prop.SetCurrentValue(static_cast<CrInt64u>(af_value));
+        prop.SetValueType(SDK::CrDataType_UInt16);
+
+        // Send AF command
+        auto result = SDK::SetDeviceProperty(device_handle_, &prop);
+
+        if (CR_FAILED(result)) {
+            Logger::error("Failed to trigger auto-focus hold. SDK error: 0x" +
+                         toHexString(result));
+            return false;
+        }
+
+        Logger::info("Auto-focus hold state '" + state + "' executed successfully");
+        return true;
+    }
+
+    float getFocalDistanceMeters() const override {
+        // Check connection
+        if (!isConnected()) {
+            Logger::warning("Cannot read focal distance: camera not connected");
+            return -1.0f;
+        }
+
+        // Acquire lock (this is a const method but we need thread safety)
+        std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            Logger::warning("Cannot read focal distance: camera busy");
+            return -1.0f;
+        }
+
+        // Request specific property: FocalDistanceInMeter
+        CrInt32u property_codes[] = {
+            SDK::CrDevicePropertyCode::CrDeviceProperty_FocalDistanceInMeter
+        };
+
+        SDK::CrDeviceProperty* property_list = nullptr;
+        int property_count = 0;
+        auto result = SDK::GetSelectDeviceProperties(
+            device_handle_,
+            1,  // Number of property codes
+            property_codes,  // Array of property codes to query
+            &property_list,
+            &property_count
+        );
+
+        if (CR_FAILED(result) || property_count == 0 || !property_list) {
+            Logger::warning("Failed to get focal distance property from camera");
+            return -1.0f;
+        }
+
+        // Extract focal distance value (should be first/only property)
+        CrInt32u focal_distance_raw = static_cast<CrInt32u>(property_list[0].GetCurrentValue());
+
+        // Release property list
+        SDK::ReleaseDeviceProperties(device_handle_, property_list);
+
+        // Check for infinity
+        if (focal_distance_raw == SDK::CrFocalDistance_Infinity) {
+            Logger::debug("Focal distance: ∞ (infinity)");
+            return -1.0f; // Return -1 to indicate infinity
+        }
+
+        // Convert from 1000x value to meters
+        // SDK value is 1000 times the real value
+        // e.g., 0x00005014 = 20500 / 1000 = 20.5 meters
+        float distance_meters = static_cast<float>(focal_distance_raw) / 1000.0f;
+
+        Logger::debug("Focal distance: " + std::to_string(distance_meters) + " meters " +
+                     "(raw: 0x" + toHexString(focal_distance_raw) + ")");
+
+        return distance_meters;
+    }
+
 private:
     void initializeSDK() {
         Logger::info("Initializing Sony SDK...");
@@ -377,6 +560,28 @@ private:
             Logger::info("Shutting down Sony SDK...");
             SDK::Release();
             sdk_initialized_ = false;
+        }
+    }
+
+    void setPriorityToPCRemote() {
+        Logger::info("Setting priority to PC Remote mode...");
+
+        // Create property to set priority to PC Remote
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_PriorityKeySettings);
+        prop.SetCurrentValue(static_cast<CrInt64u>(SDK::CrPriorityKey_PCRemote));
+        prop.SetValueType(SDK::CrDataType_UInt16);
+
+        // Send command to set priority
+        auto result = SDK::SetDeviceProperty(device_handle_, &prop);
+
+        if (CR_FAILED(result)) {
+            Logger::error("Failed to set PriorityKeySettings to PCRemote. SDK error: 0x" +
+                         toHexString(result));
+            Logger::warning("Physical camera controls may interfere with SDK commands!");
+        } else {
+            Logger::info("Successfully set camera priority to PC Remote mode");
+            Logger::info("SDK commands will now override physical camera controls");
         }
     }
 

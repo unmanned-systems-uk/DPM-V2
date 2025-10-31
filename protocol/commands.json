@@ -89,6 +89,73 @@
       }
     },
 
+    "camera.focus": {
+      "description": "Control manual focus operation (near/far/stop)",
+      "parameters": {
+        "action": {
+          "type": "string",
+          "enum": ["near", "far", "stop"],
+          "required": true,
+          "description": "Focus action: 'near' focuses closer, 'far' focuses further, 'stop' stops focus movement"
+        },
+        "speed": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "default": 3,
+          "required": false,
+          "description": "Focus speed (1=slow, 2=medium, 3=fast). Only applicable when action is 'near' or 'far'"
+        }
+      },
+      "response": {
+        "success": {
+          "action": "string",
+          "speed": "integer",
+          "focus_distance_m": "float | 'infinity' (optional - focal distance in meters)"
+        },
+        "errors": [1000, 3001, 3002, 3003, 3004]
+      },
+      "notes": [
+        "Camera must be in manual focus mode (focus_mode='manual') for this command to work",
+        "Use 'stop' action to halt focus movement initiated by 'near' or 'far'",
+        "Speed parameter maps to Sony SDK speeds: 1=slow (1-2), 2=medium (3-4), 3=fast (5-7)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.2.0"
+      }
+    },
+
+    "camera.auto_focus_hold": {
+      "description": "Trigger auto-focus hold (equivalent to AF-ON button)",
+      "parameters": {
+        "state": {
+          "type": "string",
+          "enum": ["press", "release"],
+          "required": true,
+          "description": "Button state: 'press' to engage AF, 'release' to stop"
+        }
+      },
+      "response": {
+        "success": {
+          "state": "string",
+          "focus_locked": "boolean (optional)"
+        },
+        "errors": [1000, 3005, 3006]
+      },
+      "notes": [
+        "Simulates half-press shutter or AF-ON button",
+        "Camera will attempt to auto-focus when state='press'",
+        "Does not require manual focus mode - works in AF-S, AF-C modes"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.2.0"
+      }
+    },
+
     "system.get_status": {
       "description": "Get system status information",
       "parameters": {},

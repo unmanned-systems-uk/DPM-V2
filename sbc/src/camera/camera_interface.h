@@ -26,6 +26,20 @@ public:
     // Capture image (shutter release)
     virtual bool capture() = 0;
 
+    // Manual focus control
+    // action: "near" (focus closer), "far" (focus further), "stop" (halt focus)
+    // speed: 1=slow, 2=medium, 3=fast (default: 3). Ignored for "stop" action
+    // Returns true if action was successful
+    virtual bool focus(const std::string& action, int speed = 3) = 0;
+
+    // Auto-focus hold (simulates AF-ON button or half-press shutter)
+    // state: "press" to engage auto-focus, "release" to stop
+    // Returns true if operation was successful
+    virtual bool autoFocusHold(const std::string& state) = 0;
+
+    // Get current focal distance in meters (returns -1.0 if infinity or error)
+    virtual float getFocalDistanceMeters() const = 0;
+
     // Camera property control
     // Phase 1 supported properties (8 total):
     //   - shutter_speed, aperture, iso
