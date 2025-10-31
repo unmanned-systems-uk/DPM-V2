@@ -8,6 +8,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -957,6 +959,7 @@ private fun SubSettingSmall(text: String) {
 
 /**
  * Focus section - Manual focus controls
+ * Phase 1: Manual Focus - 6-speed directional control + Auto-Focus Hold
  */
 @Composable
 private fun FocusSection(cameraState: CameraState) {
@@ -972,32 +975,65 @@ private fun FocusSection(cameraState: CameraState) {
         ) {
             Text(
                 text = when (cameraState.focusMode) {
-                    FocusMode.AUTO -> "MF"
+                    FocusMode.AUTO -> "AF-S"
                     FocusMode.MANUAL -> "MF"
-                    FocusMode.CONTINUOUS -> "AFC"
+                    FocusMode.CONTINUOUS -> "AF-C"
                 },
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "AF",
+                text = "Focus Mode",
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 12.sp
             )
         }
 
-        // Focus control buttons
+        // Manual focus directional controls (6 speeds)
+        // Near: < << <<<  |  Far: > >> >>>
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            FocusButton("≤", onClick = { /* Far */ })
-            FocusButton("«", onClick = { /* Medium far */ })
-            FocusButton("<", onClick = { /* Near */ })
-            FocusButton(">", onClick = { /* Near */ })
-            FocusButton("»", onClick = { /* Medium near */ })
-            FocusButton("≥", onClick = { /* Near */ })
+            // Person icon (near side)
+            Text(
+                text = "👤",
+                fontSize = 20.sp,
+                modifier = Modifier.padding(end = 4.dp)
+            )
+
+            // Near buttons (focus closer)
+            FocusButton("<", onClick = { /* Near speed 1 */ })
+            FocusButton("<<", onClick = { /* Near speed 2 */ })
+            FocusButton("<<<", onClick = { /* Near speed 3 */ })
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Far buttons (focus farther/infinity)
+            FocusButton(">", onClick = { /* Far speed 1 */ })
+            FocusButton(">>", onClick = { /* Far speed 2 */ })
+            FocusButton(">>>", onClick = { /* Far speed 3 */ })
+
+            // Mountain icon (far side)
+            Text(
+                text = "🏔️",
+                fontSize = 20.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+
+        // Auto-Focus Hold button
+        // Press and hold to temporarily enable AF in manual mode
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            AutoFocusHoldButton(
+                onPressStart = { /* Enable AF Hold */ },
+                onPressEnd = { /* Disable AF Hold */ }
+            )
         }
     }
 }
@@ -1023,6 +1059,61 @@ private fun FocusButton(
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+/**
+ * Auto-Focus Hold button
+ * Press and hold to temporarily enable auto-focus while in manual mode
+ * Release to return to manual focus
+ */
+@Composable
+private fun AutoFocusHoldButton(
+    onPressStart: () -> Unit,
+    onPressEnd: () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .width(160.dp)
+            .height(48.dp)
+            .background(
+                color = if (isPressed) Color(0xFF4CAF50) else Color(0xFF3A3A3A),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        onPressStart()
+                        try {
+                            awaitRelease()
+                        } finally {
+                            isPressed = false
+                            onPressEnd()
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🎯",
+                fontSize = 18.sp,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text(
+                text = if (isPressed) "AF Active" else "AF Hold",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
