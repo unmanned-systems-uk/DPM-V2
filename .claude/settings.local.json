@@ -18,7 +18,17 @@
       "Bash(dir /O-D /B WindowsToolslogsdpm_diagnostic_*.log)",
       "Bash(python main.py:*)",
       "Bash(dir /O-D /B \"D:\\DPM\\DPM-V2\\WindowsTools\\logs\\dpm_diagnostic_*.log\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(git rm:*)",
+      "Bash(gradlew assembleDebug:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(Select-String -Pattern \"(error|Error|ERROR|BUILD|FAILED|SUCCESSFUL)\")",
+      "Bash(adb install:*)",
+      "Bash(adb:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []

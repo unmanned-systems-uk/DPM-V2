@@ -26,6 +26,11 @@ class H16DiagnosticsTab(ttk.Frame):
         self.h16_ip = config.get('network', 'h16_ip', '10.0.1.92')
         self.adb_port = "5555"
 
+        # Logcat filter state
+        self.logcat_search_var = tk.StringVar()
+        self.logcat_filter_mode_var = tk.BooleanVar(value=False)
+        self.raw_logcat_output = ""  # Store raw output for filtering
+
         self._create_ui()
         self._check_adb_available()
 
@@ -220,6 +225,33 @@ class H16DiagnosticsTab(ttk.Frame):
         logcat_tab = ttk.Frame(self.diagnostic_notebook)
         self.diagnostic_notebook.add(logcat_tab, text="Logcat & Logs")
 
+        # Search/Filter controls
+        search_frame = ttk.LabelFrame(logcat_tab, text="Search & Filter Logcat Output", padding=10)
+        search_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        search_controls = ttk.Frame(search_frame)
+        search_controls.pack(fill=tk.X, pady=2)
+
+        ttk.Label(search_controls, text="Search:").pack(side=tk.LEFT, padx=5)
+
+        self.logcat_search_entry = ttk.Entry(search_controls, textvariable=self.logcat_search_var, width=40)
+        self.logcat_search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.logcat_search_var.trace('w', lambda *args: self._apply_logcat_filter())
+
+        ttk.Button(search_controls, text="Clear Search",
+                  command=self._clear_logcat_search).pack(side=tk.LEFT, padx=5)
+
+        # Filter options
+        filter_options = ttk.Frame(search_frame)
+        filter_options.pack(fill=tk.X, pady=2)
+
+        ttk.Checkbutton(filter_options, text="Filter Mode (only show matching lines)",
+                       variable=self.logcat_filter_mode_var,
+                       command=self._apply_logcat_filter).pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(filter_options, text="Tip: Use & for AND (e.g., \"camera & set_property\" or \"192.168.144.11 & focus\")",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=5)
+
         # Logcat controls
         logcat_ctrl_frame = ttk.LabelFrame(logcat_tab, text="Logcat Monitoring", padding=10)
         logcat_ctrl_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -234,29 +266,29 @@ class H16DiagnosticsTab(ttk.Frame):
                   command=lambda: self._run_logcat("grep -E 'ERROR|FATAL'")).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(logcat_row1, text="Last 100 Lines",
-                  command=lambda: self._run_adb_command("logcat -d -t 100")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: self._run_logcat_raw("logcat -d -t 100")).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(logcat_row1, text="Clear Logcat",
                   command=lambda: self._run_adb_command("logcat -c")).pack(side=tk.LEFT, padx=5)
 
         # Specific filters
-        filters_frame = ttk.LabelFrame(logcat_tab, text="Specific Log Filters", padding=10)
+        filters_frame = ttk.LabelFrame(logcat_tab, text="Quick Load Logcat", padding=10)
         filters_frame.pack(fill=tk.X, padx=10, pady=5)
 
         filters_btns = ttk.Frame(filters_frame)
         filters_btns.pack(fill=tk.X)
 
-        ttk.Button(filters_btns, text="Network Logs",
-                  command=lambda: self._run_adb_command("logcat -d | grep NetworkClient | tail -50")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(filters_btns, text="All Logcat (Last 200)",
+                  command=lambda: self._run_logcat_raw("logcat -d -t 200")).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(filters_btns, text="Camera Logs",
-                  command=lambda: self._run_adb_command("logcat -d | grep Camera | tail -50")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(filters_btns, text="Last 500 Lines",
+                  command=lambda: self._run_logcat_raw("logcat -d -t 500")).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(filters_btns, text="System Status Logs",
-                  command=lambda: self._run_adb_command("logcat -d | grep SystemStatus | tail -50")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(filters_btns, text="Last 1000 Lines",
+                  command=lambda: self._run_logcat_raw("logcat -d -t 1000")).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(filters_btns, text="Connection Errors",
-                  command=lambda: self._run_adb_command("logcat -d | grep 'Connection refused\\|timeout' | tail -50")).pack(side=tk.LEFT, padx=5)
+        ttk.Label(filters_frame, text="Load logcat first, then use search box above to filter (e.g., \"camera & set_property\")",
+                 font=('Arial', 8, 'italic'), foreground='blue').pack(anchor=tk.W, padx=5, pady=2)
 
     def _create_system_tab(self):
         """Create System Information sub-tab"""
@@ -495,6 +527,105 @@ class H16DiagnosticsTab(ttk.Frame):
 
         full_cmd = f"logcat -d | {filter_cmd}"
         self._run_adb_command(full_cmd)
+
+    def _run_logcat_raw(self, shell_command: str):
+        """Run logcat command and store raw output for filtering"""
+        if not self.adb_connected:
+            messagebox.showwarning("Not Connected", "Please connect to H16 via ADB first")
+            return
+
+        self.status_label.config(text=f"Loading logcat...")
+        self._append_output(f"\n$ adb shell {shell_command}\n", "command")
+
+        def run():
+            try:
+                result = subprocess.run(
+                    ['adb', 'shell', shell_command],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+
+                output = result.stdout
+                if result.stderr:
+                    output += f"\nSTDERR: {result.stderr}"
+
+                # Store raw output for filtering
+                self.raw_logcat_output = output
+
+                # Apply current filter if any
+                self.after(0, lambda: self._display_logcat_output(output))
+                self.after(0, lambda: self.status_label.config(text=f"Logcat loaded ({len(output.splitlines())} lines)"))
+
+            except subprocess.TimeoutExpired:
+                self.after(0, lambda: self._append_output("ERROR: Command timeout\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Command timeout"))
+            except Exception as e:
+                self.after(0, lambda e=e: self._append_output(f"ERROR: {str(e)}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Command failed"))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _display_logcat_output(self, output: str):
+        """Display logcat output, applying filter if needed"""
+        search_text = self.logcat_search_var.get().strip()
+        filter_mode = self.logcat_filter_mode_var.get()
+
+        if search_text and filter_mode:
+            # Apply filtering
+            filtered = self._filter_logcat(output, search_text)
+            num_matching = len(filtered.splitlines())
+            num_total = len(output.splitlines())
+            self._append_output(f"Showing {num_matching} of {num_total} lines (filter: '{search_text}')\n\n", "info")
+            self._append_output(filtered + "\n", "success")
+        elif search_text:
+            # Highlight mode - just show all with info about search
+            self._append_output(f"Loaded {len(output.splitlines())} lines (search active but filter mode off)\n", "info")
+            self._append_output(f"Enable 'Filter Mode' to show only matching lines\n\n", "info")
+            self._append_output(output + "\n", "success")
+        else:
+            # No filter
+            self._append_output(output + "\n", "success")
+
+    def _filter_logcat(self, output: str, search_text: str) -> str:
+        """Filter logcat output - supports AND logic with &"""
+        filtered_lines = []
+
+        # Check if AND logic is requested (using & separator)
+        if '&' in search_text:
+            # Split by & and trim whitespace
+            search_terms = [term.strip().lower() for term in search_text.split('&') if term.strip()]
+
+            # Filter lines that contain ALL search terms (AND logic)
+            for line in output.splitlines():
+                line_lower = line.lower()
+                if all(term in line_lower for term in search_terms):
+                    filtered_lines.append(line)
+        else:
+            # Single term search
+            search_lower = search_text.lower()
+            for line in output.splitlines():
+                if search_lower in line.lower():
+                    filtered_lines.append(line)
+
+        return "\n".join(filtered_lines)
+
+    def _apply_logcat_filter(self):
+        """Apply current search filter to displayed logcat output"""
+        if not self.raw_logcat_output:
+            return  # Nothing loaded yet
+
+        # Clear output and re-display with current filter
+        self._clear_output()
+        self._append_output("=== Filtered Logcat Output ===\n\n", "command")
+        self._display_logcat_output(self.raw_logcat_output)
+
+    def _clear_logcat_search(self):
+        """Clear logcat search box"""
+        self.logcat_search_var.set("")
+        self.logcat_filter_mode_var.set(False)
+        if self.raw_logcat_output:
+            self._apply_logcat_filter()
 
     def _run_smart_diagnostic(self):
         """Run comprehensive SMART diagnostic with analysis and recommendations"""
