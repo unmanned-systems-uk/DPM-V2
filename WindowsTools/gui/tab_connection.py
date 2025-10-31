@@ -53,8 +53,8 @@ class ConnectionTab(ttk.Frame):
         mode_info2.pack(fill=tk.X, pady=2)
 
         ttk.Label(mode_info2, text="ℹ️", font=('Arial', 9)).pack(side=tk.LEFT)
-        ttk.Label(mode_info2, text="TCP connection only needed for sending commands",
-                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=5)
+        ttk.Label(mode_info2, text="Connect TCP to send commands & test camera functions",
+                 font=('Arial', 8, 'italic'), foreground='blue').pack(side=tk.LEFT, padx=5)
 
         # UDP Status Indicators
         udp_frame = ttk.LabelFrame(control_frame, text="UDP Listeners (Passive Monitoring)", padding=10)
@@ -81,7 +81,7 @@ class ConnectionTab(ttk.Frame):
                  font=('Arial', 8)).pack(side=tk.LEFT)
 
         # Connection info
-        info_frame = ttk.LabelFrame(control_frame, text="TCP Connection (Optional - For Commands)", padding=10)
+        info_frame = ttk.LabelFrame(control_frame, text="TCP Connection - Active Control & Testing", padding=10)
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
 
         # Status indicator
