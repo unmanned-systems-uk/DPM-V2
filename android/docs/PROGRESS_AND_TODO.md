@@ -23,13 +23,78 @@ Testing:               ███████████████████
 Integration:           ████████████████████████░░░░░░░░  85% Near Complete
 ```
 
-**Overall Completion:** 82% (Phase 1 MVP)
+**Overall Completion:** 85% (Phase 1 MVP)
 
-**Last Updated:** October 30, 2025 - First successful end-to-end testing with live H16 and Air-Side
+**Last Updated:** October 31, 2025 - Manual Focus UI implemented, awaiting Air-Side commands
 
 ---
 
 ## RECENT UPDATES
+
+### 🎯 Manual Focus UI Implementation - Ground-Side Complete! (October 31, 2025)
+
+**Phase 1 Manual Focus Controls - UI Ready**
+
+Following the `Focus_Control_Implementation_Guide.md`, implemented all Ground-Side UI components for manual focus control. Air-Side implementation pending.
+
+**UI Components Implemented:**
+
+1. **6-Speed Directional Focus Buttons:**
+   - Near (person icon 👤): `<` (speed 1), `<<` (speed 2), `<<<` (speed 3)
+   - Far (mountain icon 🏔️): `>` (speed 1), `>>` (speed 2), `>>>` (speed 3)
+   - Clear visual hierarchy with icons for directional clarity
+
+2. **Auto-Focus Hold Button:**
+   - Press-and-hold behavior implemented
+   - Visual feedback: Changes from gray to green when pressed
+   - Label changes: "AF Hold" → "AF Active" during press
+   - 🎯 icon for visual clarity
+   - Properly releases on touch end
+
+3. **Focus Mode Display:**
+   - Fixed display: "MF" for Manual, "AF-S" for Auto Single, "AF-C" for Continuous
+   - Shows current focus mode from camera status
+
+**Files Modified:**
+- `SonyRemoteControlScreen.kt` - Updated FocusSection component (lines 958-1037)
+- Added `AutoFocusHoldButton` composable (lines 1063-1116)
+- Added gesture detection imports (`detectTapGestures`, `pointerInput`)
+
+**Layout:**
+```
+Focus Mode Display:  [MF]              Focus Mode
+
+👤  <   <<  <<<     >   >>  >>>  🏔️
+      [    AF Hold Button    ]
+```
+
+**Build Status:**
+- ✅ Compiles successfully (1m 33s)
+- ✅ No errors or warnings
+- ✅ Ready for Air-Side integration
+
+**Git Commit:**
+- ✅ Committed: `29c43a0` - "[GROUND][UI] Add Manual Focus controls per Phase 1 spec"
+
+**Status: ⏳ WAITING FOR AIR-SIDE IMPLEMENTATION**
+
+**Pending Air-Side Commands:**
+1. **camera.focus** - Manual focus control (action: near/far/stop, speed: 1-3)
+2. **camera.auto_focus_hold** - Temporary AF override (enable: true/false)
+
+**Next Steps (After Air-Side Complete):**
+1. Implement `NetworkClient.focusCamera(action, speed)` method
+2. Implement `NetworkClient.setAutoFocusHold(enable)` method
+3. Add ViewModel methods (`focusNear()`, `focusFar()`, `setAFHold()`)
+4. Wire button onClick handlers to ViewModel
+5. Update `protocol/commands.json` with ground_side: true
+6. End-to-end testing with live H16
+
+**Reference Documents:**
+- Implementation guide: `docs/Focus_Control_Implementation_Guide.md`
+- Sony SDK functions: `CrDeviceProperty_Focus_Operation`, `CrDeviceProperty_AutoFocusHold`
+
+---
 
 ### 🎉 First Successful End-to-End Testing (October 30, 2025) ✅
 
