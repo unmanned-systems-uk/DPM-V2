@@ -22,6 +22,10 @@ class CameraViewModel : ViewModel() {
     private val _cameraState = MutableStateFlow(CameraState())
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
 
+    // Focus distance state (from camera.focus responses)
+    private val _focusDistanceM = MutableStateFlow<Float?>(null)
+    val focusDistanceM: StateFlow<Float?> = _focusDistanceM.asStateFlow()
+
     private var propertyPollingJob: Job? = null
     private var isCurrentlyOperational = false // Track operational state to prevent unnecessary restarts
 
@@ -384,6 +388,123 @@ class CameraViewModel : ViewModel() {
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending capture command", e)
+            }
+        }
+    }
+
+    /**
+     * Focus camera toward near (closer objects)
+     * @param speed Focus speed: 1 (slow), 2 (medium), 3 (fast)
+     */
+    fun focusNear(speed: Int = 3) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Focusing NEAR at speed $speed")
+                val result = NetworkManager.getClient()?.focusCamera("near", speed)
+                result?.fold(
+                    onSuccess = { response ->
+                        Log.d(TAG, "Focus NEAR successful: ${response.result}")
+                        parseFocusDistance(response.result)
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Focus NEAR failed", error)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending focus NEAR command", e)
+            }
+        }
+    }
+
+    /**
+     * Focus camera toward far (distant objects / infinity)
+     * @param speed Focus speed: 1 (slow), 2 (medium), 3 (fast)
+     */
+    fun focusFar(speed: Int = 3) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Focusing FAR at speed $speed")
+                val result = NetworkManager.getClient()?.focusCamera("far", speed)
+                result?.fold(
+                    onSuccess = { response ->
+                        Log.d(TAG, "Focus FAR successful: ${response.result}")
+                        parseFocusDistance(response.result)
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Focus FAR failed", error)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending focus FAR command", e)
+            }
+        }
+    }
+
+    /**
+     * Stop focus movement
+     */
+    fun focusStop() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Stopping focus")
+                val result = NetworkManager.getClient()?.focusCamera("stop")
+                result?.fold(
+                    onSuccess = { response ->
+                        Log.d(TAG, "Focus STOP successful")
+                        parseFocusDistance(response.result)
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Focus STOP failed", error)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending focus STOP command", e)
+            }
+        }
+    }
+
+    /**
+     * Auto-focus hold (AF-ON button simulation)
+     * @param state "press" or "release"
+     */
+    fun setAutoFocusHold(state: String) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Auto-focus hold: $state")
+                val result = NetworkManager.getClient()?.setAutoFocusHold(state)
+                result?.fold(
+                    onSuccess = { response ->
+                        Log.d(TAG, "Auto-focus hold $state successful")
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Auto-focus hold $state failed", error)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending auto-focus hold command", e)
+            }
+        }
+    }
+
+    /**
+     * Parse focus distance from response result
+     * Updates _focusDistanceM StateFlow
+     */
+    private fun parseFocusDistance(result: Map<String, Any>?) {
+        result?.get("focus_distance_m")?.let { distance ->
+            when (distance) {
+                is Number -> {
+                    val distanceM = distance.toFloat()
+                    _focusDistanceM.value = distanceM
+                    Log.d(TAG, "Focus distance: ${distanceM}m")
+                }
+                "infinity" -> {
+                    _focusDistanceM.value = -1f  // -1 represents infinity
+                    Log.d(TAG, "Focus distance: infinity")
+                }
+                else -> {
+                    Log.w(TAG, "Unknown focus_distance_m value: $distance")
+                }
             }
         }
     }

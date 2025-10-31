@@ -218,6 +218,15 @@ fun SonyRemoteControlScreen(
                     .align(Alignment.TopEnd)
                     .padding(top = 16.dp, end = 16.dp)
             )
+
+            // Focus distance overlay - bottom of video feed
+            val focusDistanceM by viewModel.focusDistanceM.collectAsState()
+            FocusDistanceOverlay(
+                focalDistanceM = focusDistanceM,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            )
         }
 
         // Control sidebar on the right
