@@ -248,6 +248,46 @@ class NetworkClient(
         return sendCommand("system.get_status")
     }
 
+    /**
+     * Control manual focus direction and speed
+     *
+     * @param action Focus direction: "near", "far", or "stop"
+     * @param speed Focus speed: 1 (slow), 2 (medium), 3 (fast), default: 3
+     * @return Command response
+     */
+    suspend fun focusCamera(action: String, speed: Int = 3): Result<ResponsePayload> {
+        require(action in listOf("near", "far", "stop")) {
+            "Invalid focus action: $action"
+        }
+        require(speed in 1..3) {
+            "Invalid focus speed: $speed (must be 1-3)"
+        }
+
+        val parameters = mutableMapOf<String, Any>("action" to action)
+        if (action != "stop") {
+            parameters["speed"] = speed
+        }
+
+        return sendCommand("camera.focus", parameters)
+    }
+
+    /**
+     * Trigger auto-focus (AF-ON button simulation)
+     *
+     * @param state Button state: "press" or "release"
+     * @return Command response
+     */
+    suspend fun setAutoFocusHold(state: String): Result<ResponsePayload> {
+        require(state in listOf("press", "release")) {
+            "Invalid AF state: $state"
+        }
+
+        return sendCommand(
+            "camera.auto_focus_hold",
+            mapOf("state" to state)
+        )
+    }
+
     private suspend fun connectTcp() {
         val address = InetAddress.getByName(settings.targetIp)
         tcpSocket = withContext(Dispatchers.IO) {

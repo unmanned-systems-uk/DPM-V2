@@ -25,7 +25,7 @@ Integration:           ███████████████████
 
 **Overall Completion:** 85% (Phase 1 MVP)
 
-**Last Updated:** October 31, 2025 - Manual Focus UI implemented, awaiting Air-Side commands
+**Last Updated:** October 31, 2025 - Manual Focus NetworkClient methods implemented and tested
 
 ---
 
@@ -76,19 +76,26 @@ Focus Mode Display:  [MF]              Focus Mode
 **Git Commit:**
 - ✅ Committed: `29c43a0` - "[GROUND][UI] Add Manual Focus controls per Phase 1 spec"
 
-**Status: ⏳ WAITING FOR AIR-SIDE IMPLEMENTATION**
+**Status: 🟡 IN PROGRESS - NetworkClient Complete, ViewModel Pending**
 
-**Pending Air-Side Commands:**
-1. **camera.focus** - Manual focus control (action: near/far/stop, speed: 1-3)
-2. **camera.auto_focus_hold** - Temporary AF override (enable: true/false)
+**Air-Side Commands Status:**
+1. ✅ **camera.focus** - Manual focus control (action: near/far/stop, speed: 1-3) - IMPLEMENTED ON AIR-SIDE
+2. ✅ **camera.auto_focus_hold** - AF-ON button simulation (state: press/release) - IMPLEMENTED ON AIR-SIDE
 
-**Next Steps (After Air-Side Complete):**
-1. Implement `NetworkClient.focusCamera(action, speed)` method
-2. Implement `NetworkClient.setAutoFocusHold(enable)` method
-3. Add ViewModel methods (`focusNear()`, `focusFar()`, `setAFHold()`)
-4. Wire button onClick handlers to ViewModel
-5. Update `protocol/commands.json` with ground_side: true
-6. End-to-end testing with live H16
+**Ground-Side Implementation Progress:**
+1. ✅ UI Components - Complete (6-speed buttons, AF Hold button, focus mode display)
+2. ✅ NetworkClient Methods - **JUST COMPLETED** (October 31, 2025)
+   - ✅ `NetworkClient.focusCamera(action, speed)` - Implemented with validation
+   - ✅ `NetworkClient.setAutoFocusHold(state)` - Implemented with validation
+3. ⏳ ViewModel Methods - NEXT TASK
+   - [ ] Add `focusNear(speed)`, `focusFar(speed)`, `focusStop()` methods
+   - [ ] Add `setAutoFocusHold(state)` method
+4. ⏳ Wire UI to ViewModel
+   - [ ] Connect 6 focus button onClick handlers
+   - [ ] Connect AF Hold button onPressStart/onPressEnd handlers
+5. ⏳ Protocol Definition Update
+   - [ ] Update `protocol/commands.json` with ground_side: true for both commands
+6. ⏳ End-to-end testing with live H16
 
 **Reference Documents:**
 - Implementation guide: `docs/Focus_Control_Implementation_Guide.md`
