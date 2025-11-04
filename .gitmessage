@@ -1,0 +1,36 @@
+[DOMAIN][TYPE] Brief description (max 72 chars)
+
+# Detailed changes:
+-
+-
+-
+
+# Cross-domain impacts:
+Affects:
+Tested:
+
+# Domain tags (pick one):
+# [AIR]    - Air-side (Pi 5 C++ SBC)
+# [GROUND] - Ground-side (H16 Android)
+# [TOOLS]  - SystemTools (Python diagnostics)
+# [DOCS]   - Documentation/Protocol changes
+# [ALL]    - Changes affecting all domains
+
+# Type tags (pick one):
+# [FEATURE] - New functionality
+# [FIX]     - Bug fix
+# [REFACTOR]- Code restructuring
+# [PROTOCOL]- Protocol implementation
+# [TEST]    - Testing additions
+# [BUILD]   - Build system changes
+# [WIP]     - Work in progress
+
+# Example:
+# [AIR][FEATURE] Add thermal camera support via SDK
+#
+# - Implemented thermal imaging capture
+# - Added temperature overlay feature
+# - Updated protocol with thermal data
+#
+# Affects: [GROUND] needs UI for thermal display
+# Tested: Sony thermal camera module
