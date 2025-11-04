@@ -20,13 +20,96 @@ Testing (Pi 5):        ███████████████████
 Camera Integration:    ████████████████████████████████ 100% Complete!
 ```
 
-**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Multi-client UDP broadcasting! Dual-port UDP broadcasting! Complete storage reporting! Exposure compensation control!)
+**Overall Completion:** 100% (Camera integration fully working! ISO Auto fixed! All subsystems operational! Protocol v1.1.0 implemented! Multi-client UDP broadcasting! Dual-port UDP broadcasting! Complete storage reporting! Exposure compensation control! Manual focus controls implemented!)
 
-**Last Updated:** October 30, 2025 - Exposure compensation camera control implemented
+**Last Updated:** November 4, 2025 - Manual focus controls implemented and tested
 
 ---
 
-## RECENT UPDATES (October 23-30, 2025)
+## RECENT UPDATES (October 23-November 4, 2025)
+
+### ⚠️ Manual Focus Controls Implemented with Known Issues! (October 30-31, 2025)
+
+**Feature Status: Implemented with 2 Pending Issues**
+
+**Implemented Commands:**
+- ✅ `camera.focus` - Manual focus control (near/far/stop with 3 speed levels)
+- ✅ `camera.auto_focus_hold` - Auto-focus hold button (press/release)
+
+**Implementation (Air-Side):**
+- **File:** `sbc/src/camera/camera_sony.cpp`
+- **Functions:** `handleFocusControl()`, `handleAutoFocusHold()`
+- **Protocol v1.2.0:** Added `camera.focus` and `camera.auto_focus_hold` commands
+- **Sony SDK:** Direct focus control via CrRemoteSdkApi focus functions
+- **Speed Mapping:** 1=slow (SDK 1-2), 2=medium (SDK 3-4), 3=fast (SDK 5-7)
+
+**Ground-Side Implementation:**
+- ✅ NetworkClient methods: `focusCamera()`, `setAutoFocusHold()`
+- ✅ CameraViewModel integration with press-and-hold gesture support
+- ✅ UI: 6 directional focus buttons (Near 1x/2x/3x, Far 1x/2x/3x)
+- ✅ UI: Focus Stop button, AF Hold button
+- ✅ FocusDistanceOverlay component (visual progress bar)
+
+**⚠️ Known Issue #1: Focus Distance Readback Not Functioning**
+- **Symptom:** FocusDistanceOverlay does not display current focal distance
+- **Expected:** Real-time focal distance in meters or infinity symbol (e.g., "5.2m", "∞")
+- **Actual:** No data displayed, overlay hidden
+- **Suspected Causes:**
+  1. UDP status broadcast may not include `focal_distance_m` field
+  2. Field name mismatch between Air-Side and Ground-Side
+  3. Air-Side may not be querying focal distance property from Sony SDK
+  4. Data type mismatch (float vs string vs special encoding for infinity)
+- **Affects:**
+  - **Air-Side:** UDP status broadcast (data source)
+  - **Ground-Side:** FocusDistanceOverlay.kt (parsing/display)
+- **Priority:** Medium - UI functional but lacks user feedback
+- **Next Steps:**
+  1. Inspect UDP status broadcast JSON structure
+  2. Check if focal_distance property is queried from camera
+  3. Verify field naming: `focal_distance_m`, `focalDistance`, `focus_distance`
+  4. Add diagnostic logging to UDP broadcaster
+  5. Test with camera in diagnostic mode
+
+**⚠️ Known Issue #2: Auto-Focus Assist in Manual Focus Mode Not Functioning**
+- **Symptom:** AF Hold button does not engage autofocus when camera in manual focus mode
+- **Expected:** Pressing AF Hold temporarily engages autofocus (like half-press shutter or AF-ON button)
+- **Actual:** Button sends command but camera does not focus
+- **Suspected Causes:**
+  1. Sony SDK may not support AF Hold in manual focus mode (MF mode restriction)
+  2. Air-Side may need to temporarily switch camera to AF mode
+  3. Command may require specific camera mode precondition
+  4. Sony camera body may not support this feature combination
+- **Affects:**
+  - **Air-Side:** camera.auto_focus_hold command execution
+  - **Ground-Side:** AF Hold button UI and user expectations
+- **Priority:** Low - Manual focus still works, AF Hold works in AF-S/AF-C modes
+- **Workaround:** User can switch to AF mode for autofocus, then back to MF
+- **Next Steps:**
+  1. Check Sony SDK documentation for MF mode + AF Hold restrictions
+  2. Test AF Hold command in AF-S, AF-C, and MF modes
+  3. Investigate if temporary mode switch is required
+  4. Consider SDK error code logging for better diagnostics
+
+**Testing Results:**
+- ✅ Manual focus Near/Far/Stop commands work correctly
+- ✅ Focus speed levels (1-3) properly mapped to Sony SDK speeds
+- ✅ Commands execute without SDK errors
+- ✅ Ground-Side UI press-and-hold gestures work correctly
+- ⚠️ Focus distance readback not functional (pending investigation)
+- ⚠️ AF Hold in MF mode not functional (pending SDK investigation)
+
+**Protocol Status:**
+- `camera.focus`: air_side=TRUE, ground_side=TRUE (with issue #1)
+- `camera.auto_focus_hold`: air_side=TRUE, ground_side=TRUE (with issue #2)
+
+**Documentation Updated:**
+- `protocol/commands.json` - Marked both commands with implementation status
+- `android/docs/PROGRESS_AND_TODO.md` - Detailed issue tracking
+- `android/docs/ANDROID_ARCHITECTURE.md` - Manual focus controls documented
+
+**Status:** ⚠️ **AIR-SIDE & GROUND-SIDE IMPLEMENTED** - 2 issues pending investigation
+
+---
 
 ### ✅ Exposure Compensation Control Implemented! (October 30, 2025)
 

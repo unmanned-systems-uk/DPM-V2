@@ -1,7 +1,7 @@
 # DPM Android Application - Architecture Documentation
 
-**Version**: 1.0
-**Date**: October 27, 2025
+**Version**: 1.1
+**Date**: November 4, 2025 (Documentation Audit & Update)
 **Project**: Drone Payload Manager (DPM) - Ground Station Application
 **Platform**: Android (Kotlin + Jetpack Compose)
 **Package**: `uk.unmannedsystems.dpm_android`
@@ -63,10 +63,11 @@
 - **Language**: Kotlin 2.0.21
 - **Build System**: Gradle 8.13.0 with Kotlin DSL
 - **UI Framework**: Jetpack Compose (BOM 2024.09.00)
-- **Architecture**: MVVM (Model-View-ViewModel)
-- **Minimum SDK**: API 24 (Android 7.0)
+- **Architecture**: MVVM (Model-View-ViewModel) with specification-first property loading
+- **Minimum SDK**: API 24 (Android 7.0 Nougat)
 - **Target SDK**: API 36 (Android 14+)
 - **Compile SDK**: API 36
+- **BuildConfig**: Build timestamp tracking enabled (BUILD_DATE, BUILD_TIMESTAMP)
 
 **Major Libraries:**
 - **Jetpack Compose**: Modern declarative UI toolkit
@@ -92,22 +93,25 @@
 
 ### 1.3 Key Features
 
-**Implemented Features (Phase 1 MVP - 70% Complete):**
+**Implemented Features (Phase 1 MVP - 85% Complete):**
 
 ✅ **Camera Control:**
-- Shutter speed control (1/8000s to 30s)
-- Aperture control (f/1.4 to f/22)
-- ISO control (100 to 25600)
+- Shutter speed control (1/8000s to 30s, 56 values from PropertyLoader)
+- Aperture control (f/1.4 to f/22, 23 values from PropertyLoader)
+- ISO control (100 to 102400, 35 values from PropertyLoader)
 - Exposure compensation (-3 to +3 EV)
 - Camera mode selection (Auto, Manual, Aperture Priority, Shutter Priority, Program)
 - White balance selection
 - File format selection (JPEG, RAW, JPEG+RAW)
 - Focus mode selection
+- **Manual focus controls** (Near/Far at 3 speeds: Slow/Med/Fast, Stop button)
+- **Auto-Focus Hold button** (press-and-hold gesture support)
+- **Focus distance overlay** (visual progress bar with distance readback - ⚠️ pending issue)
 - Shutter release command
 - Sony-style overlay UI with auto-hide and parameter adjustment
 - Advanced control screen with collapsible sections
-- Real-time camera property querying (shutter, aperture, ISO)
-- Property query frequency configuration and enable/disable toggle
+- **Real-time Property Polling system** (configurable 0.1-5 Hz, enable/disable toggle)
+- **PropertyLoader architecture** (specification-first property loading from JSON)
 - Camera error detection and display (e.g., "Camera not connected")
 - Battery level color coding (orange <50%, red <30%, flashing red <20%)
 
@@ -133,6 +137,8 @@
 - Persistent settings via DataStore
 - Network configuration (IP, ports, timeouts, intervals)
 - Video streaming configuration
+- **Property query settings** (frequency, enable/disable)
+- **SettingsManager singleton** (global settings access for non-composable contexts)
 - Reset to defaults functionality
 - Real-time settings updates
 
@@ -160,7 +166,7 @@
 ### 1.4 Development Status
 
 **Current Phase**: Phase 1 - Active Development
-**Overall Completion**: 70% (Phase 1 MVP)
+**Overall Completion**: TBD (pending new testing structure definition - estimated 85%)
 
 **Progress by Area:**
 ```
@@ -168,16 +174,22 @@ Documentation Review:  ███████████████████
 Project Setup:         ████████████████████████████████ 100% Complete
 Network Layer:         ████████████████████████████████ 100% Complete
 UI Implementation:     ████████████████████████████░░░░  85% In Progress
-Command Protocol:      ████████████░░░░░░░░░░░░░░░░░░░░  40% In Progress
+Command Protocol:      ██████████████████████░░░░░░░░░░  70% In Progress
 Video Streaming:       ████████████████████████████████ 100% Complete
 Testing:               ██████░░░░░░░░░░░░░░░░░░░░░░░░░░  20% Started
-Integration:           ████████████████████░░░░░░░░░░░░  60% In Progress
+Integration:           ████████████████████░░░░░░░░░░░░  65% In Progress
 ```
 
-**Completed (v1.0):**
+**Completed (v1.1 - November 4, 2025):**
 - ✅ Network client with TCP/UDP communication
 - ✅ Settings persistence with DataStore
 - ✅ Camera control UI with all manual controls
+- ✅ **PropertyLoader architecture** (specification-first property loading)
+- ✅ **Real-time Property Polling system** (configurable frequency)
+- ✅ **Manual focus controls** (Near/Far/Stop, 3 speeds)
+- ✅ **FocusDistanceOverlay** (visual progress bar for focus distance)
+- ✅ **SettingsManager singleton** (global settings access)
+- ✅ **Build timestamp tracking** (BuildConfig fields)
 - ✅ RTSP video streaming integration
 - ✅ System status monitoring
 - ✅ Auto-connect on app startup
@@ -187,7 +199,9 @@ Integration:           ███████████████████
 
 **In Progress:**
 - ⏳ End-to-end testing with R16 hardware
-- ⏳ Camera property commands (waiting for air-side)
+- ⏳ Resolve focus distance readback issue (UDP status broadcast)
+- ⏳ Resolve AF Hold in manual focus mode issue
+- ⏳ Define new comprehensive testing structure
 - ⏳ Performance optimization
 - ⏳ Error handling improvements
 
@@ -1567,6 +1581,172 @@ class SettingsRepository(private val context: Context) {
 
 ---
 
+### 5.2.2 PropertyLoader (Specification-First Architecture)
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/camera/PropertyLoader.kt`
+
+**Purpose**: Runtime specification loader for camera property values, ensuring ground-side and air-side use identical value lists from a single source of truth.
+
+**Problem Solved**:
+Previously, camera property values (ISO, shutter speed, aperture) were hardcoded independently in Air-Side C++ and Ground-Side Android, causing synchronization failures when values didn't match. PropertyLoader eliminates this by loading validated property values from a JSON specification at runtime.
+
+**Architecture**:
+```kotlin
+object PropertyLoader {
+    private var initialized = false
+    private val isoValues = mutableSetOf<String>()
+    private val shutterSpeedValues = mutableSetOf<String>()
+    private val apertureValues = mutableSetOf<String>()
+
+    fun initialize(context: Context): Boolean {
+        // Load camera_properties.json from assets
+        // Parse and validate property values
+        // Populate internal sets
+        return true
+    }
+
+    fun getIsoValues(): Set<String> = isoValues.toSet()
+    fun getShutterSpeedValues(): Set<String> = shutterSpeedValues.toSet()
+    fun getApertureValues(): Set<String> = apertureValues.toSet()
+
+    fun isValidValue(property: String, value: String): Boolean {
+        return when (property) {
+            "iso" -> isoValues.contains(value)
+            "shutter_speed" -> shutterSpeedValues.contains(value)
+            "aperture" -> apertureValues.any { it.removePrefix("f/") == value.removePrefix("f/") }
+            else -> false
+        }
+    }
+}
+```
+
+**Data Source**: `assets/camera_properties.json` (17KB specification file)
+- Copied from `protocol/camera_properties.json`
+- Contains complete property definitions
+- 35 ISO values (including "auto", extended low, standard range)
+- 56 shutter speed values (1/8000s to 30s, BULB mode disabled for safety)
+- 23 aperture values (f/1.4 to f/22)
+
+**Initialization**:
+```kotlin
+// In DPMApplication.onCreate()
+PropertyLoader.initialize(this)
+if (!PropertyLoader.isInitialized()) {
+    Log.e(TAG, "PropertyLoader initialization failed!")
+}
+```
+
+**Usage in ViewModels**:
+```kotlin
+// Validate before sending to air-side
+if (PropertyLoader.isValidValue("iso", selectedIso)) {
+    NetworkManager.setCameraProperty("iso", selectedIso)
+} else {
+    Log.w(TAG, "Invalid ISO value: $selectedIso")
+}
+
+// Populate UI selectors
+val availableIsoValues = PropertyLoader.getIsoValues()
+```
+
+**Benefits**:
+- **Single Source of Truth**: Ground-side and Air-side read same JSON specification
+- **Runtime Validation**: Catches invalid values before network transmission
+- **No Hardcoding**: All property values loaded dynamically from specification
+- **Prevents Desync**: Impossible for platforms to have mismatched property lists
+- **Easy Updates**: Change specification file to add/remove property values
+
+**Documentation References**:
+- See: `docs/CAMERA_PROPERTIES_FIX_TRACKING.md` for complete background and rationale
+- See: `docs/CC_READ_THIS_FIRST.md` lines 134-174 for specification-first workflow rules
+
+---
+
+### 5.2.3 SettingsManager (Global Singleton)
+
+**File**: `app/src/main/java/uk/unmannedsystems/dpm_android/settings/SettingsManager.kt`
+
+**Purpose**: Global singleton for accessing settings from non-composable contexts (e.g., background coroutines, services).
+
+**Problem Solved**:
+SettingsRepository requires a Context to create DataStore instance. SettingsManager provides app-wide access to settings without needing to pass Context references throughout the codebase.
+
+**Implementation**:
+```kotlin
+object SettingsManager {
+    private var repository: SettingsRepository? = null
+
+    fun initialize(context: Context) {
+        repository = SettingsRepository(context)
+    }
+
+    fun getPropertyQueryFrequency(): Float {
+        return repository?.let {
+            runBlocking {
+                it.propertyQueryFrequencyFlow.first()
+            }
+        } ?: 0.5f  // Default fallback
+    }
+
+    fun getPropertyQueryFrequencyFlow(): Flow<Float>? {
+        return repository?.propertyQueryFrequencyFlow
+    }
+
+    suspend fun savePropertyQueryFrequency(frequencyHz: Float) {
+        repository?.savePropertyQueryFrequency(frequencyHz)
+    }
+
+    fun getPropertyQueryEnabled(): Boolean {
+        return repository?.let {
+            runBlocking {
+                it.propertyQueryEnabledFlow.first()
+            }
+        } ?: true  // Default enabled
+    }
+
+    suspend fun savePropertyQueryEnabled(enabled: Boolean) {
+        repository?.savePropertyQueryEnabled(enabled)
+    }
+}
+```
+
+**Initialization**:
+```kotlin
+// In DPMApplication.onCreate()
+SettingsManager.initialize(this)
+```
+
+**Usage**:
+```kotlin
+// In CameraViewModel background coroutine
+val frequency = SettingsManager.getPropertyQueryFrequency()
+val delayMs = (1000f / frequency).toLong()
+delay(delayMs)
+
+// In Settings UI
+val frequencyFlow = SettingsManager.getPropertyQueryFrequencyFlow()
+frequencyFlow?.collect { newFrequency ->
+    // React to settings change
+}
+```
+
+**Managed Settings**:
+- Property query frequency (0.1 Hz to 5 Hz)
+- Property query enabled/disabled state
+
+**Benefits**:
+- **Convenient Access**: No need to pass Context references everywhere
+- **Synchronous Reads**: `runBlocking` for immediate value access when needed
+- **Reactive Updates**: Flow support for observing settings changes
+- **Fallback Defaults**: Returns safe defaults if not initialized
+
+**Design Notes**:
+- Uses `runBlocking` sparingly - only for settings access (acceptable for settings reads)
+- Repository still manages DataStore persistence
+- SettingsManager is a lightweight wrapper, not a replacement for Repository pattern
+
+---
+
 ## 6. Network Layer
 
 ### 6.1 NetworkManager (Singleton)
@@ -1983,6 +2163,26 @@ FullScreenVideoPlayer(
 - Large value display
 - Increment/decrement callbacks
 
+**FocusDistanceOverlay** (`camera/FocusDistanceOverlay.kt`):
+- Real-time focus distance visualization
+- Logarithmic progress bar (0.5m to infinity)
+- Distance display: meters or infinity symbol
+- Scale markers for reference (0.5m, 1m, 5m, 10m, ∞)
+- Auto-hide when no focus distance data available
+- Color: Cyan progress bar on dark translucent background
+
+**Manual Focus Controls** (`camera/SonyRemoteControlScreen.kt`):
+- 6 directional focus buttons: Near 1x/2x/3x, Far 1x/2x/3x
+- Focus Stop button (halts focus movement)
+- Auto-Focus Hold button (press-and-hold gesture support)
+- Icons: 👤 (person) for Near, 🏔️ (mountain) for Far
+- Speed mapping: 1=slow, 2=medium, 3=fast (maps to Sony SDK speeds)
+- Protocol: `camera.focus` with `action` (near/far/stop) and `speed` (1-3)
+- Protocol: `camera.auto_focus_hold` with `state` (press/release)
+- ⚠️ Known Issues:
+  * Focus distance readback not functioning (pending UDP status broadcast investigation)
+  * AF Hold in manual focus mode not working (pending SDK investigation)
+
 ---
 
 ## 8. State Management
@@ -2219,6 +2419,96 @@ private fun sendPropertyCommand(property: String, value: String) {
 - Network errors: Logged, no state revert
 - Connection failures: Handled by NetworkManager
 - Invalid values: Prevented by `coerceIn()` and `coerceAtLeast()`/`coerceAtMost()`
+
+**Real-time Property Polling System (NEW in v1.1):**
+
+**Purpose**: Continuously queries camera properties from air-side to ensure ground-side UI reflects actual camera state.
+
+**Implementation**:
+```kotlin
+init {
+    // Start property polling when connected
+    viewModelScope.launch {
+        NetworkManager.connectionStatus.collect { networkStatus ->
+            if (networkStatus.state == ConnectionState.OPERATIONAL) {
+                startPropertyPolling()
+            } else {
+                stopPropertyPolling()
+            }
+        }
+    }
+}
+
+private var pollingJob: Job? = null
+
+private fun startPropertyPolling() {
+    pollingJob?.cancel()
+    pollingJob = viewModelScope.launch {
+        while (isActive && SettingsManager.getPropertyQueryEnabled()) {
+            try {
+                val result = NetworkManager.getClient()?.getCameraProperties(
+                    listOf("shutter_speed", "aperture", "iso")
+                )
+                result?.onSuccess { response ->
+                    response.data?.let { properties ->
+                        // Update _cameraState with actual camera values
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Property polling error", e)
+            }
+
+            val frequency = SettingsManager.getPropertyQueryFrequency()
+            val delayMs = (1000f / frequency).toLong()
+            delay(delayMs)
+        }
+    }
+}
+```
+
+**Configuration**:
+- Frequency: 0.1 Hz (10 sec) to 5 Hz (0.2 sec), default 0.5 Hz (2 sec)
+- Enable/Disable: User toggle in Settings screen
+- Properties Queried: shutter_speed, aperture, iso
+
+**Manual Focus Controls (NEW in v1.1):**
+
+```kotlin
+fun focusNear(speed: Int) {
+    viewModelScope.launch {
+        NetworkManager.getClient()?.focusCamera("near", speed)
+    }
+}
+
+fun focusFar(speed: Int) {
+    viewModelScope.launch {
+        NetworkManager.getClient()?.focusCamera("far", speed)
+    }
+}
+
+fun focusStop() {
+    viewModelScope.launch {
+        NetworkManager.getClient()?.focusCamera("stop", 1)
+    }
+}
+
+fun setAutoFocusHold(pressed: Boolean) {
+    viewModelScope.launch {
+        val state = if (pressed) "press" else "release"
+        NetworkManager.getClient()?.setAutoFocusHold(state)
+    }
+}
+```
+
+**Protocol**:
+- `camera.focus` with `action` (near/far/stop) and `speed` (1-3)
+- `camera.auto_focus_hold` with `state` (press/release)
+
+**Known Issues**:
+- ⚠️ Focus distance readback not functioning (pending UDP status broadcast field)
+- ⚠️ AF Hold in manual focus mode not working (pending SDK investigation)
+
+---
 
 #### 8.2.2 SettingsViewModel
 
