@@ -291,7 +291,7 @@ public:
             cached_status_.model = camera_model_;
             cached_status_.battery_percent = getBatteryLevel();  // Placeholder
             cached_status_.remaining_shots = getRemainingShotsCount();  // Placeholder
-            cached_status_.focal_distance_meters = getFocalDistanceMeters();  // Current focus distance
+            cached_status_.focal_distance_meters = getFocalDistanceMetersLocked();  // Current focus distance (mutex already held)
 
             // Keep existing property values from cache
             // (they're updated by setProperty() calls)
@@ -632,18 +632,36 @@ public:
     }
 
     float getFocalDistanceMeters() const override {
+        // Public API: Acquire mutex then call locked version
+        // This version is safe to call from anywhere
+
         // Check connection
         if (!isConnected()) {
             Logger::warning("Cannot read focal distance: camera not connected");
-            return -1.0f;
+            return 0.0f;
         }
 
         // Acquire lock (this is a const method but we need thread safety)
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
             Logger::warning("Cannot read focal distance: camera busy");
-            return -1.0f;
+            return 0.0f;  // Return unknown if busy
         }
+
+        // Call locked version (mutex already held)
+        return getFocalDistanceMetersLocked();
+    }
+
+private:
+    // Private helper: Query focal distance - assumes mutex already held by caller
+    float getFocalDistanceMetersLocked() const {
+        // Connection check (no mutex needed - atomic check)
+        if (!isConnected()) {
+            return 0.0f;  // Unknown when disconnected
+        }
+
+        // IMPORTANT: Caller must hold mutex_
+        // This version does NOT acquire the mutex
 
         // Request specific property: FocalDistanceInMeter
         CrInt32u property_codes[] = {
@@ -661,8 +679,8 @@ public:
         );
 
         if (CR_FAILED(result) || property_count == 0 || !property_list) {
-            Logger::warning("Failed to get focal distance property from camera");
-            return -1.0f;
+            // Query failed - return 0.0f (unknown)
+            return 0.0f;
         }
 
         // Extract focal distance value (should be first/only property)
@@ -688,7 +706,6 @@ public:
         return distance_meters;
     }
 
-private:
     void initializeSDK() {
         Logger::info("Initializing Sony SDK...");
 
