@@ -125,7 +125,7 @@ git push origin main          # End of session
 ```
 
 ---
-## 📋 Key Rules (20 lines)
+## 📋 Key Rules (30 lines)
 1. **Protocol files at `protocol/` NOT `docs/protocol/`**
 2. **Never hard-code camera properties - use JSON specs**
 3. **Update PROGRESS_AND_TODO.md after significant changes**
@@ -133,6 +133,34 @@ git push origin main          # End of session
 5. **One command/property implementation at a time**
 6. **Test thoroughly before marking "implemented"**
 7. **Cross-domain changes need separate commits**
+8. **Create Git branch for any major or risky changes, test then merge**
+9. **SystemTools: ALWAYS chain callbacks, never replace** (see DEVELOPMENT_SIDE/DEVTOOLS_MODE_GUIDE.md)
+10. **Cross-domain commits need implementation instructions** (see GIT_PROTOCOL_GUIDE.md)
+
+### 🚀 NEW GitHub-Based Project Management (Added 2025-11-05)
+11. **GitHub Issues = Primary Task Tracking**
+    - All tasks tracked as GitHub Issues with labels
+    - Use `gh` CLI for creating/updating issues
+    - GitKraken for visual project monitoring
+12. **Claude Code GitHub Workflow:**
+    ```bash
+    # Start session
+    .github\scripts\cc-start-session.ps1
+
+    # Work on issue
+    .github\scripts\cc-work-on-issue.ps1 123
+
+    # Complete issue
+    .github\scripts\cc-complete-issue.ps1 123
+    ```
+13. **Issue Labels:**
+    - Domain: `air-side`, `ground-side`, `dev-tools`
+    - Priority: `priority:critical/high/medium/low`
+    - Status: `status:in-progress/blocked/testing`
+14. **Documentation Now Secondary:**
+    - Markdown files for context/history only
+    - GitHub Issues for active task management
+    - Progress reports auto-generated from GitHub
 
 ---
-*Total: ~200 lines | Details in domain-specific docs under `docs/`*
+*Total: ~230 lines | Details in domain-specific docs under `docs/`*
