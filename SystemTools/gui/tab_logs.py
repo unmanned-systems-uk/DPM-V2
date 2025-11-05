@@ -179,6 +179,7 @@ class LogInspectorTab(ttk.Frame):
 
         ttk.Button(bottom_frame, text="Clear Display", command=self._clear_display).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="Download Log File...", command=self._download_log_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
 
         # Line count label
@@ -704,6 +705,68 @@ class LogInspectorTab(ttk.Frame):
             except Exception as e:
                 logger.error(f"Error saving logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
+
+    def _download_log_file(self):
+        """Download application log file from Air-Side via SFTP"""
+        if not self.ssh_client or not self.ssh_client.is_connected():
+            messagebox.showwarning("Not Connected", "Please connect SSH first")
+            return
+
+        # Remote log file path (after config.h fix)
+        remote_log_path = "/home/dpm/DPM-V2/sbc/logs/payload_manager.log"
+
+        # Get save location
+        default_dir = config.get("data", "log_directory", str(Path.home() / "Documents"))
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        filepath = filedialog.asksaveasfilename(
+            title="Download Air-Side Log File",
+            initialdir=default_dir,
+            initialfile=f"payload_manager_{timestamp}.log",
+            defaultextension=".log",
+            filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        # Download in background thread with progress
+        def download_thread():
+            try:
+                # Show progress in status
+                self.after(0, lambda: self.ssh_status_label.config(text="Downloading log file...", foreground="blue"))
+
+                # Download file
+                success = self.ssh_client.download_file(
+                    remote_path=remote_log_path,
+                    local_path=filepath,
+                    progress_callback=None  # Could add progress bar later
+                )
+
+                if success:
+                    # Get file size
+                    file_size = Path(filepath).stat().st_size
+                    size_mb = file_size / (1024 * 1024)
+
+                    self.after(0, lambda: self.ssh_status_label.config(text="Connected", foreground="green"))
+                    self.after(0, lambda: messagebox.showinfo(
+                        "Success",
+                        f"Log file downloaded!\n\nFile: {filepath}\nSize: {size_mb:.2f} MB"
+                    ))
+                    logger.info(f"Downloaded log file: {filepath} ({size_mb:.2f} MB)")
+                else:
+                    self.after(0, lambda: self.ssh_status_label.config(text="Connected", foreground="green"))
+                    self.after(0, lambda: messagebox.showerror(
+                        "Error",
+                        f"Failed to download log file.\n\nCheck that:\n1. Container has been rebuilt with fixed config.h\n2. Log file exists at: {remote_log_path}"
+                    ))
+
+            except Exception as e:
+                logger.error(f"Error downloading log file: {e}")
+                self.after(0, lambda: self.ssh_status_label.config(text="Connected", foreground="green"))
+                self.after(0, lambda: messagebox.showerror("Error", f"Download failed:\n{e}"))
+
+        threading.Thread(target=download_thread, daemon=True).start()
 
     def _copy_all(self):
         """Copy all logs to clipboard"""

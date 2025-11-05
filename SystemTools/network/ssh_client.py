@@ -226,3 +226,73 @@ class SSHClient:
         thread = threading.Thread(target=connect_thread, daemon=True)
         thread.start()
         return thread
+
+    def download_file(self, remote_path: str, local_path: str, progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
+        """
+        Download a file from Air-Side via SFTP
+
+        Args:
+            remote_path: Path to file on Air-Side (e.g., "/home/dpm/DPM-V2/sbc/logs/payload_manager.log")
+            local_path: Where to save file on Windows PC
+            progress_callback: Optional callback(bytes_transferred, total_bytes) for progress updates
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.connected or not self.client:
+            logger.error("SSH: Not connected")
+            return False
+
+        try:
+            logger.info(f"SFTP: Downloading {remote_path} -> {local_path}")
+
+            # Open SFTP session
+            sftp = self.client.open_sftp()
+
+            # Get file size for progress reporting
+            file_stat = sftp.stat(remote_path)
+            file_size = file_stat.st_size
+
+            # Download with callback
+            if progress_callback:
+                def callback_wrapper(bytes_transferred, total_bytes):
+                    progress_callback(bytes_transferred, file_size)
+
+                sftp.get(remote_path, local_path, callback=callback_wrapper)
+            else:
+                sftp.get(remote_path, local_path)
+
+            sftp.close()
+
+            logger.info(f"SFTP: Download complete ({file_size} bytes)")
+            return True
+
+        except FileNotFoundError:
+            logger.error(f"SFTP: Remote file not found: {remote_path}")
+            return False
+        except Exception as e:
+            logger.error(f"SFTP: Download failed: {e}")
+            return False
+
+    def list_directory(self, remote_path: str) -> list[str]:
+        """
+        List files in a directory on Air-Side
+
+        Args:
+            remote_path: Directory path on Air-Side
+
+        Returns:
+            List of filenames (empty list if error)
+        """
+        if not self.connected or not self.client:
+            logger.error("SSH: Not connected")
+            return []
+
+        try:
+            sftp = self.client.open_sftp()
+            files = sftp.listdir(remote_path)
+            sftp.close()
+            return files
+        except Exception as e:
+            logger.error(f"SFTP: Failed to list directory {remote_path}: {e}")
+            return []
