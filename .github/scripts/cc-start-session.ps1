@@ -13,7 +13,7 @@ $branch = git branch --show-current
 Write-Host "Current Branch: $branch" -ForegroundColor Yellow
 
 if ($branch -ne "main") {
-    Write-Host "⚠ Warning: Not on main branch" -ForegroundColor Yellow
+    Write-Host "Warning: Not on main branch" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -28,23 +28,23 @@ Write-Host "=== Open Issues by Priority ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Critical issues
-Write-Host "🔴 CRITICAL Issues:" -ForegroundColor Red
+Write-Host "CRITICAL Issues:" -ForegroundColor Red
 gh issue list --repo "$owner/$repo" --label "priority:critical" --state open --limit 5
 Write-Host ""
 
 # High priority issues
-Write-Host "🟡 HIGH Priority Issues:" -ForegroundColor Yellow
+Write-Host "HIGH Priority Issues:" -ForegroundColor Yellow
 gh issue list --repo "$owner/$repo" --label "priority:high" --state open --limit 5
 Write-Host ""
 
 # In-progress issues
-Write-Host "🔄 In Progress:" -ForegroundColor Cyan
+Write-Host "In Progress:" -ForegroundColor Cyan
 gh issue list --repo "$owner/$repo" --label "status:in-progress" --state open --limit 5
 Write-Host ""
 
 # Show my assigned issues
-Write-Host "📋 Assigned to Me:" -ForegroundColor Magenta
-gh issue list --repo "$owner/$repo" --assignee @me --state open --limit 10
+Write-Host "Assigned to Me:" -ForegroundColor Magenta
+gh issue list --repo "$owner/$repo" --assignee "@me" --limit 10
 Write-Host ""
 
 # Quick stats
@@ -83,14 +83,18 @@ $sessionContent = @"
 *Session Start: $(Get-Date -Format 'HH:mm')*
 "@
 
+if (!(Test-Path ".claude/sessions")) {
+    New-Item -ItemType Directory -Path ".claude/sessions" -Force | Out-Null
+}
+
 New-Item -Path $sessionFile -Value $sessionContent -Force | Out-Null
-Write-Host "✓ Session file created: $sessionFile" -ForegroundColor Green
+Write-Host "Session file created: $sessionFile" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "=== Ready to Work ===" -ForegroundColor Green
 Write-Host "To work on an issue, run:" -ForegroundColor Cyan
-Write-Host "  .github\scripts\cc-work-on-issue.ps1 <issue-number>" -ForegroundColor White
+Write-Host "  .github\scripts\cc-work-on-issue.ps1 [issue-number]" -ForegroundColor White
 Write-Host ""
 Write-Host "To create a new issue, run:" -ForegroundColor Cyan
-Write-Host "  gh issue create --title 'Title' --body 'Description' --label 'domain,priority'" -ForegroundColor White
+Write-Host "  gh issue create --title ""Title"" --body ""Description"" --label ""domain,priority""" -ForegroundColor White
 Write-Host ""

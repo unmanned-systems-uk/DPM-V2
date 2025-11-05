@@ -1,24 +1,29 @@
-# GitHub Project Setup Script for DPM-V2
+# GitHub Project Setup Script for DPM-V2 (with explicit path)
 # Run once to initialize GitHub project management
-# Requires: GitHub CLI (gh) installed and authenticated
+# This version uses full path to gh.exe
+
+$ghPath = "C:\Program Files\GitHub CLI\gh.exe"
 
 Write-Host "=== DPM-V2 GitHub Project Setup ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if gh is installed
-try {
-    $ghVersion = gh --version
-    Write-Host "GitHub CLI found: $ghVersion" -ForegroundColor Green
-} catch {
-    Write-Host "GitHub CLI not found. Please install from https://cli.github.com/" -ForegroundColor Red
+# Check if gh is installed at the expected location
+if (Test-Path $ghPath) {
+    Write-Host "GitHub CLI found at: $ghPath" -ForegroundColor Green
+    $ghVersion = & $ghPath --version
+    Write-Host "Version: $ghVersion" -ForegroundColor Green
+} else {
+    Write-Host "GitHub CLI not found at $ghPath" -ForegroundColor Red
+    Write-Host "Please install from https://cli.github.com/" -ForegroundColor Red
     exit 1
 }
 
 # Check authentication
 Write-Host "Checking GitHub authentication..." -ForegroundColor Yellow
-$authStatus = gh auth status 2>&1
+$authStatus = & $ghPath auth status 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Not authenticated. Please run: gh auth login" -ForegroundColor Red
+    Write-Host "Not authenticated. Please run:" -ForegroundColor Red
+    Write-Host "  & `"$ghPath`" auth login" -ForegroundColor Yellow
     exit 1
 }
 Write-Host "Authenticated to GitHub" -ForegroundColor Green
@@ -40,12 +45,13 @@ $domainLabels = @(
 )
 
 foreach ($label in $domainLabels) {
-    try {
-        gh label create $label.name --repo "$owner/$repo" `
-            --color $label.color `
-            --description $label.description 2>$null
+    $result = & $ghPath label create $label.name --repo "$owner/$repo" `
+        --color $label.color `
+        --description $label.description 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "  Created label: $($label.name)" -ForegroundColor Green
-    } catch {
+    } else {
         Write-Host "  Label already exists: $($label.name)" -ForegroundColor Gray
     }
 }
@@ -60,12 +66,13 @@ $priorityLabels = @(
 )
 
 foreach ($label in $priorityLabels) {
-    try {
-        gh label create $label.name --repo "$owner/$repo" `
-            --color $label.color `
-            --description $label.description 2>$null
+    $result = & $ghPath label create $label.name --repo "$owner/$repo" `
+        --color $label.color `
+        --description $label.description 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "  Created label: $($label.name)" -ForegroundColor Green
-    } catch {
+    } else {
         Write-Host "  Label already exists: $($label.name)" -ForegroundColor Gray
     }
 }
@@ -80,12 +87,13 @@ $statusLabels = @(
 )
 
 foreach ($label in $statusLabels) {
-    try {
-        gh label create $label.name --repo "$owner/$repo" `
-            --color $label.color `
-            --description $label.description 2>$null
+    $result = & $ghPath label create $label.name --repo "$owner/$repo" `
+        --color $label.color `
+        --description $label.description 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "  Created label: $($label.name)" -ForegroundColor Green
-    } catch {
+    } else {
         Write-Host "  Label already exists: $($label.name)" -ForegroundColor Gray
     }
 }
@@ -100,12 +108,13 @@ $typeLabels = @(
 )
 
 foreach ($label in $typeLabels) {
-    try {
-        gh label create $label.name --repo "$owner/$repo" `
-            --color $label.color `
-            --description $label.description 2>$null
+    $result = & $ghPath label create $label.name --repo "$owner/$repo" `
+        --color $label.color `
+        --description $label.description 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "  Created label: $($label.name)" -ForegroundColor Green
-    } catch {
+    } else {
         Write-Host "  Label already exists: $($label.name)" -ForegroundColor Gray
     }
 }
@@ -121,11 +130,11 @@ $milestones = @(
 )
 
 foreach ($milestone in $milestones) {
-    $existing = gh api "repos/$owner/$repo/milestones" --jq ".[] | select(.title == \`"$($milestone.title)\`")" 2>$null
+    $existing = & $ghPath api "repos/$owner/$repo/milestones" --jq ".[] | select(.title == \`"$($milestone.title)\`")" 2>$null
     if ($existing) {
         Write-Host "  Milestone already exists: $($milestone.title)" -ForegroundColor Gray
     } else {
-        gh api "repos/$owner/$repo/milestones" `
+        & $ghPath api "repos/$owner/$repo/milestones" `
             --method POST `
             -f title="$($milestone.title)" `
             -f description="$($milestone.description)" `
@@ -141,4 +150,7 @@ Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Run sync-todos-to-issues.ps1 to import existing TODOs"
 Write-Host "2. Configure GitKraken to connect to this repository"
 Write-Host "3. Use cc-start-session.ps1 when beginning work"
+Write-Host ""
+Write-Host "To add GitHub CLI to PATH permanently:" -ForegroundColor Yellow
+Write-Host '  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\GitHub CLI", [EnvironmentVariableTarget]::User)' -ForegroundColor Gray
 Write-Host ""

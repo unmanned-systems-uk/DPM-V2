@@ -162,5 +162,34 @@ git push origin main          # End of session
     - GitHub Issues for active task management
     - Progress reports auto-generated from GitHub
 
+### 🧪 CRITICAL: Testing & Issue Closure Workflow (Added 2025-11-05)
+15. **After Implementing ANY Feature:**
+    - CC MUST provide clear testing instructions
+    - Include exact commands/steps for user to verify
+    - Specify expected vs actual behavior
+16. **Testing Verification Protocol:**
+    - After implementation, CC asks: "Please test using: [specific instructions]"
+    - User tests and reports: "Testing successful" or "Issues found: [details]"
+    - If issues found, CC fixes and requests retest
+17. **Issue Closure Process:**
+    - Only after successful test, CC asks: "Testing successful? Should I close issue #X?"
+    - If YES: Run `.github\scripts\cc-complete-issue.ps1 X`
+    - Creates PR automatically linked to issue
+18. **Merge to Main Protocol:**
+    - CC asks: "Ready to merge PR #Y to main branch?"
+    - If YES: CC provides merge command or user merges via GitHub/GitKraken
+    - If NO: Leave PR open for review
+19. **Complete Workflow Example:**
+    ```
+    CC: "Feature implemented. Please test by running: python main.py"
+    User: "Test successful"
+    CC: "Great! Should I close issue #4?"
+    User: "Yes"
+    CC: [Runs cc-complete-issue.ps1 4, creates PR]
+    CC: "PR #5 created. Ready to merge to main?"
+    User: "Yes"
+    CC: [Merges or provides merge instructions]
+    ```
+
 ---
-*Total: ~230 lines | Details in domain-specific docs under `docs/`*
+*Total: ~260 lines | Details in domain-specific docs under `docs/`*

@@ -13,7 +13,7 @@ $repo = "DPM-V2"
 $todoFile = "docs/MASTER_TODO.md"
 
 if (!(Test-Path $todoFile)) {
-    Write-Host "✗ MASTER_TODO.md not found at $todoFile" -ForegroundColor Red
+    Write-Host "MASTER_TODO.md not found at $todoFile" -ForegroundColor Red
     exit 1
 }
 
@@ -83,13 +83,13 @@ $skipped = 0
 
 foreach ($todo in $todos) {
     if ($existingIssues -contains $todo.title) {
-        Write-Host "  ⚬ Skipping (exists): $($todo.title)" -ForegroundColor Gray
+        Write-Host "  Skipping (exists): $($todo.title)" -ForegroundColor Gray
         $skipped++
         continue
     }
 
     if ($DryRun -eq "true") {
-        Write-Host "  🔸 Would create: $($todo.title)" -ForegroundColor Yellow
+        Write-Host "  Would create: $($todo.title)" -ForegroundColor Yellow
         Write-Host "      Priority: $($todo.priority)" -ForegroundColor DarkGray
         Write-Host "      Domains: $($todo.domains -join ', ')" -ForegroundColor DarkGray
         $created++
@@ -101,20 +101,20 @@ foreach ($todo in $todos) {
     $labels += $todo.domains
     $labelString = $labels -join ","
 
-    # Build body
-    $body = @"
-## Description
-$($todo.description)
+    # Build body - simplified to avoid multi-line string issues
+    $bodyLines = @()
+    $bodyLines += "## Description"
+    $bodyLines += $todo.description
+    $bodyLines += ""
+    $bodyLines += "## Section"
+    $bodyLines += $todo.section
+    $bodyLines += ""
+    $bodyLines += "## Source"
+    $bodyLines += "Imported from MASTER_TODO.md"
+    $bodyLines += ""
+    $bodyLines += "Auto-imported by sync-todos-to-issues.ps1"
 
-## Section
-$($todo.section)
-
-## Source
-Imported from MASTER_TODO.md
-
----
-*Auto-imported by sync-todos-to-issues.ps1*
-"@
+    $body = $bodyLines -join "`n"
 
     # Create issue
     try {
@@ -125,14 +125,14 @@ Imported from MASTER_TODO.md
             --label "$labelString" 2>&1
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  ✓ Created: $($todo.title)" -ForegroundColor Green
+            Write-Host "  Created: $($todo.title)" -ForegroundColor Green
             $created++
         } else {
-            Write-Host "  ✗ Failed: $($todo.title)" -ForegroundColor Red
+            Write-Host "  Failed: $($todo.title)" -ForegroundColor Red
             Write-Host "    Error: $result" -ForegroundColor DarkRed
         }
     } catch {
-        Write-Host "  ✗ Error creating issue: $($todo.title)" -ForegroundColor Red
+        Write-Host "  Error creating issue: $($todo.title)" -ForegroundColor Red
     }
 }
 
