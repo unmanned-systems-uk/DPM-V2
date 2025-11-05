@@ -136,6 +136,7 @@ git push origin main          # End of session
 8. **Create Git branch for any major or risky changes, test then merge**
 9. **SystemTools: ALWAYS chain callbacks, never replace** (see DEVELOPMENT_SIDE/DEVTOOLS_MODE_GUIDE.md)
 10. **Cross-domain commits need implementation instructions** (see GIT_PROTOCOL_GUIDE.md)
+11. **Do not modify any code in a Domain you are not assigned to. If you feel this is necessary you must get user approval**
 
 ### 🚀 NEW GitHub-Based Project Management (Added 2025-11-05)
 11. **GitHub Issues = Primary Task Tracking**
