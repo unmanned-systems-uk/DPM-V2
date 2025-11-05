@@ -470,6 +470,18 @@ With a token: 5000 requests/hour + access to private repositories"""
                 error_data = json.loads(e.read().decode('utf-8'))
                 if 'message' in error_data:
                     error_msg = f"{error_msg} - {error_data['message']}"
+                # Add validation errors if present
+                if 'errors' in error_data:
+                    validation_errors = []
+                    for err in error_data['errors']:
+                        if isinstance(err, dict):
+                            field = err.get('field', err.get('resource', 'unknown'))
+                            code = err.get('code', 'error')
+                            validation_errors.append(f"{field}: {code}")
+                        else:
+                            validation_errors.append(str(err))
+                    if validation_errors:
+                        error_msg += f"\nValidation errors: {', '.join(validation_errors)}"
             except:
                 pass
             logger.error(error_msg)
@@ -768,7 +780,7 @@ With a token: 5000 requests/hour + access to private repositories"""
             data["labels"] = labels
 
         if assignee:
-            data["assignee"] = assignee
+            data["assignees"] = [assignee]
 
         # Create issue
         response = self._make_github_request("/issues", method="POST", data=data)

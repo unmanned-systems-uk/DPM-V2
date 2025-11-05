@@ -61,6 +61,9 @@ class ConfigManager:
                 "log_directory": str(Path(__file__).parent.parent / "logs"),
                 "message_capture_file": str(Path(__file__).parent.parent / "logs" / "messages.json"),
                 "auto_save_settings": True
+            },
+            "github": {
+                "token": ""  # GitHub Personal Access Token for API access
             }
         }
 

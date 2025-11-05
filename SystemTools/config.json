@@ -28,5 +28,8 @@
     "log_directory": "D:\\DPM\\DPM-V2\\SystemTools\\logs",
     "message_capture_file": "D:\\DPM\\DPM-V2\\SystemTools\\logs\\messages.json",
     "auto_save_settings": true
+  },
+  "github": {
+    "token": ""
   }
 }
