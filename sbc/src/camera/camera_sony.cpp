@@ -271,6 +271,7 @@ public:
             status.white_balance = "";
             status.focus_mode = "";
             status.file_format = "";
+            status.focal_distance_meters = 0.0f;  // Unknown when disconnected
             return status;
         }
 
@@ -290,6 +291,7 @@ public:
             cached_status_.model = camera_model_;
             cached_status_.battery_percent = getBatteryLevel();  // Placeholder
             cached_status_.remaining_shots = getRemainingShotsCount();  // Placeholder
+            cached_status_.focal_distance_meters = getFocalDistanceMeters();  // Current focus distance
 
             // Keep existing property values from cache
             // (they're updated by setProperty() calls)

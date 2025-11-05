@@ -131,6 +131,7 @@ struct CameraStatus {
     std::string white_balance;
     std::string focus_mode;
     std::string file_format;
+    float focal_distance_meters;  // Current focus distance in meters (-1.0f = infinity, 0.0f = unknown)
 
     json toJson() const {
         json result = {
@@ -148,7 +149,8 @@ struct CameraStatus {
                 {"iso", iso},
                 {"white_balance", white_balance},
                 {"focus_mode", focus_mode},
-                {"file_format", file_format}
+                {"file_format", file_format},
+                {"focal_distance_meters", focal_distance_meters}
             };
         }
 

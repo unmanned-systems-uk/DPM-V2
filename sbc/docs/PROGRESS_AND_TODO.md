@@ -50,25 +50,25 @@ Camera Integration:    ███████████████████
 - ✅ UI: Focus Stop button, AF Hold button
 - ✅ FocusDistanceOverlay component (visual progress bar)
 
-**⚠️ Known Issue #1: Focus Distance Readback Not Functioning**
+**✅ Known Issue #1: Focus Distance Readback Not Functioning (AIR-SIDE FIXED - 2025-11-05)**
 - **Symptom:** FocusDistanceOverlay does not display current focal distance
 - **Expected:** Real-time focal distance in meters or infinity symbol (e.g., "5.2m", "∞")
 - **Actual:** No data displayed, overlay hidden
-- **Suspected Causes:**
-  1. UDP status broadcast may not include `focal_distance_m` field
-  2. Field name mismatch between Air-Side and Ground-Side
-  3. Air-Side may not be querying focal distance property from Sony SDK
-  4. Data type mismatch (float vs string vs special encoding for infinity)
+- **Root Cause Identified:**
+  1. ✅ CameraStatus struct (messages.h) was missing `focal_distance_meters` field
+  2. ✅ getStatus() method never called getFocalDistanceMeters()
+  3. ✅ UDP status broadcast didn't include focal distance data
+- **Air-Side Fix Applied (2025-11-05):**
+  - ✅ Added `float focal_distance_meters` to CameraStatus struct (messages.h:134)
+  - ✅ Updated toJson() to include focal_distance_meters in broadcast (messages.h:153)
+  - ✅ Modified getStatus() to call getFocalDistanceMeters() (camera_sony.cpp:294)
+  - ✅ Container rebuilt and restarted with fix
+- **Ground-Side Status:** ⚠️ Pending implementation (see android/docs/ISSUE-001-FOCAL-DISTANCE-GROUNDSIDE-FIX.md)
 - **Affects:**
-  - **Air-Side:** UDP status broadcast (data source)
-  - **Ground-Side:** FocusDistanceOverlay.kt (parsing/display)
-- **Priority:** Medium - UI functional but lacks user feedback
-- **Next Steps:**
-  1. Inspect UDP status broadcast JSON structure
-  2. Check if focal_distance property is queried from camera
-  3. Verify field naming: `focal_distance_m`, `focalDistance`, `focus_distance`
-  4. Add diagnostic logging to UDP broadcaster
-  5. Test with camera in diagnostic mode
+  - **Air-Side:** ✅ Fixed - UDP broadcast now includes focal_distance_meters
+  - **Ground-Side:** ⚠️ Pending - Needs SimpleCameraSettings and CameraViewModel updates
+- **Priority:** Medium - Air-Side complete, Ground-Side needs 15-30 minute implementation
+- **Testing:** After Ground-Side fix, test with camera at various distances to verify real-time display
 
 **⚠️ Known Issue #2: Auto-Focus Assist in Manual Focus Mode Not Functioning**
 - **Symptom:** AF Hold button does not engage autofocus when camera in manual focus mode

@@ -149,13 +149,16 @@ Integration:           ███████████████████
 
 **⚠️ Known Issues (Pending Resolution):**
 
-**Issue 1: Focus Distance Readback Not Functioning**
+**Issue 1: Focus Distance Readback Not Functioning** ⚠️ **AIR-SIDE FIXED - GROUND-SIDE PENDING**
 - **Symptom:** FocusDistanceOverlay does not display current focal distance
 - **Expected:** Real-time focal distance in meters or infinity symbol
 - **Actual:** Overlay not showing / no data received
-- **Suspected Cause:** UDP status broadcast may not include `focal_distance_m` field, or field name mismatch
-- **Affects:** Both Air-Side (broadcast) and Ground-Side (parsing)
+- **Root Cause Identified:** UDP status broadcast was missing `focal_distance_meters` field
+- **Air-Side Status:** ✅ Fixed (2025-11-05) - Container rebuilt with focal distance in broadcast
+- **Ground-Side Status:** ⚠️ Pending - See `ISSUE-001-FOCAL-DISTANCE-GROUNDSIDE-FIX.md`
+- **Affects:** Ground-Side parsing (SimpleCameraSettings, CameraViewModel)
 - **Priority:** Medium - UI is functional but lacks feedback
+- **Estimated Fix Time:** 15-30 minutes
 
 **Issue 2: Temporary Manual Focus to Auto-Focus (Auto-Focus Assist) Not Functioning**
 - **Symptom:** Auto-Focus Hold button does not engage AF when camera in manual focus mode
@@ -958,27 +961,35 @@ buildConfigField("long", "BUILD_TIMESTAMP", "${buildTime}L")
 
 ### Active Issues (High Priority)
 
-**Issue #1: Focus Distance Readback Not Functioning**
+**Issue #1: Focus Distance Readback Not Functioning** ⚠️ **AIR-SIDE FIXED - GROUND-SIDE PENDING**
 - **Component:** FocusDistanceOverlay, UDP Status Broadcast
 - **Symptom:** Focus distance overlay does not display current focal distance
 - **Expected:** Real-time focal distance in meters or infinity symbol (e.g., "5.2m", "∞")
 - **Actual:** No data displayed, overlay hidden or shows placeholder
-- **Suspected Causes:**
-  1. UDP status broadcast may not include `focal_distance_m` field
-  2. Field name mismatch between Air-Side and Ground-Side
-  3. Air-Side may not be querying focal distance property from Sony SDK
-  4. Data type mismatch (float vs string vs special encoding for infinity)
+- **Root Cause:**
+  1. ✅ Air-Side: CameraStatus struct was missing `focal_distance_meters` field
+  2. ✅ Air-Side: getStatus() never called getFocalDistanceMeters()
+  3. ⚠️ Ground-Side: SimpleCameraSettings missing `focalDistanceMeters` field
+  4. ⚠️ Ground-Side: syncCameraSettings() doesn't sync focal distance
+- **Air-Side Status:** ✅ FIXED (2025-11-05)
+  - Added `focal_distance_meters` to CameraStatus struct (messages.h:134)
+  - Updated getStatus() to populate from getFocalDistanceMeters() (camera_sony.cpp:294)
+  - Container rebuilt and restarted
+  - UDP broadcasts now include focal_distance_meters in camera.settings
+- **Ground-Side Status:** ⚠️ PENDING IMPLEMENTATION
+  - See detailed fix instructions: `docs/ISSUE-001-FOCAL-DISTANCE-GROUNDSIDE-FIX.md`
+  - Two files need updates: ProtocolMessages.kt, CameraViewModel.kt
+  - Estimated time: 15-30 minutes
 - **Affects:**
-  - Ground-Side: FocusDistanceOverlay.kt (parsing/display)
-  - Air-Side: UDP status broadcast (data source)
+  - Ground-Side: SimpleCameraSettings (add field), CameraViewModel (sync logic)
+  - UI: FocusDistanceOverlay (already complete, just needs data)
 - **Priority:** Medium
 - **Impact:** UI functional but lacks user feedback during focus operations
-- **Next Steps:**
-  1. Inspect UDP status broadcast JSON structure from Air-Side
-  2. Check if focal_distance property is queried from camera
-  3. Verify field naming: `focal_distance_m`, `focalDistance`, `focus_distance`
-  4. Add diagnostic logging to Ground-Side UDP receiver
-  5. Test with Air-Side in diagnostic mode
+- **Implementation Steps:**
+  1. ✅ Add `focalDistanceMeters: Float?` to SimpleCameraSettings
+  2. ✅ Update syncCameraSettings() to populate _focusDistanceM StateFlow
+  3. ✅ Test with camera at various distances
+  4. ✅ Verify overlay displays correctly
 
 **Issue #2: Auto-Focus Assist in Manual Focus Mode Not Functioning**
 - **Component:** AF Hold button, camera.auto_focus_hold command
