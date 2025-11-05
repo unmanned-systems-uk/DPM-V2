@@ -39,7 +39,8 @@ namespace config {
     constexpr const char* SERVER_VERSION = "1.0.0";
 
     // Logging configuration
-    constexpr const char* LOG_FILE = "/home/dpm/DPM/sbc/logs/payload_manager.log";
+    // Container path - maps to host: /home/dpm/DPM-V2/sbc/logs/payload_manager.log
+    constexpr const char* LOG_FILE = "/app/logs/payload_manager.log";
 
     // Buffer sizes
     constexpr int TCP_BUFFER_SIZE = 8192;
