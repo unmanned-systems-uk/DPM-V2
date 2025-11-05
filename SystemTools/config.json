@@ -25,8 +25,8 @@
     "enable_audio_alerts": false
   },
   "data": {
-    "log_directory": "D:\\DPM\\DPM-V2\\WindowsTools\\logs",
-    "message_capture_file": "D:\\DPM\\DPM-V2\\WindowsTools\\logs\\messages.json",
+    "log_directory": "D:\\DPM\\DPM-V2\\SystemTools\\logs",
+    "message_capture_file": "D:\\DPM\\DPM-V2\\SystemTools\\logs\\messages.json",
     "auto_save_settings": true
   }
 }

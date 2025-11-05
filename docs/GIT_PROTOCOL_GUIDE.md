@@ -170,6 +170,43 @@ The pre-commit hook automatically detects:
 - **SystemTools**: Changes in `SystemTools/`
 - **Documentation**: Changes in `docs/` or `*.md` files
 
+## 🔴 Cross-Domain Implementation Instructions
+
+**CRITICAL: When changes on one domain impact another domain, commit messages MUST include detailed implementation instructions!**
+
+### When This Applies:
+- ✅ Implementing a feature on Air-Side that Ground-Side will use
+- ✅ Implementing a feature on Ground-Side that Air-Side must support
+- ✅ Fixing bugs that affect other domains
+- ✅ Making protocol changes both sides need
+- ✅ Implementing diagnostics revealing cross-domain issues
+
+### Required Details in Commit Message:
+```bash
+[DOMAIN][TYPE] Component: Brief summary
+
+Root Cause / Context:
+- What problem this solves
+- Why this approach was chosen
+
+Technical Details:
+- Specific implementation details
+- SDK functions used (if Air-Side)
+- UI components added (if Ground-Side)
+- Protocol messages involved
+- Error handling approach
+
+For [OTHER_DOMAIN] Integration:
+- What the other domain needs to implement
+- Specific functions/methods to call
+- Expected behavior and responses
+- Testing requirements
+
+Files Changed:
+- path/to/file.cpp (method_name, lines X-Y)
+- path/to/other_file.h (added new_function)
+```
+
 ## 🔄 Multi-Domain Changes
 
 When changes affect multiple domains:

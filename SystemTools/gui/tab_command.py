@@ -150,16 +150,28 @@ class CommandSenderTab(ttk.Frame):
         """Set TCP client for sending commands"""
         self.tcp_client = client
 
-        # Set callback for responses
+        # Set callback for responses using proper chaining
         if client:
-            original_callback = client.on_message_received
+            # Get existing callback
+            existing_callback = client.on_message_received
 
             def response_callback(message):
-                self._handle_response(message)
-                if original_callback:
-                    original_callback(message)
+                # Call our handler first
+                try:
+                    self._handle_response(message)
+                except Exception as e:
+                    logger.error(f"Error in command response handler: {e}")
 
+                # Then call existing callback (maintains chain)
+                if existing_callback:
+                    try:
+                        existing_callback(message)
+                    except Exception as e:
+                        logger.error(f"Error in chained callback: {e}")
+
+            # Replace with chained callback
             client.on_message_received = response_callback
+            logger.debug("Command Sender tab: TCP response callback registered")
 
     def _load_properties(self):
         """Load camera properties from protocol definitions"""

@@ -1,0 +1,45 @@
+{
+  "mode": "development",
+  "ui_mode": "auto",
+  "development": {
+    "verbose_logging": true,
+    "debug_panels": true,
+    "auto_reload": true,
+    "show_raw_data": true,
+    "enable_mock_data": true,
+    "log_level": "DEBUG",
+    "save_all_logs": true,
+    "show_performance_stats": true,
+    "enable_remote_debug": true,
+    "max_log_size_mb": 100
+  },
+  "deployment": {
+    "verbose_logging": false,
+    "debug_panels": false,
+    "auto_reload": false,
+    "show_raw_data": false,
+    "enable_mock_data": false,
+    "log_level": "INFO",
+    "save_all_logs": false,
+    "show_performance_stats": false,
+    "enable_remote_debug": false,
+    "max_log_size_mb": 10
+  },
+  "cli_options": {
+    "colored_output": true,
+    "compact_display": true,
+    "auto_connect": true,
+    "show_banner": false,
+    "interactive_mode": true
+  },
+  "gui_options": {
+    "theme": "modern",
+    "window_size": [
+      1400,
+      900
+    ],
+    "auto_arrange": true,
+    "show_tooltips": true,
+    "enable_animations": true
+  }
+}

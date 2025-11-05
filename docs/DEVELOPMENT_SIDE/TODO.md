@@ -27,6 +27,46 @@
 - [ ] Add command templates/favorites
 - [ ] Implement batch command sequences
 
+## 🟠 Phase 3.5: Project Management Features (Priority: HIGH)
+### Project Status Tab
+- [ ] Create new tab for project overview
+- [ ] Display completion percentages per domain (Air/Ground/Dev)
+- [ ] Show current blockers from BLOCKERS.md
+- [ ] Track sprint progress and milestones
+- [ ] Visual progress bars for each domain
+
+### TODO Management Tab
+- [ ] Load and display TODO.md files from all domains
+- [ ] Mark items as complete/in-progress/pending
+- [ ] Add new tasks with domain assignment
+- [ ] Sync changes back to TODO.md files
+- [ ] Filter by domain, priority, or status
+- [ ] Track task completion velocity
+
+### Git Integration Tab
+- [ ] Show commit history with [DOMAIN][TYPE] tags
+- [ ] Display who's working on what (by commits)
+- [ ] Show branch status and current branch
+- [ ] Commit frequency metrics and graphs
+- [ ] Quick commit creation with proper tags
+- [ ] Git blame integration for tracking changes
+
+### Documentation Browser Tab
+- [ ] Navigate all domain documentation
+- [ ] Search across all .md files
+- [ ] Quick access to PROGRESS files
+- [ ] Display CC_READ_THIS_FIRST.md on startup
+- [ ] Markdown rendering with syntax highlighting
+- [ ] Bookmark frequently accessed docs
+
+### Metrics Dashboard Tab
+- [ ] Lines of code per domain statistics
+- [ ] Test coverage reports (when available)
+- [ ] Build status indicators
+- [ ] Performance metrics (latency, throughput)
+- [ ] Documentation coverage metrics
+- [ ] Code quality indicators
+
 ## 🟢 Phase 4: Test Automation (Priority: MEDIUM)
 ### Test Framework
 - [ ] Create test sequence builder
