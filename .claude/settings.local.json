@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" issue view 4 --repo unmanned-systems-uk/DPM-V2 --json state)"
     ],
     "deny": [],
     "ask": []
