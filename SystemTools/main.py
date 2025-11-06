@@ -25,6 +25,8 @@ from version import get_version_string, get_build_info_string
 
 # Network components
 from network.tcp_client import TCPClient
+from network.ssh_client import SSHClient
+from network.adb_client import ADBClient
 from network.udp_listener import StatusListener, HeartbeatListener
 from network.heartbeat import HeartbeatSender
 
@@ -49,6 +51,8 @@ class DiagnosticApp:
     def __init__(self):
         self.window = None
         self.tcp_client = None
+        self.ssh_client = None
+        self.adb_client = None
         self.status_listener = None
         self.heartbeat_listener = None
         self.heartbeat_sender = None
@@ -123,6 +127,15 @@ class DiagnosticApp:
         # TCP Client
         self.tcp_client = TCPClient(air_side_ip, tcp_port)
 
+        # SSH Client
+        ssh_username = config.get("ssh", "username", "dpm")
+        ssh_password = config.get("ssh", "password", "2350")
+        ssh_port = config.get("ssh", "port", 22)
+        self.ssh_client = SSHClient(air_side_ip, ssh_username, ssh_password, ssh_port)
+
+        # ADB Client
+        self.adb_client = ADBClient()
+
         # UDP Listeners
         self.status_listener = StatusListener(status_port)
         self.heartbeat_listener = HeartbeatListener(heartbeat_port)
@@ -184,9 +197,11 @@ class DiagnosticApp:
 
     def _wire_components(self):
         """Wire all components together with callbacks"""
-        # Give connection tab reference to TCP client
+        # Give connection tab references to all network clients
         # This sets up the connection tab's callbacks
         self.connection_tab.set_tcp_client(self.tcp_client)
+        self.connection_tab.set_ssh_client(self.ssh_client)
+        self.connection_tab.set_adb_client(self.adb_client)
 
         # Save the connection tab's callbacks so we can chain them
         connection_tab_on_connected = self.tcp_client.on_connected
@@ -300,6 +315,14 @@ class DiagnosticApp:
             self.window.root.after_idle(lambda: self.activity_tab.log_event(
                 self.activity_tab.CATEGORY_UDP, "Received status broadcast"))
 
+            # Update connection tab with camera properties if present
+            payload = message.get("payload", {})
+            if "camera" in payload and isinstance(payload["camera"], dict):
+                camera_props = payload["camera"]
+                if camera_props:  # If camera data is not empty
+                    self.window.root.after_idle(lambda props=camera_props:
+                        self.connection_tab.on_camera_properties_received(props))
+
             # Update log inspector camera comparison tab
             # Extract camera status from payload
             camera_data = None
@@ -331,12 +354,15 @@ class DiagnosticApp:
             self.window.root.after_idle(lambda: self.protocol_tab.add_message(message, "received"))
 
             # Log heartbeat to activity log
-            status = message.get("payload", {}).get("status", "unknown")
+            payload = message.get("payload", {})
+            status = payload.get("status", "unknown")
             self.window.root.after_idle(lambda s=status: self.activity_tab.log_event(
                 self.activity_tab.CATEGORY_UDP, f"Heartbeat: {s}"))
 
-            # Update connection tab with heartbeat stats
-            # (Connection tab would need enhancement to display this)
+            # Update connection tab with heartbeat
+            sender = payload.get("sender", "unknown")  # "air" or "ground"
+            self.window.root.after_idle(lambda s=sender, d=payload:
+                self.connection_tab.on_heartbeat_received(s, d))
 
         self.heartbeat_listener.on_message_received = on_heartbeat_message
 
