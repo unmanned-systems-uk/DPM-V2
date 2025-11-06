@@ -102,7 +102,8 @@ data class SimpleCameraSettings(
     val iso: String = "",
     @SerializedName("white_balance") val whiteBalance: String = "",
     @SerializedName("focus_mode") val focusMode: String = "",
-    @SerializedName("file_format") val fileFormat: String = ""
+    @SerializedName("file_format") val fileFormat: String = "",
+    @SerializedName("focal_distance_meters") val focalDistanceMeters: Float? = null  // Focus distance in meters (-1 = infinity, null = unknown)
 )
 
 /**
