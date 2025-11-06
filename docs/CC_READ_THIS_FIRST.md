@@ -127,6 +127,29 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [TOOLS][FIX] Resolve UDP timeout in diagnostic panel
 ```
 
+### Issue Title Format (GitHub Issues)
+
+**Format:** `[SCOPE][DOMAIN][TYPE] Description`
+
+**Required (2 prefixes minimum):**
+- **DOMAIN**: `[AIR-SIDE]`, `[GROUND-SIDE]`, `[TOOLS]`, `[ALL-DOMAINS]`, `[WORKFLOW]`, `[PROTOCOL]`
+- **TYPE**: `[BUG]`, `[FIX]`, `[FEATURE]`, `[ENHANCEMENT]`, `[TESTING]`, `[DOCS]`
+
+**Optional (prepend if needed):**
+- **SCOPE**: `[MANDATORY]`, `[URGENT]`, `[BLOCKED]`
+
+**Examples:**
+```
+[GROUND-SIDE][BUG] Focus commands not reaching Air-Side
+[MANDATORY][ALL-DOMAINS][WORKFLOW] New testing workflow requirements
+[AIR-SIDE][FEATURE] Add gimbal control support
+[TOOLS][ENHANCEMENT] Improve diagnostic dashboard
+```
+
+**Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
+
+**See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.
+
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
 ```bash

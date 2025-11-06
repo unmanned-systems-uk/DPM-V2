@@ -1,10 +1,48 @@
 ---
 name: Bug Report with Historical Context
 about: Report a bug with reference to previous attempts
-title: '[PREFIX][DOMAIN] '
+title: '[DOMAIN][TYPE] '
 labels: 'bug'
 assignees: ''
 ---
+
+<!--
+📋 ISSUE TITLE FORMAT: [SCOPE][DOMAIN][TYPE] Description
+
+Required Prefixes:
+
+DOMAIN (pick one - REQUIRED):
+- [AIR-SIDE] - Pi 5 C++ implementation
+- [GROUND-SIDE] - H16 Android app
+- [TOOLS] - SystemTools Python diagnostics
+- [ALL-DOMAINS] - Affects multiple domains
+- [WORKFLOW] - Development workflow/process
+- [PROTOCOL] - Protocol specification changes
+- [DOCS] - Documentation only
+
+TYPE (pick one - REQUIRED):
+- [BUG] - Something broken that should work
+- [FIX] - Implementation of solution to a bug
+- [FEATURE] - New functionality
+- [ENHANCEMENT] - Improvement to existing functionality
+- [REFACTOR] - Code improvement without behavior change
+- [TESTING] - Test implementation or validation
+- [DOCS] - Documentation changes
+
+Optional SCOPE (prepend if needed):
+- [MANDATORY] - All domains must implement immediately
+- [URGENT] - Time-sensitive issue requiring quick attention
+- [BLOCKED] - Cannot proceed without external action
+
+Examples:
+✅ [GROUND-SIDE][BUG] Focus commands not reaching Air-Side
+✅ [MANDATORY][ALL-DOMAINS][WORKFLOW] New issue workflow requirements
+✅ [AIR-SIDE][FEATURE] Add gimbal control support
+✅ [TOOLS][ENHANCEMENT] Improve diagnostic dashboard performance
+
+Format Order (General → Specific):
+[SCOPE][DOMAIN][TYPE] - SCOPE is optional, DOMAIN and TYPE are required
+-->
 
 ## Issue Description
 <!-- Clear description of the problem -->
