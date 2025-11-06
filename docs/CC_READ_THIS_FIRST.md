@@ -12,6 +12,21 @@ START TOOLS   - SystemTools (Python diagnostics)
 START DOCS    - Documentation/Protocol work
 ```
 
+## 🚨 CRITICAL WORKFLOW RULES (MUST READ!)
+
+**FAILURE TO FOLLOW THESE RULES BREAKS THE ENTIRE WORKFLOW:**
+
+1. **ALWAYS update GitHub issues when working on them**
+2. **NEVER implement without updating issue status**
+3. **ALWAYS provide cross-domain instructions when needed**
+4. **NEVER close issues without user confirmation**
+
+**Example Workflow Failure (Issue #10):**
+- ❌ Air-Side fixed issue but didn't update GitHub
+- ❌ Air-Side didn't provide Ground-Side instructions
+- ❌ Ground-Side implemented but didn't update issue
+- **Result: Complete workflow breakdown, confusion, duplicated work**
+
 ## 📂 Three-Domain Architecture (20 lines)
 | Domain | Platform | Language | Location | Purpose |
 |--------|----------|----------|----------|---------|
@@ -138,30 +153,47 @@ git push origin main          # End of session
 10. **Cross-domain commits need implementation instructions** (see GIT_PROTOCOL_GUIDE.md)
 11. **Do not modify any code in a Domain you are not assigned to. If you feel this is necessary you must get user approval**
 
-### 🚀 NEW GitHub-Based Project Management (Added 2025-11-05)
-11. **GitHub Issues = Primary Task Tracking**
-    - All tasks tracked as GitHub Issues with labels
-    - Use `gh` CLI for creating/updating issues
-    - GitKraken for visual project monitoring
-12. **Claude Code GitHub Workflow:**
+### 🚨 CRITICAL: GitHub Issue Management is MANDATORY (Updated 2025-11-06)
+
+**⚠️ WORKFLOW FAILURE WARNING: Not updating issues BREAKS the entire development workflow!**
+
+11. **MANDATORY Issue Updates - EVERY SESSION:**
     ```bash
-    # Start session
-    .github\scripts\cc-start-session.ps1
+    # STEP 1: Check issues at session start
+    gh issue list --repo unmanned-systems-uk/DPM-V2 --state open
 
-    # Work on issue
-    .github\scripts\cc-work-on-issue.ps1 123
+    # STEP 2: When working on ANY issue
+    gh issue edit <number> --add-label "status:in-progress"
+    gh issue comment <number> --body "Starting work on [specific task]"
 
-    # Complete issue
-    .github\scripts\cc-complete-issue.ps1 123
+    # STEP 3: When implementation complete
+    gh issue comment <number> --body "Implementation complete. Testing required: [instructions]"
+    gh issue edit <number> --remove-label "status:in-progress" --add-label "status:testing"
+
+    # STEP 4: After successful test
+    gh issue close <number> --comment "Fixed in commit [hash]. [What was done]"
     ```
-13. **Issue Labels:**
-    - Domain: `air-side`, `ground-side`, `dev-tools`
-    - Priority: `priority:critical/high/medium/low`
-    - Status: `status:in-progress/blocked/testing`
-14. **Documentation Now Secondary:**
-    - Markdown files for context/history only
-    - GitHub Issues for active task management
-    - Progress reports auto-generated from GitHub
+
+12. **CROSS-DOMAIN Issue Protocol (MANDATORY):**
+    When Air-Side fixes an issue that requires Ground-Side changes:
+    ```bash
+    # Air-Side MUST:
+    gh issue comment <number> --body "Air-Side complete. Ground-Side needs to: [specific instructions]"
+    gh issue edit <number> --add-label "ground-side" --add-label "status:needs-ground-impl"
+
+    # Ground-Side MUST:
+    gh issue comment <number> --body "Ground-Side implementation complete. [What was done]"
+    gh issue edit <number> --remove-label "status:needs-ground-impl" --add-label "status:testing"
+    ```
+
+13. **Issue Update CHECKLIST (Claude Code MUST follow):**
+    - [ ] Check issue status BEFORE starting work
+    - [ ] Add "status:in-progress" label when starting
+    - [ ] Comment what you're implementing
+    - [ ] Update issue IMMEDIATELY after changes
+    - [ ] Provide CLEAR testing instructions
+    - [ ] Add cross-domain instructions if needed
+    - [ ] Close issue ONLY after confirmed testing
 
 ### 🧪 CRITICAL: Testing & Issue Closure Workflow (Added 2025-11-05)
 15. **After Implementing ANY Feature:**
