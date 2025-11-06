@@ -146,6 +146,8 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [TOOLS][ENHANCEMENT] Improve diagnostic dashboard
 ```
 
+**Official Domain Configuration:** `.github/domain-config.json` (machine-readable)
+
 **Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
 
 **See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.

@@ -15,13 +15,33 @@ param(
     [switch]$SkipValidation
 )
 
+# Load domain configuration from .github/domain-config.json
+function Get-DomainConfig {
+    $configPath = Join-Path (Split-Path $PSScriptRoot -Parent) "domain-config.json"
+    if (Test-Path $configPath) {
+        $config = Get-Content $configPath -Raw | ConvertFrom-Json
+        return $config
+    }
+    Write-Warning "Domain config not found at: $configPath"
+    return $null
+}
+
 # Validation function for issue title format
 function Test-IssueTitleFormat {
     param([string]$Title)
 
-    $validDomains = @('AIR-SIDE', 'GROUND-SIDE', 'TOOLS', 'ALL-DOMAINS', 'WORKFLOW', 'PROTOCOL', 'DOCS')
-    $validTypes = @('BUG', 'FIX', 'FEATURE', 'ENHANCEMENT', 'REFACTOR', 'TESTING', 'DOCS')
-    $validScopes = @('MANDATORY', 'URGENT', 'BLOCKED')
+    # Load from config file
+    $config = Get-DomainConfig
+    if ($config) {
+        $validDomains = $config.domains | ForEach-Object { $_.prefix }
+        $validTypes = $config.issue_types | ForEach-Object { $_.prefix }
+        $validScopes = $config.scope_modifiers | ForEach-Object { $_.prefix }
+    } else {
+        # Fallback to hardcoded values if config missing
+        $validDomains = @('AIR-SIDE', 'GROUND-SIDE', 'TOOLS', 'ALL-DOMAINS', 'WORKFLOW', 'PROTOCOL', 'DOCS')
+        $validTypes = @('BUG', 'FIX', 'FEATURE', 'ENHANCEMENT', 'REFACTOR', 'TESTING', 'DOCS')
+        $validScopes = @('MANDATORY', 'URGENT', 'BLOCKED')
+    }
 
     # Extract all bracketed prefixes
     $prefixes = [regex]::Matches($Title, '\[([^\]]+)\]') | ForEach-Object { $_.Groups[1].Value }
