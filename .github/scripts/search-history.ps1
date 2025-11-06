@@ -91,13 +91,23 @@ Write-Host "  NEXT STEPS - Learn from History" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 Write-Host "`n1. Read closed issues for working solutions:" -ForegroundColor Green
-foreach ($issue in $closedIssues[0..2]) {
-    Write-Host "   gh issue view $($issue.number) --comments" -ForegroundColor White
+if ($closedIssues -and $closedIssues.Count -gt 0) {
+    $maxIndex = [Math]::Min(2, $closedIssues.Count - 1)
+    foreach ($issue in $closedIssues[0..$maxIndex]) {
+        Write-Host "   gh issue view $($issue.number) --comments" -ForegroundColor White
+    }
+} else {
+    Write-Host "   (No closed issues found)" -ForegroundColor DarkGray
 }
 
 Write-Host "`n2. Check open issues for failed attempts:" -ForegroundColor Yellow
-foreach ($issue in $openIssues[0..2]) {
-    Write-Host "   gh issue view $($issue.number) --comments | grep -i 'tried\|failed'" -ForegroundColor White
+if ($openIssues -and $openIssues.Count -gt 0) {
+    $maxIndex = [Math]::Min(2, $openIssues.Count - 1)
+    foreach ($issue in $openIssues[0..$maxIndex]) {
+        Write-Host "   gh issue view $($issue.number) --comments | grep -i 'tried\|failed'" -ForegroundColor White
+    }
+} else {
+    Write-Host "   (No open issues found)" -ForegroundColor DarkGray
 }
 
 Write-Host "`n3. Document your approach based on lessons learned:" -ForegroundColor Magenta
