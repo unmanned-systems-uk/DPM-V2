@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import uk.unmannedsystems.dpm_android.eventlog.EventLevel
 import uk.unmannedsystems.dpm_android.eventlog.EventLogViewModel
+import uk.unmannedsystems.dpm_android.network.ConnectionState
 import uk.unmannedsystems.dpm_android.network.NetworkManager
+import kotlin.random.Random
 
 /**
  * ViewModel for Quick Diagnostics Screen
@@ -41,18 +43,20 @@ class DiagnosticsViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true)
 
-            val networkManager = NetworkManager
-            val isConnected = networkManager.isConnected()
-            val lastStatus = networkManager.lastStatusMessage.value
+            // Get connection and status info
+            val connectionStatus = NetworkManager.connectionStatus.value
+            val isConnected = connectionStatus.state == ConnectionState.CONNECTED ||
+                             connectionStatus.state == ConnectionState.OPERATIONAL
+            val cameraStatus = NetworkManager.cameraStatus.value
 
             // Calculate metrics
             val latency = calculateLatency()
             val packetLoss = calculatePacketLoss()
-            val lastHeartbeat = System.currentTimeMillis() // TODO: Get actual heartbeat time
+            val lastHeartbeat = connectionStatus.lastHeartbeatReceivedMs
 
             // Get camera status
-            val isCameraConnected = lastStatus?.payload?.camera?.connected ?: false
-            val cameraModel = lastStatus?.payload?.camera?.model ?: "Unknown"
+            val isCameraConnected = cameraStatus?.connected ?: false
+            val cameraModel = cameraStatus?.model ?: "Unknown"
             val cameraDetails = if (isCameraConnected) {
                 "Model: $cameraModel"
             } else {
@@ -61,8 +65,8 @@ class DiagnosticsViewModel : ViewModel() {
 
             // Get connection details
             val connectionDetails = if (isConnected) {
-                val settings = uk.unmannedsystems.dpm_android.network.NetworkSettings
-                "Connected to ${settings.ipAddress}:${settings.tcpPort}"
+                val settings = NetworkManager.currentSettings.value
+                "Connected to ${settings.targetIp}:${settings.commandPort}"
             } else {
                 "Not connected to Air-Side"
             }
@@ -111,18 +115,23 @@ class DiagnosticsViewModel : ViewModel() {
     }
 
     private fun calculateLatency(): Int? {
-        // TODO: Implement actual latency calculation from network stats
-        // For now, return a placeholder
-        return if (NetworkManager.isConnected()) {
-            (50..150).random() // Simulated latency
+        // Use round trip time from network status
+        val connectionStatus = NetworkManager.connectionStatus.value
+        val isConnected = connectionStatus.state == ConnectionState.CONNECTED ||
+                         connectionStatus.state == ConnectionState.OPERATIONAL
+        return if (isConnected) {
+            connectionStatus.roundTripTimeMs.toInt()
         } else null
     }
 
     private fun calculatePacketLoss(): Float? {
         // TODO: Implement actual packet loss calculation from network stats
-        // For now, return a placeholder
-        return if (NetworkManager.isConnected()) {
-            (0.0f..2.0f).random() // Simulated packet loss
+        // For now, return a simulated value
+        val connectionStatus = NetworkManager.connectionStatus.value
+        val isConnected = connectionStatus.state == ConnectionState.CONNECTED ||
+                         connectionStatus.state == ConnectionState.OPERATIONAL
+        return if (isConnected) {
+            Random.nextFloat() * 2.0f // Simulated packet loss
         } else null
     }
 
