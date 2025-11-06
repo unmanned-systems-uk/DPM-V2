@@ -9,15 +9,19 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host "  GitHub Issue Workflow Compliance Check" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
+# Set gh path explicitly
+$gh = "C:\Program Files\GitHub CLI\gh.exe"
+
 # Check if gh is available
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "ERROR: GitHub CLI (gh) not found!" -ForegroundColor Red
+if (-not (Test-Path $gh)) {
+    Write-Host "ERROR: GitHub CLI (gh) not found at $gh!" -ForegroundColor Red
     exit 1
 }
 
 # Get open issues
 Write-Host "`nChecking open issues..." -ForegroundColor Yellow
-$openIssues = gh issue list --repo unmanned-systems-uk/DPM-V2 --state open --json number,title,labels,assignees --limit 20 | ConvertFrom-Json
+$openIssuesJson = & $gh issue list --repo unmanned-systems-uk/DPM-V2 --state open --json number,title,labels,assignees --limit 20
+$openIssues = $openIssuesJson | ConvertFrom-Json
 
 Write-Host "`nOpen Issues requiring attention:" -ForegroundColor Green
 foreach ($issue in $openIssues) {
@@ -52,10 +56,10 @@ if ($IssueNumber) {
     Write-Host "  Checking Issue #$IssueNumber Specifically" -ForegroundColor Cyan
     Write-Host "==================================================" -ForegroundColor Cyan
 
-    $issueData = gh issue view $IssueNumber --repo unmanned-systems-uk/DPM-V2 --json title,state,labels,comments
+    $issueDataJson = & $gh issue view $IssueNumber --repo unmanned-systems-uk/DPM-V2 --json title,state,labels,comments
 
-    if ($issueData) {
-        $issue = $issueData | ConvertFrom-Json
+    if ($issueDataJson) {
+        $issue = $issueDataJson | ConvertFrom-Json
         Write-Host "`nIssue #${IssueNumber}: $($issue.title)" -ForegroundColor Green
         Write-Host "State: $($issue.state)" -ForegroundColor Green
 
@@ -67,7 +71,9 @@ if ($IssueNumber) {
         if ($comments.Count -gt 0) {
             $lastComment = $comments[-1]
             Write-Host "`nLast comment by $($lastComment.author.login):" -ForegroundColor Yellow
-            Write-Host ($lastComment.body -split "`n")[0..2] -join "`n" -ForegroundColor Gray
+            $bodyLines = $lastComment.body -split "`n"
+            $preview = $bodyLines[0..2] -join "`n"
+            Write-Host $preview -ForegroundColor Gray
         }
 
         # Workflow compliance check
