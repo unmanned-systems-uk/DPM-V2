@@ -16,16 +16,36 @@ START DOCS    - Documentation/Protocol work
 
 **FAILURE TO FOLLOW THESE RULES BREAKS THE ENTIRE WORKFLOW:**
 
-1. **ALWAYS update GitHub issues when working on them**
-2. **NEVER implement without updating issue status**
-3. **ALWAYS provide cross-domain instructions when needed**
-4. **NEVER close issues without user confirmation**
+1. **ALWAYS search historical issues BEFORE implementing anything**
+2. **ALWAYS update GitHub issues when working on them**
+3. **NEVER implement without checking what was tried before**
+4. **NEVER repeat failed solutions from previous issues**
+5. **ALWAYS document what you tried and why it failed/succeeded**
+6. **ALWAYS provide cross-domain instructions when needed**
+7. **NEVER close issues without user confirmation**
 
-**Example Workflow Failure (Issue #10):**
-- ❌ Air-Side fixed issue but didn't update GitHub
-- ❌ Air-Side didn't provide Ground-Side instructions
-- ❌ Ground-Side implemented but didn't update issue
-- **Result: Complete workflow breakdown, confusion, duplicated work**
+**Example Workflow Failures:**
+- **Issue #10:** Air/Ground didn't update GitHub = workflow breakdown
+- **Focus Issues #1,#2:** Repeated same failed attempts = wasted time
+- **Result: Confusion, duplicated work, repeated failures**
+
+## 🧠 MANDATORY: Learn from History First
+
+**BEFORE working on ANY issue, you MUST:**
+
+```bash
+# 1. Search for similar historical issues
+.github\scripts\search-history.ps1 "focus"  # or relevant keyword
+
+# 2. Read what failed before
+gh issue view <#> --comments | grep -i "tried\|failed\|didn't work"
+
+# 3. Document your approach based on history
+gh issue comment <#> --body "Found previous attempts in #X and #Y:
+- #X tried [approach] but failed because [reason]
+- #Y tried [approach] but failed because [reason]
+I will try [NEW approach] because [why it's different]"
+```
 
 ## 📂 Three-Domain Architecture (20 lines)
 | Domain | Platform | Language | Location | Purpose |
