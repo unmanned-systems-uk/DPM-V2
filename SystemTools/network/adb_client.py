@@ -130,7 +130,7 @@ class ADBClient:
                 self.device_id = devices[0]
 
             # Test connection with a simple command
-            exit_code, stdout, stderr = self.execute_command('echo "ADB_TEST"')
+            exit_code, stdout, stderr = self.execute_command('echo ADB_TEST')
 
             if exit_code == 0 and 'ADB_TEST' in stdout:
                 self.connected = True
