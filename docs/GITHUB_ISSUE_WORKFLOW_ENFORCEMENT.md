@@ -21,7 +21,24 @@
 gh issue comment 10 --body "**[CC-Ground-Side]** Implementation complete. Testing instructions: ..."
 ```
 
-**Why:** Clear attribution, cross-domain coordination, audit trail
+**BETTER: Use scripts or files to avoid escaping issues:**
+```powershell
+# Method 1: Use the WHO script (recommended)
+.github\scripts\issue-comment-who.ps1 -IssueNumber 10 -Who "CC-Ground-Side" -Comment "Implementation complete..."
+
+# Method 2: Write to file first (for complex comments)
+@"
+[CC-Ground-Side]
+
+Implementation complete. Testing instructions:
+1. Run the application
+2. Check the output
+"@ | Out-File comment.md
+gh issue comment 10 --body-file comment.md
+Remove-Item comment.md
+```
+
+**Why:** Clear attribution, cross-domain coordination, audit trail, avoids shell escaping problems
 
 ## The Problem We're Solving
 
