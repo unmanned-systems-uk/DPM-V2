@@ -680,6 +680,10 @@ private:
 
         if (CR_FAILED(result) || property_count == 0 || !property_list) {
             // Query failed - return 0.0f (unknown)
+            Logger::debug("FocalDistanceInMeter query failed: result=" +
+                         std::to_string(result) +
+                         ", count=" + std::to_string(property_count) +
+                         " (property unavailable - may need LiveView streaming)");
             return 0.0f;
         }
 
