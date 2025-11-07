@@ -3,7 +3,7 @@
 **Project:** DPM Windows Diagnostic Tool
 **Platform:** Windows 11
 **Language:** Python 3.x with tkinter
-**Version:** 1.8.0
+**Version:** 1.9.0
 **Start Date:** October 29, 2025
 **Status:** 🟢 **Phase 2 Complete - Full Protocol Monitoring Operational!**
 
@@ -23,11 +23,89 @@ Phase 5 - Polish:      ░░░░░░░░░░░░░░░░░░░
 
 **Overall Completion:** 60% (Phase 1-2 Complete - Full monitoring and command capability!)
 
-**Last Updated:** November 7, 2025 - 🐛 BUG FIX: ADB Connection in Connection Monitor
+**Last Updated:** November 7, 2025 - ✨ NEW FEATURE: ADB Troubleshooting Tab + H16 App Status
 
 ---
 
 ## RECENT UPDATES
+
+### ✨ NEW FEATURE: Comprehensive ADB Troubleshooting Tab (November 7, 2025)
+
+**Status:** ✅ **Version 1.9.0 - ADB troubleshooting tools added to H16 Diagnostics**
+
+**What Was Added:**
+- New dedicated "ADB Troubleshooting" sub-tab in H16 Diagnostics
+- Comprehensive diagnostic tools based on Cheat_Sheet_ADB_H16.md
+- Replaced Ground-Side heartbeat indicator with H16 App Running status
+
+**Files Modified:**
+- ✅ `gui/tab_h16_diagnostics.py` - Added ADB Troubleshooting sub-tab (444 new lines)
+- ✅ `gui/tab_connection.py` - Replaced heartbeat with H16 App Running status
+- ✅ `version.py` - Updated to v1.9.0
+
+**Features Implemented:**
+
+1. **Connection Diagnostics Section:**
+   - 🔍 Ping H16 - Test network reachability
+   - 🔌 Test Port 5555 - Check if ADB port is open (PowerShell Test-NetConnection)
+   - 📋 Check ADB Devices - List connected devices
+   - 🔍 Check Local Port 5555 - See active connections (netstat)
+   - 📡 Check ADB Server - Verify server is running on port 5037
+
+2. **ADB Server Management Section:**
+   - 🔄 Reconnect ADB - Quick disconnect and reconnect
+   - 🛑 Kill ADB Server - Terminate ADB daemon
+   - ▶️ Start ADB Server - Launch ADB daemon
+
+3. **Quick Fixes Section:**
+   - 🔧 Full ADB Reset & Reconnect - 4-step complete reset sequence:
+     * Disconnect all devices
+     * Kill ADB server
+     * Start ADB server
+     * Reconnect to H16
+   - 🏥 Complete Diagnostic - Comprehensive 5-test diagnostic:
+     * Network connectivity (ping)
+     * ADB port 5555 status
+     * ADB server status
+     * ADB device connection
+     * Local port 5555 connections
+     * Automatic issue detection with recommendations
+
+4. **Windows Firewall & Security Section:**
+   - Warning notes about Norton Security and Windows Firewall
+   - Guidance for manual firewall checks
+
+5. **H16 App Running Status (Connection Monitor):**
+   - Replaced misleading "Ground-Side Heartbeat" indicator
+   - New indicator shows if H16 DPM app is actually running
+   - Uses `adb shell pidof com.uksystems.payloadmanager`
+   - Auto-checks every 10 seconds
+   - 🟢 Green = App running, 🔴 Red = Not running, 🟡 Yellow = Check failed
+
+**Testing Commands Validated:**
+- ✅ `ping 10.0.1.92 -n 2` (H16 reachable)
+- ✅ `powershell Test-NetConnection 10.0.1.92 -Port 5555` (Port test works)
+- ✅ `netstat -an | findstr ":5555"` (Local connection check)
+- ✅ `adb devices` (Device listing)
+- ✅ `adb reconnect` (Reconnect command)
+- ✅ Full reset sequence validated
+
+**Benefits:**
+- Users can quickly diagnose ADB connection issues
+- Addresses common Windows Firewall/Norton Security problems
+- Provides clear recommendations for fixing issues
+- Eliminates confusion about Ground-Side heartbeats
+- Shows actual H16 app status instead of misleading heartbeat indicator
+
+**Testing Required:**
+- User testing needed with actual H16 device
+- Verify all troubleshooting buttons work correctly
+- Test Complete Diagnostic sequence
+- Verify H16 App Running status updates correctly
+
+**Reference:** Based on `docs/Cheat_Sheet_ADB_H16.md` troubleshooting section
+
+---
 
 ### 🐛 BUG FIX: ADB Connection Issue in Connection Monitor (November 7, 2025)
 
