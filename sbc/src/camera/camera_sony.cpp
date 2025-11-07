@@ -599,6 +599,73 @@ public:
             return false;
         }
 
+        // DIAGNOSTIC: Query current focus mode before attempting AF Hold
+        Logger::info("[DIAGNOSTIC] Querying current focus mode before AF Hold...");
+        CrInt32u focus_mode_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode;
+        SDK::CrDeviceProperty* focus_properties = nullptr;
+        CrInt32u focus_prop_count = 0;
+
+        auto focus_query_result = SDK::GetDeviceProperties(device_handle_, &focus_properties, &focus_prop_count);
+        if (CR_SUCCEEDED(focus_query_result) && focus_prop_count > 0) {
+            for (CrInt32u i = 0; i < focus_prop_count; ++i) {
+                if (focus_properties[i].GetCode() == focus_mode_code) {
+                    CrInt64u current_mode = focus_properties[i].GetCurrentValue();
+                    std::string mode_str = "UNKNOWN";
+                    if (current_mode == 0x0001) mode_str = "MANUAL";
+                    else if (current_mode == 0x0002) mode_str = "AF_S";
+                    else if (current_mode == 0x0003) mode_str = "AF_C";
+                    else if (current_mode == 0x0004) mode_str = "AF_A";
+
+                    Logger::info("[DIAGNOSTIC] Current focus mode: " + mode_str + " (0x" + toHexString(current_mode) + ")");
+
+                    if (current_mode == 0x0001) {
+                        Logger::warning("[DIAGNOSTIC] Camera is in MANUAL FOCUS mode - PushAutoFocus may not work");
+                        Logger::info("[DIAGNOSTIC] Sony SDK TouchFunctionInMF suggests AF IS possible in MF mode");
+                        Logger::info("[DIAGNOSTIC] This may be a camera body setting or SDK limitation");
+                    }
+                    break;
+                }
+            }
+            SDK::ReleaseDeviceProperties(device_handle_, focus_properties);
+        }
+
+        // DIAGNOSTIC: Check if PushAutoFocus property is available and writable
+        Logger::info("[DIAGNOSTIC] Checking PushAutoFocus property availability...");
+        CrInt32u af_code = SDK::CrDevicePropertyCode::CrDeviceProperty_PushAutoFocus;
+        SDK::CrDeviceProperty* af_properties = nullptr;
+        CrInt32u af_prop_count = 0;
+
+        auto af_query_result = SDK::GetDeviceProperties(device_handle_, &af_properties, &af_prop_count);
+        if (CR_SUCCEEDED(af_query_result) && af_prop_count > 0) {
+            bool found = false;
+            for (CrInt32u i = 0; i < af_prop_count; ++i) {
+                if (af_properties[i].GetCode() == af_code) {
+                    found = true;
+                    bool writable = af_properties[i].IsSetEnableCurrentValue();
+                    Logger::info("[DIAGNOSTIC] PushAutoFocus property found, writable=" +
+                                std::string(writable ? "YES" : "NO"));
+
+                    if (!writable) {
+                        Logger::error("[DIAGNOSTIC] PushAutoFocus is NOT writable in current camera state!");
+                        Logger::error("[DIAGNOSTIC] Possible reasons:");
+                        Logger::error("[DIAGNOSTIC]   1. Camera in Manual Focus mode and AF Hold not supported");
+                        Logger::error("[DIAGNOSTIC]   2. Camera in incompatible shooting mode");
+                        Logger::error("[DIAGNOSTIC]   3. Camera setting disabled AF Hold functionality");
+                        SDK::ReleaseDeviceProperties(device_handle_, af_properties);
+                        return false;
+                    }
+                    break;
+                }
+            }
+
+            if (!found) {
+                Logger::warning("[DIAGNOSTIC] PushAutoFocus property not found in device properties list");
+                Logger::warning("[DIAGNOSTIC] This camera may not support PushAutoFocus command");
+            }
+
+            SDK::ReleaseDeviceProperties(device_handle_, af_properties);
+        }
+
         // Map state string to Sony SDK PushAutoFocus values
         CrInt16 af_value;
         if (state == "press") {
@@ -624,10 +691,22 @@ public:
         if (CR_FAILED(result)) {
             Logger::error("Failed to trigger auto-focus hold. SDK error: 0x" +
                          toHexString(result));
+
+            // DIAGNOSTIC: Provide specific error analysis
+            if (result == 0x8402) {
+                Logger::error("[DIAGNOSTIC] Error 0x8402: CrError_Api_InvalidCalled");
+                Logger::error("[DIAGNOSTIC] This typically means the operation is not valid in the current camera state");
+                Logger::error("[DIAGNOSTIC] If camera is in Manual Focus mode, PushAutoFocus may not be supported");
+            } else if (result == 0x33794) {
+                Logger::error("[DIAGNOSTIC] Error 0x33794: Property not writable at this time");
+                Logger::error("[DIAGNOSTIC] Camera may be in a state that prevents autofocus operation");
+            }
+
             return false;
         }
 
         Logger::info("Auto-focus hold state '" + state + "' executed successfully");
+        Logger::info("[DIAGNOSTIC] AF Hold succeeded - camera accepted the command");
         return true;
     }
 
