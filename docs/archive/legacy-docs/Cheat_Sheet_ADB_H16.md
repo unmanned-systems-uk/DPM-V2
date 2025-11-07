@@ -639,6 +639,21 @@ telnet 10.0.1.92 5555
 # Clear cached device:
 adb reconnect
 ```
+## 🧰 Troubleshooting port Commands
+You can check if a port is open on Windows 11 using the Command Prompt or PowerShell. Use netstat -an in Command Prompt to see all listening ports, or Test-NetConnection in PowerShell to test a specific port on a remote host. 
+Method 1: Using Command Prompt
+Open Command Prompt by pressing Win + R, typing cmd, and pressing Enter.
+To see all ports that are actively listening, type netstat -an | find "LISTEN" and press Enter.
+To find which process is using a specific port, use the command netstat -ano | find "LISTEN" to show the Process ID (PID), then use netstat -an | find "<PID>" to identify the process.
+To check if a specific port is open (e.g., port 80), type netstat -an | find ":80" and press Enter. 
+Method 2: Using PowerShell
+Open PowerShell as an administrator. Click the Start menu, type PowerShell, right-click Windows PowerShell, and select Run as administrator.
+To check a specific port on a remote computer, use the command Test-NetConnection <hostname or IP address> -Port <port number>. For example, Test-NetConnection google.com -Port 443. 
+Method 3: Using Telnet (requires enabling the client) 
+Enable the Telnet client: Search for "Turn Windows features on or off," check the box for "Telnet Client," and click OK.
+Open Command Prompt.
+Type telnet <hostname or IP address> <port number> (e.g., telnet google.com 80). If the port is open, a blinking cursor will appear. If it's closed, you will see a "Connection failed" message. 
+
 
 ### Performance Issues
 
@@ -877,9 +892,3 @@ for /L %i in (1,1,254) do @ping -n 1 -w 100 10.0.1.%i | findstr "Reply"
 **Project:** Drone Payload Manager
 
 ---
-
-## 🎉 You're Now an ADB Expert!
-
-Keep this cheat sheet handy during development. Most of your daily needs are covered in the "Quick Reference Card" section.
-
-Happy debugging! 🚀
