@@ -36,9 +36,11 @@ class ConnectionTab(ttk.Frame):
 
         # Heartbeat tracking
         self.air_heartbeat_time = None
-        self.ground_heartbeat_time = None
         self.camera_properties_time = None
         self.camera_properties_count = 0
+
+        # H16 app status
+        self.h16_app_check_interval = 10000  # Check every 10 seconds
 
         # Pulse animation
         self.pulse_active = False
@@ -177,12 +179,12 @@ class ConnectionTab(ttk.Frame):
         self.device_label = ttk.Label(device_frame, text="Unknown", font=('Arial', 9))
         self.device_label.pack(side=tk.LEFT)
 
-        # Heartbeat
-        hb_frame = self._create_status_row(frame, "💓 Heartbeat:")
-        self.ground_hb_indicator = StatusIndicator(hb_frame, size=14)
-        self.ground_hb_indicator.pack(side=tk.LEFT, padx=5)
-        self.ground_hb_label = ttk.Label(hb_frame, text="No heartbeat", font=('Arial', 9), width=25)
-        self.ground_hb_label.pack(side=tk.LEFT)
+        # H16 App Running Status
+        app_frame = self._create_status_row(frame, "📱 DPM App:")
+        self.h16_app_indicator = StatusIndicator(app_frame, size=14)
+        self.h16_app_indicator.pack(side=tk.LEFT, padx=5)
+        self.h16_app_label = ttk.Label(app_frame, text="Unknown", font=('Arial', 9), width=25)
+        self.h16_app_label.pack(side=tk.LEFT)
 
         # Camera Visibility
         cam_frame = self._create_status_row(frame, "📷 Camera:")
@@ -545,6 +547,11 @@ class ConnectionTab(ttk.Frame):
             self.adb_label.config(text=f"{device_name}")
             self.device_label.config(text=f"{device_name} (Android {info.get('android_version', '?')})")
             self.log.append(f"✓ ADB Connected: {device_name}", "SUCCESS")
+
+            # Check if H16 DPM app is running
+            self._check_h16_app_status()
+            # Start periodic checks
+            self._schedule_h16_app_check()
         else:
             self.adb_label.config(text="Connected")
             self.log.append("✓ ADB Connected", "SUCCESS")
@@ -562,12 +569,49 @@ class ConnectionTab(ttk.Frame):
         self.device_label.config(text="Unknown")
         self.network_indicator.set_status("gray")
         self.network_label.config(text="Unknown")
+        self.h16_app_indicator.set_status("gray")
+        self.h16_app_label.config(text="Unknown")
         self.log.append("ADB Disconnected", "INFO")
         self._update_button_states()
 
     def _on_adb_error_callback(self, error: str):
         """ADB error"""
         self.log.append(f"ADB Error: {error}", "ERROR")
+
+    def _check_h16_app_status(self):
+        """Check if H16 DPM Ground-Side app is running"""
+        if not self.adb_client or not self.adb_connected:
+            self.h16_app_indicator.set_status("gray")
+            self.h16_app_label.config(text="ADB not connected")
+            return
+
+        def check_app():
+            try:
+                # Check if DPM Ground-Side app is running
+                package_name = "com.uksystems.payloadmanager"
+                is_running = self.adb_client.is_app_running(package_name)
+
+                if is_running:
+                    self.h16_app_indicator.set_status("green")
+                    self.h16_app_label.config(text="Running")
+                    logger.debug(f"H16 DPM app is running ({package_name})")
+                else:
+                    self.h16_app_indicator.set_status("red")
+                    self.h16_app_label.config(text="Not running")
+                    logger.debug(f"H16 DPM app is NOT running ({package_name})")
+            except Exception as e:
+                self.h16_app_indicator.set_status("yellow")
+                self.h16_app_label.config(text="Check failed")
+                logger.error(f"Failed to check H16 app status: {e}")
+
+        threading.Thread(target=check_app, daemon=True).start()
+
+    def _schedule_h16_app_check(self):
+        """Schedule periodic H16 app status checks"""
+        if self.adb_connected:
+            self._check_h16_app_status()
+            # Schedule next check
+            self.after(self.h16_app_check_interval, self._schedule_h16_app_check)
 
     # Status Update Methods
 
@@ -597,11 +641,8 @@ class ConnectionTab(ttk.Frame):
             self.air_hb_indicator.set_status("green")
             time_str = current_time.strftime("%H:%M:%S")
             self.air_hb_label.config(text=f"{time_str} (just now)")
-        elif sender == "ground":
-            self.ground_heartbeat_time = current_time
-            self.ground_hb_indicator.set_status("green")
-            time_str = current_time.strftime("%H:%M:%S")
-            self.ground_hb_label.config(text=f"{time_str} (just now)")
+        # Note: Ground-Side (H16) sends heartbeats to Air-Side, not to SystemTools
+        # So we don't receive "ground" heartbeats directly here
 
     def on_camera_properties_received(self, properties: dict):
         """Called when camera properties are received"""
@@ -687,18 +728,6 @@ class ConnectionTab(ttk.Frame):
                         else:
                             self.air_hb_label.config(text="Timeout")
                             self.air_hb_indicator.set_status("red")
-
-                    if self.ground_heartbeat_time:
-                        seconds_ago = (current_time - self.ground_heartbeat_time).total_seconds()
-                        if seconds_ago < 5:
-                            time_str = self.ground_heartbeat_time.strftime("%H:%M:%S")
-                            self.ground_hb_label.config(text=f"{time_str} ({int(seconds_ago)}s ago)")
-                        elif seconds_ago < 60:
-                            self.ground_hb_label.config(text=f"{int(seconds_ago)}s ago")
-                            self.ground_hb_indicator.set_status("yellow")
-                        else:
-                            self.ground_hb_label.config(text="Timeout")
-                            self.ground_hb_indicator.set_status("red")
 
                     if self.camera_properties_time:
                         seconds_ago = (current_time - self.camera_properties_time).total_seconds()
