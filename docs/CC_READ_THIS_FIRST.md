@@ -127,6 +127,15 @@ DPM-V2/
 - **Ensure documentation updates** accompany code changes
 - **Maintain project documentation** consistency
 
+#### 7. Lessons Learned & Knowledge Management
+- **Maintain LESSONS_LEARNED.md** registry (`docs/ALL_DOMAINS/LESSONS_LEARNED.md`)
+- **Extract lessons** from closed issues (what failed, what worked, why)
+- **Update after each issue closure** with key insights
+- **Identify patterns** across multiple issues
+- **Conduct monthly reviews** of lessons learned
+- **Ensure searchability** and proper categorization
+- **Link lessons** back to source issues for traceability
+
 ### Permissions & Constraints
 
 #### ✅ PM CAN:
@@ -220,8 +229,16 @@ When starting a PM session:
 3. ✅ Review open GitHub Issues across all domains
 4. ✅ Check protocol sync status (`protocol/*.json`)
 5. ✅ Review recent commits for cross-domain impact
-6. ✅ Identify blockers and dependencies
-7. ✅ Create coordination plan if needed
+6. ✅ Review LESSONS_LEARNED.md for relevant patterns
+7. ✅ Identify blockers and dependencies
+8. ✅ Create coordination plan if needed
+
+When ending a PM session (after issue closure):
+1. ✅ Extract lessons from closed issues
+2. ✅ Update LESSONS_LEARNED.md with new insights
+3. ✅ Document what failed and what worked
+4. ✅ Link lessons back to source issues
+5. ✅ Update Quick Reference Index if needed
 
 ## 🔌 Network Configuration (20 lines)
 | Service | Protocol | Port | Direction | Purpose |
@@ -277,7 +294,6 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [PM][COORDINATION] Create cross-domain integration plan for Issue #24
 ```
 
-<<<<<<< HEAD
 ## 🏷️ WHO Tag Protocol (40 lines)
 
 ### MANDATORY: All GitHub Issue Comments Must Use WHO Tags
@@ -400,32 +416,8 @@ gh issue view 24 --comments | grep "WHO:"
 **All Claude Code instances** must use WHO tags - no exceptions.
 
 **Users** are encouraged to use WHO tags for clarity, especially when providing test results or reporting issues.
-=======
-### Issue Title Format (GitHub Issues)
 
-**Format:** `[SCOPE][DOMAIN][TYPE] Description`
-
-**Required (2 prefixes minimum):**
-- **DOMAIN**: `[AIR-SIDE]`, `[GROUND-SIDE]`, `[TOOLS]`, `[ALL-DOMAINS]`, `[WORKFLOW]`, `[PROTOCOL]`
-- **TYPE**: `[BUG]`, `[FIX]`, `[FEATURE]`, `[ENHANCEMENT]`, `[TESTING]`, `[DOCS]`
-
-**Optional (prepend if needed):**
-- **SCOPE**: `[MANDATORY]`, `[URGENT]`, `[BLOCKED]`
-
-**Examples:**
-```
-[GROUND-SIDE][BUG] Focus commands not reaching Air-Side
-[MANDATORY][ALL-DOMAINS][WORKFLOW] New testing workflow requirements
-[AIR-SIDE][FEATURE] Add gimbal control support
-[TOOLS][ENHANCEMENT] Improve diagnostic dashboard
-```
-
-**Official Domain Configuration:** `.github/domain-config.json` (machine-readable)
-
-**Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
-
-**See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.
->>>>>>> 98ce648a2903736a211ac0f5baad5bea7154fb5a
+**See full guide:** `docs/ALL_DOMAINS/WHO_TAG_GUIDE.md`
 
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
