@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0",
+  "project": "DPM-V2",
+  "description": "Official domain definitions for DPM Payload Manager",
+  "last_updated": "2025-11-06",
+  "domains": [
+    {
+      "prefix": "AIR-SIDE",
+      "name": "Air-Side",
+      "description": "Pi 5 SBC C++ implementation - Camera control and edge processing",
+      "platform": "Raspberry Pi 5 SBC",
+      "languages": ["C++"],
+      "technologies": ["Sony SDK", "libcamera"],
+      "directories": ["sbc/"],
+      "keywords": [
+        "air-side",
+        "air side",
+        "pi 5",
+        "raspberry pi",
+        "sbc",
+        "c++",
+        "sony sdk",
+        "camera control",
+        "edge processing",
+        "payload manager"
+      ],
+      "commit_prefix": "AIR",
+      "who_tag": "CC-Air-Side"
+    },
+    {
+      "prefix": "GROUND-SIDE",
+      "name": "Ground-Side",
+      "description": "H16 Android app - User interface and mission control",
+      "platform": "H16 Android Controller",
+      "languages": ["Java", "Kotlin"],
+      "technologies": ["Android SDK", "Jetpack Compose"],
+      "directories": ["android/"],
+      "keywords": [
+        "ground-side",
+        "ground side",
+        "android",
+        "h16",
+        "kotlin",
+        "java",
+        "ui",
+        "user interface",
+        "mission control",
+        "app"
+      ],
+      "commit_prefix": "GROUND",
+      "who_tag": "CC-Ground-Side"
+    },
+    {
+      "prefix": "TOOLS",
+      "name": "SystemTools / Dev-Side",
+      "description": "Python diagnostic and testing tools",
+      "platform": "Cross-platform (Windows/Linux)",
+      "languages": ["Python"],
+      "technologies": ["tkinter", "paramiko", "matplotlib"],
+      "directories": ["SystemTools/"],
+      "keywords": [
+        "systemtools",
+        "dev-side",
+        "dev side",
+        "tools",
+        "diagnostics",
+        "python",
+        "testing",
+        "monitoring",
+        "devtools"
+      ],
+      "commit_prefix": "TOOLS",
+      "who_tag": "CC-Tools"
+    },
+    {
+      "prefix": "PROTOCOL",
+      "name": "Protocol Specification",
+      "description": "Protocol definitions and specifications (commands.json, camera_properties.json)",
+      "platform": "Cross-domain",
+      "languages": ["JSON"],
+      "technologies": [],
+      "directories": ["protocol/"],
+      "keywords": [
+        "protocol",
+        "commands.json",
+        "camera_properties.json",
+        "specification",
+        "protocol spec",
+        "command definitions"
+      ],
+      "commit_prefix": "DOCS",
+      "who_tag": "CC-Docs"
+    },
+    {
+      "prefix": "WORKFLOW",
+      "name": "Development Workflow",
+      "description": "Development process, issue management, git workflow, testing procedures",
+      "platform": "Cross-domain",
+      "languages": [],
+      "technologies": ["GitHub", "Git", "PowerShell"],
+      "directories": [".github/", "docs/"],
+      "keywords": [
+        "workflow",
+        "process",
+        "issue management",
+        "git workflow",
+        "testing workflow",
+        "development process",
+        "ccpm",
+        "claude code"
+      ],
+      "commit_prefix": "DOCS",
+      "who_tag": "CC-Docs"
+    },
+    {
+      "prefix": "DOCS",
+      "name": "Documentation",
+      "description": "Documentation, guides, architecture docs (not protocol specs)",
+      "platform": "Cross-domain",
+      "languages": ["Markdown"],
+      "technologies": [],
+      "directories": ["docs/", "README.md"],
+      "keywords": [
+        "documentation",
+        "docs",
+        "readme",
+        "guide",
+        "architecture",
+        "manual",
+        "instructions"
+      ],
+      "commit_prefix": "DOCS",
+      "who_tag": "CC-Docs"
+    },
+    {
+      "prefix": "ALL-DOMAINS",
+      "name": "All Domains",
+      "description": "Cross-cutting concerns affecting Air-Side, Ground-Side, and SystemTools",
+      "platform": "Cross-domain",
+      "languages": [],
+      "technologies": [],
+      "directories": [],
+      "keywords": [
+        "all domains",
+        "cross-domain",
+        "cross domain",
+        "multiple domains",
+        "air and ground",
+        "all teams",
+        "cross-cutting"
+      ],
+      "commit_prefix": "ALL",
+      "who_tag": "CC-All-Domains"
+    }
+  ],
+  "issue_types": [
+    {
+      "prefix": "BUG",
+      "description": "Something broken that should work",
+      "keywords": ["bug", "broken", "not working", "error", "fails", "issue"]
+    },
+    {
+      "prefix": "FIX",
+      "description": "Implementation of solution to a bug",
+      "keywords": ["fix", "resolve", "solution", "repair", "correct"]
+    },
+    {
+      "prefix": "FEATURE",
+      "description": "New functionality",
+      "keywords": ["feature", "new", "add", "implement", "create"]
+    },
+    {
+      "prefix": "ENHANCEMENT",
+      "description": "Improvement to existing functionality",
+      "keywords": ["enhance", "improve", "optimize", "upgrade", "better"]
+    },
+    {
+      "prefix": "REFACTOR",
+      "description": "Code improvement without behavior change",
+      "keywords": ["refactor", "restructure", "cleanup", "reorganize"]
+    },
+    {
+      "prefix": "TESTING",
+      "description": "Test implementation or validation",
+      "keywords": ["test", "testing", "validation", "verify", "qa"]
+    },
+    {
+      "prefix": "DOCS",
+      "description": "Documentation changes",
+      "keywords": ["document", "readme", "guide", "manual", "docs"]
+    }
+  ],
+  "scope_modifiers": [
+    {
+      "prefix": "MANDATORY",
+      "description": "All domains must implement immediately",
+      "keywords": ["mandatory", "required", "must", "immediate compliance"]
+    },
+    {
+      "prefix": "URGENT",
+      "description": "Time-sensitive issue requiring quick attention",
+      "keywords": ["urgent", "asap", "time-sensitive", "critical", "emergency"]
+    },
+    {
+      "prefix": "BLOCKED",
+      "description": "Cannot proceed without external action",
+      "keywords": ["blocked", "waiting for", "cannot proceed", "dependency"]
+    }
+  ],
+  "usage_notes": {
+    "issue_title_format": "[SCOPE][DOMAIN][TYPE] Description",
+    "commit_message_format": "[DOMAIN][TYPE] Description",
+    "scope_optional": true,
+    "domain_required": true,
+    "type_required": true,
+    "examples": {
+      "issue_titles": [
+        "[GROUND-SIDE][BUG] Focus commands not reaching Air-Side",
+        "[MANDATORY][ALL-DOMAINS][WORKFLOW] New testing workflow requirements",
+        "[AIR-SIDE][FEATURE] Add gimbal control support",
+        "[TOOLS][ENHANCEMENT] Improve diagnostic dashboard"
+      ],
+      "commit_messages": [
+        "[AIR][PROTOCOL] Implement shutter_speed property via Sony SDK",
+        "[GROUND][FEATURE] Add gimbal control UI to camera screen",
+        "[TOOLS][FIX] Resolve UDP timeout in diagnostic panel",
+        "[DOCS][ENHANCEMENT] Update architecture documentation"
+      ]
+    }
+  },
+  "ccpm_integration": {
+    "auto_detection_enabled": true,
+    "default_domain": "ALL-DOMAINS",
+    "default_type": "ENHANCEMENT",
+    "cross_domain_notification": {
+      "enabled": true,
+      "domain_tags": ["@CC-Air", "@CC-Ground", "@CC-Dev", "@CC-SystemTools"],
+      "required_acknowledgment": true
+    }
+  }
+}

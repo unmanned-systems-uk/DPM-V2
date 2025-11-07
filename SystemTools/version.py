@@ -7,9 +7,9 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.7.0"
-VERSION_NAME = "SFTP Log Download & Air-Side Logging Fix"
-BUILD_DATE = "2025-11-05"
+VERSION = "1.11.3"
+VERSION_NAME = "Fix Battery Display with Actual Key Name"
+BUILD_DATE = "2025-11-07"
 
 # Build metadata
 BUILD_INFO = {

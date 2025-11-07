@@ -651,6 +651,21 @@ class CameraViewModel : ViewModel() {
                 }
             }
 
+            // Sync focal distance (if available)
+            settings.focalDistanceMeters?.let { distance ->
+                // Update focal distance StateFlow for FocusDistanceOverlay
+                _focusDistanceM.value = distance
+
+                // Log for debugging
+                val distanceStr = when {
+                    distance < 0 -> "infinity"
+                    distance == 0.0f -> "unknown"
+                    distance < 1.0f -> "${(distance * 100).toInt()}cm"
+                    else -> String.format("%.1fm", distance)
+                }
+                Log.d(TAG, "Syncing focal distance: $distanceStr (raw: $distance)")
+            }
+
             newState
         }
     }

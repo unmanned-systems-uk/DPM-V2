@@ -2,7 +2,24 @@
   "permissions": {
     "allow": [
       "Bash(del nul)",
-      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" issue view 4 --repo unmanned-systems-uk/DPM-V2 --json state)"
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" issue view 4 --repo unmanned-systems-uk/DPM-V2 --json state)",
+      "Bash(1 --since 2m)",
+      "Bash(1 --since 1m)",
+      "Bash(1 --since 5m)",
+      "Bash(ping:*)",
+      "Bash(docker restart:*)",
+      "Bash(git branch:*)",
+      "Bash(gh issue view:*)",
+      "Bash(pwsh .github/scripts/search-history.ps1 \"focus\")",
+      "Bash(gh issue list:*)",
+      "Bash(chmod:*)",
+      "Bash(.github/scripts/search-history.sh:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(dir:*)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" issue comment:*)"
     ],
     "deny": [],
     "ask": []

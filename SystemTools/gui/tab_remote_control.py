@@ -588,22 +588,47 @@ class RemoteControlTab(ttk.Frame):
                     except:
                         pass
 
-                # Check for camera connection issues
+                # Check CURRENT camera connection status
                 exit_code, stdout, stderr = ssh_client.execute_command(
-                    "docker logs --tail 100 payload-manager 2>&1 | grep -i 'camera.*disconnect' | wc -l", timeout=15)
+                    "docker logs --tail 50 payload-manager 2>&1 | grep -i 'camera' | tail -5", timeout=15)
+                camera_currently_connected = True
+                if exit_code == 0:
+                    recent_logs = stdout.strip().lower()
+                    # Check if most recent camera message indicates disconnection
+                    if 'disconnected' in recent_logs or 'connection lost' in recent_logs:
+                        # Verify it's not followed by a successful reconnection
+                        if 'connected successfully' not in recent_logs.split('disconnected')[-1]:
+                            camera_currently_connected = False
+                            issues_found.append("Camera is currently DISCONNECTED")
+                            self.after(0, lambda: self._append_output(
+                                f"  ❌ Camera Status: DISCONNECTED (check USB connection)\n", "error"))
+                        else:
+                            self.after(0, lambda: self._append_output(
+                                f"  ✅ Camera Status: Connected\n", "success"))
+                    elif 'connected' in recent_logs or 'connection successful' in recent_logs:
+                        self.after(0, lambda: self._append_output(
+                            f"  ✅ Camera Status: Connected\n", "success"))
+                    else:
+                        # No recent camera connection messages - unclear state
+                        self.after(0, lambda: self._append_output(
+                            f"  ⚠️  Camera Status: Unknown (no recent connection messages)\n", "info"))
+
+                # Check for historical camera disconnection issues
+                exit_code, stdout, stderr = ssh_client.execute_command(
+                    "docker logs --tail 100 payload-manager 2>&1 | grep -iE '(camera.*disconnect|disconnect.*camera)' | wc -l", timeout=15)
                 if exit_code == 0:
                     disconnect_count = stdout.strip()
                     try:
                         count = int(disconnect_count)
-                        if count > 3:
-                            warnings_found.append(f"{count} camera disconnections detected")
+                        if count > 5:
+                            warnings_found.append(f"{count} camera disconnections in recent logs")
                             self.after(0, lambda c=count: self._append_output(
-                                f"  ⚠️  Camera Disconnects: {c} detected\n", "info"))
+                                f"  ⚠️  Disconnect Events: {c} in last 100 lines (HIGH)\n", "info"))
                         elif count > 0:
                             self.after(0, lambda c=count: self._append_output(
-                                f"  ✅ Camera Disconnects: {c} (acceptable)\n", "success"))
+                                f"  ✅ Disconnect Events: {c} in last 100 lines\n", "success"))
                         else:
-                            self.after(0, lambda: self._append_output("  ✅ Camera Disconnects: None\n", "success"))
+                            self.after(0, lambda: self._append_output("  ✅ Disconnect Events: None\n", "success"))
                     except:
                         pass
 
@@ -660,9 +685,13 @@ class RemoteControlTab(ttk.Frame):
                     if any("restart" in w.lower() for w in warnings_found):
                         self.after(0, lambda: self._append_output(
                             "     • Investigate logs for crash causes\n", "info"))
-                    if any("camera" in w.lower() for w in warnings_found):
+                    if any("camera" in i.lower() for i in issues_found + warnings_found):
                         self.after(0, lambda: self._append_output(
                             "     • Check camera USB connection and power\n", "info"))
+                        self.after(0, lambda: self._append_output(
+                            "     • Verify camera is powered on and USB cable is secure\n", "info"))
+                        self.after(0, lambda: self._append_output(
+                            "     • Try restarting the payload-manager container\n", "info"))
 
                 self.after(0, lambda: self._append_output("\n" + "=" * 80 + "\n", "info"))
                 self.after(0, lambda: self._append_output("Diagnostic complete!\n", "command"))

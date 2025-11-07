@@ -13,6 +13,41 @@ START DOCS    - Documentation/Protocol work
 START PM      - Project Manager (Coordination/Oversight)
 ```
 
+## 🚨 CRITICAL WORKFLOW RULES (MUST READ!)
+
+**FAILURE TO FOLLOW THESE RULES BREAKS THE ENTIRE WORKFLOW:**
+
+1. **ALWAYS search historical issues BEFORE implementing anything**
+2. **ALWAYS update GitHub issues when working on them**
+3. **NEVER implement without checking what was tried before**
+4. **NEVER repeat failed solutions from previous issues**
+5. **ALWAYS document what you tried and why it failed/succeeded**
+6. **ALWAYS provide cross-domain instructions when needed**
+7. **NEVER close issues without user confirmation**
+
+**Example Workflow Failures:**
+- **Issue #10:** Air/Ground didn't update GitHub = workflow breakdown
+- **Focus Issues #1,#2:** Repeated same failed attempts = wasted time
+- **Result: Confusion, duplicated work, repeated failures**
+
+## 🧠 MANDATORY: Learn from History First
+
+**BEFORE working on ANY issue, you MUST:**
+
+```bash
+# 1. Search for similar historical issues
+.github\scripts\search-history.ps1 "focus"  # or relevant keyword
+
+# 2. Read what failed before
+gh issue view <#> --comments | grep -i "tried\|failed\|didn't work"
+
+# 3. Document your approach based on history
+gh issue comment <#> --body "Found previous attempts in #X and #Y:
+- #X tried [approach] but failed because [reason]
+- #Y tried [approach] but failed because [reason]
+I will try [NEW approach] because [why it's different]"
+```
+
 ## 📂 Three-Domain Architecture + PM Coordination (25 lines)
 | Domain | Platform | Language | Location | Purpose |
 |--------|----------|----------|----------|---------|
@@ -242,6 +277,7 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [PM][COORDINATION] Create cross-domain integration plan for Issue #24
 ```
 
+<<<<<<< HEAD
 ## 🏷️ WHO Tag Protocol (40 lines)
 
 ### MANDATORY: All GitHub Issue Comments Must Use WHO Tags
@@ -364,6 +400,32 @@ gh issue view 24 --comments | grep "WHO:"
 **All Claude Code instances** must use WHO tags - no exceptions.
 
 **Users** are encouraged to use WHO tags for clarity, especially when providing test results or reporting issues.
+=======
+### Issue Title Format (GitHub Issues)
+
+**Format:** `[SCOPE][DOMAIN][TYPE] Description`
+
+**Required (2 prefixes minimum):**
+- **DOMAIN**: `[AIR-SIDE]`, `[GROUND-SIDE]`, `[TOOLS]`, `[ALL-DOMAINS]`, `[WORKFLOW]`, `[PROTOCOL]`
+- **TYPE**: `[BUG]`, `[FIX]`, `[FEATURE]`, `[ENHANCEMENT]`, `[TESTING]`, `[DOCS]`
+
+**Optional (prepend if needed):**
+- **SCOPE**: `[MANDATORY]`, `[URGENT]`, `[BLOCKED]`
+
+**Examples:**
+```
+[GROUND-SIDE][BUG] Focus commands not reaching Air-Side
+[MANDATORY][ALL-DOMAINS][WORKFLOW] New testing workflow requirements
+[AIR-SIDE][FEATURE] Add gimbal control support
+[TOOLS][ENHANCEMENT] Improve diagnostic dashboard
+```
+
+**Official Domain Configuration:** `.github/domain-config.json` (machine-readable)
+
+**Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
+
+**See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.
+>>>>>>> 98ce648a2903736a211ac0f5baad5bea7154fb5a
 
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
@@ -411,30 +473,47 @@ git push origin main          # End of session
 10. **Cross-domain commits need implementation instructions** (see GIT_PROTOCOL_GUIDE.md)
 11. **Do not modify any code in a Domain you are not assigned to. If you feel this is necessary you must get user approval**
 
-### 🚀 NEW GitHub-Based Project Management (Added 2025-11-05)
-11. **GitHub Issues = Primary Task Tracking**
-    - All tasks tracked as GitHub Issues with labels
-    - Use `gh` CLI for creating/updating issues
-    - GitKraken for visual project monitoring
-12. **Claude Code GitHub Workflow:**
+### 🚨 CRITICAL: GitHub Issue Management is MANDATORY (Updated 2025-11-06)
+
+**⚠️ WORKFLOW FAILURE WARNING: Not updating issues BREAKS the entire development workflow!**
+
+11. **MANDATORY Issue Updates - EVERY SESSION:**
     ```bash
-    # Start session
-    .github\scripts\cc-start-session.ps1
+    # STEP 1: Check issues at session start
+    gh issue list --repo unmanned-systems-uk/DPM-V2 --state open
 
-    # Work on issue
-    .github\scripts\cc-work-on-issue.ps1 123
+    # STEP 2: When working on ANY issue
+    gh issue edit <number> --add-label "status:in-progress"
+    gh issue comment <number> --body "Starting work on [specific task]"
 
-    # Complete issue
-    .github\scripts\cc-complete-issue.ps1 123
+    # STEP 3: When implementation complete
+    gh issue comment <number> --body "Implementation complete. Testing required: [instructions]"
+    gh issue edit <number> --remove-label "status:in-progress" --add-label "status:testing"
+
+    # STEP 4: After successful test
+    gh issue close <number> --comment "Fixed in commit [hash]. [What was done]"
     ```
-13. **Issue Labels:**
-    - Domain: `air-side`, `ground-side`, `dev-tools`
-    - Priority: `priority:critical/high/medium/low`
-    - Status: `status:in-progress/blocked/testing`
-14. **Documentation Now Secondary:**
-    - Markdown files for context/history only
-    - GitHub Issues for active task management
-    - Progress reports auto-generated from GitHub
+
+12. **CROSS-DOMAIN Issue Protocol (MANDATORY):**
+    When Air-Side fixes an issue that requires Ground-Side changes:
+    ```bash
+    # Air-Side MUST:
+    gh issue comment <number> --body "Air-Side complete. Ground-Side needs to: [specific instructions]"
+    gh issue edit <number> --add-label "ground-side" --add-label "status:needs-ground-impl"
+
+    # Ground-Side MUST:
+    gh issue comment <number> --body "Ground-Side implementation complete. [What was done]"
+    gh issue edit <number> --remove-label "status:needs-ground-impl" --add-label "status:testing"
+    ```
+
+13. **Issue Update CHECKLIST (Claude Code MUST follow):**
+    - [ ] Check issue status BEFORE starting work
+    - [ ] Add "status:in-progress" label when starting
+    - [ ] Comment what you're implementing
+    - [ ] Update issue IMMEDIATELY after changes
+    - [ ] Provide CLEAR testing instructions
+    - [ ] Add cross-domain instructions if needed
+    - [ ] Close issue ONLY after confirmed testing
 
 ### 🧪 CRITICAL: Testing & Issue Closure Workflow (Added 2025-11-05)
 15. **After Implementing ANY Feature:**

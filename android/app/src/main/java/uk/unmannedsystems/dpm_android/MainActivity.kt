@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import uk.unmannedsystems.dpm_android.camera.CameraControlScreen
+import uk.unmannedsystems.dpm_android.diagnostics.DiagnosticsScreen
 import uk.unmannedsystems.dpm_android.eventlog.EventLogScreen
 import uk.unmannedsystems.dpm_android.settings.SettingsScreen
 import uk.unmannedsystems.dpm_android.system.SystemStatusScreen
@@ -163,6 +165,11 @@ fun DPMAndroidApp() {
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
+                AppDestinations.DIAGNOSTICS -> {
+                    DiagnosticsScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
                 AppDestinations.DOWNLOADS -> {
                     PlaceholderScreen(
                         text = "Downloads\n\nContent download management will be implemented here.",
@@ -240,6 +247,7 @@ enum class AppDestinations(
 ) {
     CAMERA("Camera", Icons.Default.CameraAlt),
     ADVANCED_CAMERA("Advanced Camera Controls", Icons.Default.Settings),
+    DIAGNOSTICS("Quick Diagnostics", Icons.Default.HealthAndSafety),
     DOWNLOADS("Downloads", Icons.Default.Download),
     SYSTEM_STATUS("System Status", Icons.Default.Info),
     EVENT_LOG("Event Log", Icons.Default.List),

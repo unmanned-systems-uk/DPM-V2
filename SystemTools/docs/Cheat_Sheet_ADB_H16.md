@@ -885,10 +885,380 @@ for /L %i in (1,1,254) do @ping -n 1 -w 100 10.0.1.%i | findstr "Reply"
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 25, 2025  
-**Target:** SkyDroid H16 Ground Station  
-**IP:** 10.0.1.92:5555  
+## 📱 H16-SIDE DIAGNOSTICS & TROUBLESHOOTING
+
+**When PC-side troubleshooting fails, diagnose from H16 using Termux**
+
+### Access H16 via Termux
+
+```bash
+# On H16, open Termux app and run these commands
+```
+
+### Check ADB Daemon Status
+
+```bash
+# Check if adbd (ADB daemon) is running:
+ps -A | grep adbd
+
+# Expected output:
+# u0_a123  12345  1234  1234567  12345 0 S adbd
+
+# If not running, ADB is not active on H16
+```
+
+### Check Network Interfaces
+
+```bash
+# Show all network interfaces and IP addresses:
+ip addr show
+
+# Check WiFi interface (typically wlan0):
+ip addr show wlan0
+
+# Verify H16 has correct IP (should be 10.0.1.92):
+ip addr show | grep "inet 10.0.1"
+
+# Expected output:
+# inet 10.0.1.92/24 brd 10.0.1.255 scope global wlan0
+```
+
+### Check Port 5555 Status
+
+```bash
+# Check if something is listening on port 5555:
+netstat -anp | grep 5555
+
+# Alternative (if netstat not available):
+ss -tulpn | grep 5555
+
+# Expected output if ADB is running:
+# tcp    0    0 0.0.0.0:5555    0.0.0.0:*    LISTEN    12345/adbd
+# tcp    0    0 10.0.1.92:5555  10.0.1.37:65204  ESTABLISHED  12345/adbd
+
+# If no output, port 5555 is not open (ADB over network not enabled)
+```
+
+### Check Active Connections
+
+```bash
+# Show all TCP connections:
+netstat -ant
+
+# Show only ESTABLISHED connections:
+netstat -ant | grep ESTABLISHED
+
+# Check for connections from PC (10.0.1.37):
+netstat -ant | grep 10.0.1.37
+
+# If you see connections on random ports but not 5555, ADB over network is disabled
+```
+
+### Check ADB Over Network Setting
+
+```bash
+# Check if ADB over network is enabled (requires root or special permissions):
+getprop service.adb.tcp.port
+
+# Expected output:
+# 5555  (if enabled)
+# -1    (if disabled - USB only mode)
+
+# Check ADB status:
+getprop init.svc.adbd
+
+# Expected output:
+# running  (ADB daemon is active)
+# stopped  (ADB daemon not running)
+```
+
+### Check Firewall Rules (Requires Root)
+
+```bash
+# Check if iptables is blocking port 5555 (requires root):
+su
+iptables -L -n -v | grep 5555
+
+# Check all INPUT chain rules:
+iptables -L INPUT -n -v
+
+# Check if there are any DROP or REJECT rules affecting port 5555
+```
+
+### Test Network Connectivity to PC
+
+```bash
+# Ping the PC (10.0.1.37):
+ping -c 4 10.0.1.37
+
+# Expected output should show replies:
+# 64 bytes from 10.0.1.37: icmp_seq=1 ttl=128 time=5.2 ms
+
+# If "Destination Host Unreachable" or 100% packet loss:
+# - PC firewall blocking ICMP
+# - Network routing issue
+# - Not on same network
+```
+
+### Test Reverse Connection
+
+```bash
+# Try to connect to PC's ADB server (port 5037):
+# This tests if PC can receive connections
+nc -zv 10.0.1.37 5037
+
+# Or using telnet:
+telnet 10.0.1.37 5037
+
+# If connection refused:
+# - PC firewall blocking incoming connections
+# - PC ADB server not running
+```
+
+### Check Running Processes
+
+```bash
+# Check what processes are using network:
+lsof -i -n | head -20
+
+# Check specifically for ADB-related processes:
+ps -A | grep -E 'adb|daemon'
+
+# Check for DPM Ground-Side app:
+ps -A | grep payloadmanager
+
+# Get PID of DPM app:
+pidof com.uksystems.payloadmanager
+```
+
+### Restart ADB on H16
+
+```bash
+# Method 1: Toggle ADB setting via settings command (no root needed):
+# Disable ADB over network:
+settings put global adb_wifi_enabled 0
+
+# Wait 2 seconds:
+sleep 2
+
+# Enable ADB over network:
+settings put global adb_wifi_enabled 1
+
+# Method 2: Restart ADB daemon (requires root):
+su
+stop adbd
+sleep 2
+start adbd
+
+# Method 3: Via Android settings (Manual):
+# Settings → Developer Options → Wireless debugging → Toggle OFF/ON
+# or
+# Settings → Developer Options → ADB over network → Toggle OFF/ON
+```
+
+### Check Developer Options Settings
+
+```bash
+# Check if Developer Options are enabled:
+settings get global development_settings_enabled
+
+# Expected output:
+# 1  (enabled)
+# 0  (disabled)
+
+# Check USB debugging status:
+settings get global adb_enabled
+
+# Expected output:
+# 1  (enabled)
+# 0  (disabled)
+
+# Check wireless ADB:
+settings get global adb_wifi_enabled
+
+# Expected output:
+# 1  (enabled)
+# 0  (disabled)
+```
+
+### View System Logs
+
+```bash
+# View recent system logs related to ADB:
+logcat -d -s adbd:*
+
+# View logs with timestamp:
+logcat -d -v time -s adbd:*
+
+# Watch live ADB logs:
+logcat -s adbd:*
+
+# Look for errors:
+logcat -d -s adbd:E
+
+# Common errors to look for:
+# - "failed to bind"  (port already in use)
+# - "connection refused"  (PC side issue)
+# - "permission denied"  (security/SELinux issue)
+```
+
+### Check SELinux Status
+
+```bash
+# Check if SELinux is enforcing (may block ADB):
+getenforce
+
+# Expected outputs:
+# Enforcing  (strict security, may block ADB)
+# Permissive (relaxed, usually allows ADB)
+# Disabled   (no SELinux)
+
+# If Enforcing, check SELinux denials related to ADB:
+dmesg | grep -i avc | grep -i adbd
+
+# Temporarily set to Permissive for testing (requires root):
+su
+setenforce 0
+```
+
+### Complete H16 Diagnostic Script
+
+```bash
+#!/bin/bash
+# Save as h16-adb-diagnostic.sh and run in Termux
+
+echo "======================================"
+echo "H16 ADB Diagnostic Report"
+echo "======================================"
+
+echo -e "\n1. ADB Daemon Status:"
+ps -A | grep adbd || echo "  [!] adbd not running!"
+
+echo -e "\n2. Network Interfaces:"
+ip addr show | grep -E "inet |wlan0|eth0"
+
+echo -e "\n3. Port 5555 Status:"
+netstat -anp 2>/dev/null | grep 5555 || echo "  [!] Port 5555 not in use!"
+
+echo -e "\n4. ADB TCP Port Setting:"
+PORT=$(getprop service.adb.tcp.port)
+if [ "$PORT" = "5555" ]; then
+  echo "  [✓] ADB over network enabled (port $PORT)"
+else
+  echo "  [!] ADB over network DISABLED (port $PORT)"
+fi
+
+echo -e "\n5. ADB Daemon Service:"
+STATUS=$(getprop init.svc.adbd)
+if [ "$STATUS" = "running" ]; then
+  echo "  [✓] adbd is running"
+else
+  echo "  [!] adbd is $STATUS"
+fi
+
+echo -e "\n6. Developer Settings:"
+DEV=$(settings get global development_settings_enabled)
+ADB=$(settings get global adb_enabled)
+WIFI=$(settings get global adb_wifi_enabled)
+echo "  Developer Options: $DEV (1=enabled, 0=disabled)"
+echo "  USB Debugging: $ADB (1=enabled, 0=disabled)"
+echo "  ADB WiFi: $WIFI (1=enabled, 0=disabled)"
+
+echo -e "\n7. Test Ping to PC (10.0.1.37):"
+ping -c 2 10.0.1.37 2>/dev/null && echo "  [✓] PC reachable" || echo "  [!] PC unreachable"
+
+echo -e "\n8. Active Connections:"
+netstat -ant 2>/dev/null | grep ESTABLISHED | head -5
+
+echo -e "\n9. DPM App Status:"
+if pidof com.uksystems.payloadmanager > /dev/null; then
+  echo "  [✓] DPM app is running"
+else
+  echo "  [!] DPM app is NOT running"
+fi
+
+echo -e "\n======================================"
+echo "Diagnostic Complete"
+echo "======================================"
+```
+
+### Quick H16 Fixes
+
+```bash
+# Fix 1: Restart ADB network service
+settings put global adb_wifi_enabled 0
+sleep 2
+settings put global adb_wifi_enabled 1
+
+# Fix 2: Check and fix IP address
+# If H16 has wrong IP, reconnect to WiFi
+
+# Fix 3: Enable ADB if disabled
+settings put global adb_enabled 1
+settings put global adb_wifi_enabled 1
+
+# Fix 4: View recent ADB errors
+logcat -d -s adbd:E -t 50
+```
+
+### Common H16-Side Issues & Solutions
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Port 5555 not listening | ADB over network disabled | Enable in Developer Options or `settings put global adb_wifi_enabled 1` |
+| adbd not running | ADB service stopped | Restart phone or toggle Developer Options |
+| Wrong IP address | DHCP changed IP or wrong network | Check `ip addr show` and reconnect WiFi |
+| Connection immediately drops | SELinux blocking | Check `getenforce`, try `setenforce 0` (root) |
+| "Connection refused" | Firewall or adbd not bound to 0.0.0.0 | Check `netstat -anp \| grep 5555` |
+| Port shows LISTEN but PC can't connect | H16 firewall/iptables | Check `iptables -L INPUT` (root) |
+| Can ping but can't connect ADB | Port 5555 blocked | Check firewall rules, toggle ADB setting |
+
+### Interpreting Netstat Output
+
+```bash
+# Good - ADB is listening and has connection:
+tcp    0    0 0.0.0.0:5555    0.0.0.0:*       LISTEN      12345/adbd
+tcp    0    0 10.0.1.92:5555  10.0.1.37:65204 ESTABLISHED 12345/adbd
+
+# Bad - No port 5555 at all:
+# (no output) = ADB over network not enabled
+
+# Bad - Listening but no ESTABLISHED connection:
+tcp    0    0 0.0.0.0:5555    0.0.0.0:*       LISTEN      12345/adbd
+# PC is not connected or connection dropped
+```
+
+### Enable ADB Over Network (Manual Steps)
+
+1. **Via Settings App:**
+   ```
+   Settings → About Phone → Tap "Build Number" 7 times
+   Settings → Developer Options → Enable "Developer Options"
+   Settings → Developer Options → Enable "USB debugging"
+   Settings → Developer Options → Enable "ADB over network" or "Wireless debugging"
+   ```
+
+2. **Via Termux (No Root):**
+   ```bash
+   settings put global development_settings_enabled 1
+   settings put global adb_enabled 1
+   settings put global adb_wifi_enabled 1
+   ```
+
+3. **Via Termux (Root):**
+   ```bash
+   su
+   setprop service.adb.tcp.port 5555
+   stop adbd
+   start adbd
+   ```
+
+---
+
+**Document Version:** 1.1
+**Last Updated:** November 7, 2025
+**Target:** SkyDroid H16 Ground Station
+**IP:** 10.0.1.92:5555
 **Project:** Drone Payload Manager
 
 ---

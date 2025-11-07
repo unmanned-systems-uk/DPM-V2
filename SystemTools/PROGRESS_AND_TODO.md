@@ -3,6 +3,7 @@
 **Project:** DPM Windows Diagnostic Tool
 **Platform:** Windows 11
 **Language:** Python 3.x with tkinter
+**Version:** 1.9.0
 **Start Date:** October 29, 2025
 **Status:** 🟢 **Phase 2 Complete - Full Protocol Monitoring Operational!**
 
@@ -22,11 +23,122 @@ Phase 5 - Polish:      ░░░░░░░░░░░░░░░░░░░
 
 **Overall Completion:** 60% (Phase 1-2 Complete - Full monitoring and command capability!)
 
-**Last Updated:** November 5, 2025 - ✨ NEW FEATURE: GitHub Integration Tab Added
+**Last Updated:** November 7, 2025 - ✨ NEW FEATURE: ADB Troubleshooting Tab + H16 App Status
 
 ---
 
 ## RECENT UPDATES
+
+### ✨ NEW FEATURE: Comprehensive ADB Troubleshooting Tab (November 7, 2025)
+
+**Status:** ✅ **Version 1.9.0 - ADB troubleshooting tools added to H16 Diagnostics**
+
+**What Was Added:**
+- New dedicated "ADB Troubleshooting" sub-tab in H16 Diagnostics
+- Comprehensive diagnostic tools based on Cheat_Sheet_ADB_H16.md
+- Replaced Ground-Side heartbeat indicator with H16 App Running status
+
+**Files Modified:**
+- ✅ `gui/tab_h16_diagnostics.py` - Added ADB Troubleshooting sub-tab (444 new lines)
+- ✅ `gui/tab_connection.py` - Replaced heartbeat with H16 App Running status
+- ✅ `version.py` - Updated to v1.9.0
+
+**Features Implemented:**
+
+1. **Connection Diagnostics Section:**
+   - 🔍 Ping H16 - Test network reachability
+   - 🔌 Test Port 5555 - Check if ADB port is open (PowerShell Test-NetConnection)
+   - 📋 Check ADB Devices - List connected devices
+   - 🔍 Check Local Port 5555 - See active connections (netstat)
+   - 📡 Check ADB Server - Verify server is running on port 5037
+
+2. **ADB Server Management Section:**
+   - 🔄 Reconnect ADB - Quick disconnect and reconnect
+   - 🛑 Kill ADB Server - Terminate ADB daemon
+   - ▶️ Start ADB Server - Launch ADB daemon
+
+3. **Quick Fixes Section:**
+   - 🔧 Full ADB Reset & Reconnect - 4-step complete reset sequence:
+     * Disconnect all devices
+     * Kill ADB server
+     * Start ADB server
+     * Reconnect to H16
+   - 🏥 Complete Diagnostic - Comprehensive 5-test diagnostic:
+     * Network connectivity (ping)
+     * ADB port 5555 status
+     * ADB server status
+     * ADB device connection
+     * Local port 5555 connections
+     * Automatic issue detection with recommendations
+
+4. **Windows Firewall & Security Section:**
+   - Warning notes about Norton Security and Windows Firewall
+   - Guidance for manual firewall checks
+
+5. **H16 App Running Status (Connection Monitor):**
+   - Replaced misleading "Ground-Side Heartbeat" indicator
+   - New indicator shows if H16 DPM app is actually running
+   - Uses `adb shell pidof com.uksystems.payloadmanager`
+   - Auto-checks every 10 seconds
+   - 🟢 Green = App running, 🔴 Red = Not running, 🟡 Yellow = Check failed
+
+**Testing Commands Validated:**
+- ✅ `ping 10.0.1.92 -n 2` (H16 reachable)
+- ✅ `powershell Test-NetConnection 10.0.1.92 -Port 5555` (Port test works)
+- ✅ `netstat -an | findstr ":5555"` (Local connection check)
+- ✅ `adb devices` (Device listing)
+- ✅ `adb reconnect` (Reconnect command)
+- ✅ Full reset sequence validated
+
+**Benefits:**
+- Users can quickly diagnose ADB connection issues
+- Addresses common Windows Firewall/Norton Security problems
+- Provides clear recommendations for fixing issues
+- Eliminates confusion about Ground-Side heartbeats
+- Shows actual H16 app status instead of misleading heartbeat indicator
+
+**Testing Required:**
+- User testing needed with actual H16 device
+- Verify all troubleshooting buttons work correctly
+- Test Complete Diagnostic sequence
+- Verify H16 App Running status updates correctly
+
+**Reference:** Based on `docs/Cheat_Sheet_ADB_H16.md` troubleshooting section
+
+---
+
+### 🐛 BUG FIX: ADB Connection Issue in Connection Monitor (November 7, 2025)
+
+**Status:** ✅ **Issue #28 reopened and ADB connection bug fixed**
+
+**Problem Identified:**
+- Connection Monitor reported "ADB Error: Failed to communicate with device 10.0.1.92:5555"
+- H16 ADB Diagnostics tab successfully connected to the same device
+- Root cause: Network ADB devices require explicit `adb connect <ip>:<port>` before appearing in device list
+
+**What Was Fixed:**
+1. **ADBClient (`network/adb_client.py`)**:
+   - Enhanced `connect()` method to detect network addresses (containing ':')
+   - Automatically runs `adb connect <ip>:<port>` for network devices before querying device list
+   - Added better error messages showing available devices
+
+2. **Connection Monitor (`gui/tab_connection.py`)**:
+   - Updated `_create_adb_client()` to pass H16 IP address with port 5555
+   - Modified `_on_adb_connect()` to pass device_id when connecting
+   - Fixed Smart Connect to pass device_id to ADB connection
+
+**Files Modified:**
+- ✅ `network/adb_client.py` - Added network device detection and connection
+- ✅ `gui/tab_connection.py` - Pass H16 IP address when creating/connecting ADB client
+
+**Testing Required:**
+- User testing needed to verify ADB connection now works in Connection Monitor
+- Should successfully connect to 10.0.1.92:5555
+- Should match behavior of H16 ADB Diagnostics tab
+
+**Reference:** Issue #28
+
+---
 
 ### ✨ NEW FEATURE: GitHub Integration Tab (November 5, 2025)
 
@@ -930,11 +1042,11 @@ Local Network
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.8.0
 **Created:** October 29, 2025
-**Last Updated:** October 29, 2025
+**Last Updated:** November 7, 2025
 **Maintained By:** Claude Code
-**Status:** Plan awaiting approval
+**Status:** Phase 2 Complete, Phase 3+ In Progress
 
 ---
 
