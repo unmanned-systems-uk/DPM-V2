@@ -118,6 +118,7 @@ class H16DiagnosticsTab(ttk.Frame):
         self.diagnostic_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Create sub-tabs
+        self._create_troubleshooting_tab()
         self._create_network_tab()
         self._create_logcat_tab()
         self._create_system_tab()
@@ -158,6 +159,94 @@ class H16DiagnosticsTab(ttk.Frame):
         self.status_label = ttk.Label(bottom_frame, text="Ready - Connect ADB to begin",
                                      font=('Arial', 9, 'italic'))
         self.status_label.pack(side=tk.RIGHT, padx=10)
+
+    def _create_troubleshooting_tab(self):
+        """Create ADB Troubleshooting sub-tab"""
+        troubleshoot_tab = ttk.Frame(self.diagnostic_notebook)
+        self.diagnostic_notebook.add(troubleshoot_tab, text="🔧 ADB Troubleshooting")
+
+        # Info label
+        info_frame = ttk.Frame(troubleshoot_tab)
+        info_frame.pack(fill=tk.X, padx=10, pady=5)
+        ttk.Label(info_frame, text="Comprehensive ADB troubleshooting tools based on Cheat_Sheet_ADB_H16.md",
+                 font=('Arial', 9, 'italic'), foreground="gray").pack(anchor=tk.W)
+
+        # Connection Diagnostics Section
+        conn_diag_frame = ttk.LabelFrame(troubleshoot_tab, text="Connection Diagnostics", padding=10)
+        conn_diag_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        conn_btns_row1 = ttk.Frame(conn_diag_frame)
+        conn_btns_row1.pack(fill=tk.X, pady=2)
+
+        ttk.Button(conn_btns_row1, text="🔍 Ping H16",
+                  command=self._troubleshoot_ping,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(conn_btns_row1, text="🔌 Test Port 5555",
+                  command=self._troubleshoot_port,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(conn_btns_row1, text="📋 Check ADB Devices",
+                  command=self._check_devices,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        conn_btns_row2 = ttk.Frame(conn_diag_frame)
+        conn_btns_row2.pack(fill=tk.X, pady=2)
+
+        ttk.Button(conn_btns_row2, text="🔍 Check Local Port 5555",
+                  command=self._troubleshoot_local_port,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(conn_btns_row2, text="📡 Check ADB Server",
+                  command=self._troubleshoot_adb_server,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        # ADB Server Management Section
+        server_frame = ttk.LabelFrame(troubleshoot_tab, text="ADB Server Management", padding=10)
+        server_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        server_btns = ttk.Frame(server_frame)
+        server_btns.pack(fill=tk.X, pady=2)
+
+        ttk.Button(server_btns, text="🔄 Reconnect ADB",
+                  command=self._troubleshoot_reconnect,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(server_btns, text="🛑 Kill ADB Server",
+                  command=self._troubleshoot_kill_server,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(server_btns, text="▶️ Start ADB Server",
+                  command=self._troubleshoot_start_server,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        # Full Reset Section
+        reset_frame = ttk.LabelFrame(troubleshoot_tab, text="Quick Fixes", padding=10)
+        reset_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        reset_btns = ttk.Frame(reset_frame)
+        reset_btns.pack(fill=tk.X, pady=2)
+
+        ttk.Button(reset_btns, text="🔧 Full ADB Reset & Reconnect",
+                  command=self._troubleshoot_full_reset,
+                  width=35).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(reset_btns, text="🏥 Complete Diagnostic",
+                  command=self._troubleshoot_complete_diagnostic,
+                  width=35).pack(side=tk.LEFT, padx=5)
+
+        # Firewall Check Section (Windows specific)
+        firewall_frame = ttk.LabelFrame(troubleshoot_tab, text="Windows Firewall & Security", padding=10)
+        firewall_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        firewall_info = ttk.Frame(firewall_frame)
+        firewall_info.pack(fill=tk.X, pady=2)
+
+        ttk.Label(firewall_info, text="Note: Norton Security or Windows Firewall may block ADB connections",
+                 font=('Arial', 8), foreground="orange").pack(anchor=tk.W, padx=5)
+
+        ttk.Label(firewall_info, text="If connection fails, check firewall settings manually",
+                 font=('Arial', 8), foreground="gray").pack(anchor=tk.W, padx=5)
 
     def _create_network_tab(self):
         """Create Network Diagnostics sub-tab"""
@@ -1131,3 +1220,447 @@ class H16DiagnosticsTab(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save report:\n{e}")
             logger.exception(f"Error saving H16 diagnostic report: {e}")
+
+    # Troubleshooting Methods
+
+    def _troubleshoot_ping(self):
+        """Test H16 reachability with ping"""
+        self._clear_output()
+        self._append_output("=== Testing H16 Connectivity (Ping) ===\n\n", "command")
+        self.status_label.config(text="Pinging H16...")
+
+        def run_ping():
+            try:
+                h16_ip = self.ip_entry.get()
+                result = subprocess.run(
+                    ["ping", h16_ip, "-n", "4"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                self.after(0, lambda: self._append_output(result.stdout, "info"))
+
+                if result.returncode == 0:
+                    self.after(0, lambda: self._append_output("\n✅ H16 is reachable!\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="Ping successful"))
+                else:
+                    self.after(0, lambda: self._append_output("\n❌ H16 is NOT reachable!\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Ping failed"))
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Ping error"))
+
+        threading.Thread(target=run_ping, daemon=True).start()
+
+    def _troubleshoot_port(self):
+        """Test if port 5555 is open on H16 using PowerShell"""
+        self._clear_output()
+        self._append_output("=== Testing ADB Port 5555 on H16 ===\n\n", "command")
+        self.status_label.config(text="Testing port 5555...")
+
+        def run_port_test():
+            try:
+                h16_ip = self.ip_entry.get()
+                cmd = f'powershell "Test-NetConnection {h16_ip} -Port 5555"'
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    shell=True,
+                    timeout=20
+                )
+
+                self.after(0, lambda: self._append_output(result.stdout, "info"))
+
+                if "TcpTestSucceeded       : True" in result.stdout:
+                    self.after(0, lambda: self._append_output("\n✅ Port 5555 is OPEN and accepting connections!\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="Port 5555 is open"))
+                else:
+                    self.after(0, lambda: self._append_output("\n❌ Port 5555 is CLOSED or unreachable!\n", "error"))
+                    self.after(0, lambda: self._append_output("This could be:\n", "warning"))
+                    self.after(0, lambda: self._append_output("  - ADB not running on H16\n", "info"))
+                    self.after(0, lambda: self._append_output("  - Firewall blocking the connection\n", "info"))
+                    self.after(0, lambda: self._append_output("  - H16 ADB set to USB only mode\n", "info"))
+                    self.after(0, lambda: self.status_label.config(text="Port 5555 is closed"))
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Port test error"))
+
+        threading.Thread(target=run_port_test, daemon=True).start()
+
+    def _troubleshoot_local_port(self):
+        """Check if local port 5555 is in use"""
+        self._clear_output()
+        self._append_output("=== Checking Local Port 5555 Usage ===\n\n", "command")
+        self.status_label.config(text="Checking local ports...")
+
+        def run_local_check():
+            try:
+                result = subprocess.run(
+                    ["netstat", "-an"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                lines = [line for line in result.stdout.split('\n') if ':5555' in line]
+
+                if lines:
+                    self.after(0, lambda: self._append_output("Port 5555 connections found:\n\n", "success"))
+                    for line in lines:
+                        self.after(0, lambda l=line: self._append_output(f"{l}\n", "info"))
+
+                    established = [l for l in lines if 'ESTABLISHED' in l]
+                    if established:
+                        self.after(0, lambda: self._append_output(f"\n✅ {len(established)} ESTABLISHED connection(s) to port 5555\n", "success"))
+                    else:
+                        self.after(0, lambda: self._append_output("\n⚠️  Port 5555 connections exist but none are ESTABLISHED\n", "warning"))
+                else:
+                    self.after(0, lambda: self._append_output("❌ No connections found on port 5555\n", "error"))
+                    self.after(0, lambda: self._append_output("\nThis means ADB is not connected to any device on this port.\n", "info"))
+
+                self.after(0, lambda: self.status_label.config(text="Port check complete"))
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Port check error"))
+
+        threading.Thread(target=run_local_check, daemon=True).start()
+
+    def _troubleshoot_adb_server(self):
+        """Check if ADB server is running"""
+        self._clear_output()
+        self._append_output("=== Checking ADB Server Status ===\n\n", "command")
+        self.status_label.config(text="Checking ADB server...")
+
+        def run_server_check():
+            try:
+                # Check if port 5037 is listening (ADB server port)
+                result = subprocess.run(
+                    ["netstat", "-an"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                adb_server_found = False
+                for line in result.stdout.split('\n'):
+                    if ':5037' in line and 'LISTENING' in line:
+                        adb_server_found = True
+                        self.after(0, lambda l=line: self._append_output(f"ADB Server port:\n{l}\n\n", "info"))
+                        break
+
+                if adb_server_found:
+                    self.after(0, lambda: self._append_output("✅ ADB server is RUNNING (port 5037 listening)\n", "success"))
+
+                    # Check ADB version
+                    version_result = subprocess.run(
+                        ["adb", "version"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if version_result.returncode == 0:
+                        self.after(0, lambda: self._append_output(f"\n{version_result.stdout}", "info"))
+                else:
+                    self.after(0, lambda: self._append_output("❌ ADB server is NOT running!\n", "error"))
+                    self.after(0, lambda: self._append_output("\nTry: Click 'Start ADB Server' button\n", "info"))
+
+                self.after(0, lambda: self.status_label.config(text="ADB server check complete"))
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Server check error"))
+
+        threading.Thread(target=run_server_check, daemon=True).start()
+
+    def _troubleshoot_reconnect(self):
+        """Quick reconnect to H16"""
+        self._clear_output()
+        self._append_output("=== Quick ADB Reconnect ===\n\n", "command")
+        self.status_label.config(text="Reconnecting...")
+
+        def run_reconnect():
+            try:
+                h16_ip = self.ip_entry.get()
+                h16_port = self.port_entry.get()
+                device_addr = f"{h16_ip}:{h16_port}"
+
+                # Disconnect
+                self.after(0, lambda: self._append_output("Disconnecting...\n", "info"))
+                subprocess.run(["adb", "disconnect", device_addr], capture_output=True, timeout=5)
+
+                # Wait briefly
+                import time
+                time.sleep(1)
+
+                # Reconnect
+                self.after(0, lambda: self._append_output(f"Connecting to {device_addr}...\n", "info"))
+                result = subprocess.run(
+                    ["adb", "connect", device_addr],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                self.after(0, lambda: self._append_output(f"{result.stdout}\n", "info"))
+
+                # Check devices
+                self.after(0, lambda: self._append_output("\nChecking devices...\n", "info"))
+                devices_result = subprocess.run(
+                    ["adb", "devices"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                self.after(0, lambda: self._append_output(f"{devices_result.stdout}\n", "info"))
+
+                if "device" in devices_result.stdout and device_addr in devices_result.stdout:
+                    self.after(0, lambda: self._append_output("\n✅ Reconnect successful!\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="Reconnected successfully"))
+                else:
+                    self.after(0, lambda: self._append_output("\n❌ Reconnect failed!\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Reconnect failed"))
+
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Reconnect error"))
+
+        threading.Thread(target=run_reconnect, daemon=True).start()
+
+    def _troubleshoot_kill_server(self):
+        """Kill ADB server"""
+        self._clear_output()
+        self._append_output("=== Killing ADB Server ===\n\n", "command")
+        self.status_label.config(text="Killing ADB server...")
+
+        def run_kill():
+            try:
+                result = subprocess.run(
+                    ["adb", "kill-server"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                self.after(0, lambda: self._append_output("ADB server killed.\n", "success"))
+                self.after(0, lambda: self._append_output("\nNote: Server will auto-start on next ADB command.\n", "info"))
+                self.after(0, lambda: self.status_label.config(text="ADB server killed"))
+
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Kill server error"))
+
+        threading.Thread(target=run_kill, daemon=True).start()
+
+    def _troubleshoot_start_server(self):
+        """Start ADB server"""
+        self._clear_output()
+        self._append_output("=== Starting ADB Server ===\n\n", "command")
+        self.status_label.config(text="Starting ADB server...")
+
+        def run_start():
+            try:
+                result = subprocess.run(
+                    ["adb", "start-server"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                self.after(0, lambda: self._append_output(f"{result.stdout}\n", "info"))
+
+                if result.returncode == 0:
+                    self.after(0, lambda: self._append_output("\n✅ ADB server started successfully!\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="ADB server started"))
+                else:
+                    self.after(0, lambda: self._append_output(f"\n❌ Failed to start server:\n{result.stderr}\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Start server failed"))
+
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Start server error"))
+
+        threading.Thread(target=run_start, daemon=True).start()
+
+    def _troubleshoot_full_reset(self):
+        """Full ADB reset and reconnect sequence"""
+        self._clear_output()
+        self._append_output("=== Full ADB Reset & Reconnect ===\n\n", "command")
+        self.status_label.config(text="Running full ADB reset...")
+
+        def run_full_reset():
+            try:
+                h16_ip = self.ip_entry.get()
+                h16_port = self.port_entry.get()
+                device_addr = f"{h16_ip}:{h16_port}"
+
+                import time
+
+                # Step 1: Disconnect all
+                self.after(0, lambda: self._append_output("Step 1/4: Disconnecting all devices...\n", "info"))
+                subprocess.run(["adb", "disconnect"], capture_output=True, timeout=5)
+                time.sleep(0.5)
+
+                # Step 2: Kill server
+                self.after(0, lambda: self._append_output("Step 2/4: Killing ADB server...\n", "info"))
+                subprocess.run(["adb", "kill-server"], capture_output=True, timeout=5)
+                time.sleep(2)
+
+                # Step 3: Start server
+                self.after(0, lambda: self._append_output("Step 3/4: Starting ADB server...\n", "info"))
+                result = subprocess.run(["adb", "start-server"], capture_output=True, text=True, timeout=10)
+                self.after(0, lambda r=result: self._append_output(f"{r.stdout}\n", "info"))
+                time.sleep(1)
+
+                # Step 4: Connect to H16
+                self.after(0, lambda: self._append_output(f"Step 4/4: Connecting to {device_addr}...\n", "info"))
+                connect_result = subprocess.run(
+                    ["adb", "connect", device_addr],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                self.after(0, lambda r=connect_result: self._append_output(f"{r.stdout}\n", "info"))
+                time.sleep(1)
+
+                # Check final status
+                self.after(0, lambda: self._append_output("\nFinal Status:\n", "command"))
+                devices_result = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=5)
+                self.after(0, lambda r=devices_result: self._append_output(f"{r.stdout}\n", "info"))
+
+                if "device" in devices_result.stdout and device_addr in devices_result.stdout and "offline" not in devices_result.stdout:
+                    self.after(0, lambda: self._append_output("\n✅ Full reset successful! ADB connected.\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="Full reset successful"))
+                else:
+                    self.after(0, lambda: self._append_output("\n⚠️  Reset completed but connection may need attention.\n", "warning"))
+                    self.after(0, lambda: self.status_label.config(text="Reset completed - check connection"))
+
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Full reset error"))
+
+        threading.Thread(target=run_full_reset, daemon=True).start()
+
+    def _troubleshoot_complete_diagnostic(self):
+        """Run complete troubleshooting diagnostic"""
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  COMPLETE ADB TROUBLESHOOTING DIAGNOSTIC\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+        self.status_label.config(text="Running complete diagnostic...")
+
+        def run_complete():
+            try:
+                h16_ip = self.ip_entry.get()
+                h16_port = self.port_entry.get()
+                device_addr = f"{h16_ip}:{h16_port}"
+
+                issues = []
+                warnings = []
+
+                # Test 1: Ping
+                self.after(0, lambda: self._append_output("1. NETWORK CONNECTIVITY TEST\n", "command"))
+                ping_result = subprocess.run(["ping", h16_ip, "-n", "2"], capture_output=True, text=True, timeout=10)
+                if ping_result.returncode == 0:
+                    self.after(0, lambda: self._append_output("   ✅ H16 is reachable via ping\n", "success"))
+                else:
+                    issues.append("H16 not reachable via ping")
+                    self.after(0, lambda: self._append_output("   ❌ H16 is NOT reachable via ping\n", "error"))
+
+                # Test 2: Port 5555
+                self.after(0, lambda: self._append_output("\n2. ADB PORT TEST\n", "command"))
+                try:
+                    port_result = subprocess.run(
+                        f'powershell "Test-NetConnection {h16_ip} -Port 5555 -InformationLevel Quiet"',
+                        capture_output=True,
+                        text=True,
+                        shell=True,
+                        timeout=15
+                    )
+                    if "True" in port_result.stdout:
+                        self.after(0, lambda: self._append_output("   ✅ Port 5555 is open\n", "success"))
+                    else:
+                        issues.append("Port 5555 is closed")
+                        self.after(0, lambda: self._append_output("   ❌ Port 5555 is closed or blocked\n", "error"))
+                except:
+                    warnings.append("Could not test port 5555")
+                    self.after(0, lambda: self._append_output("   ⚠️  Could not test port\n", "warning"))
+
+                # Test 3: ADB Server
+                self.after(0, lambda: self._append_output("\n3. ADB SERVER STATUS\n", "command"))
+                netstat_result = subprocess.run(["netstat", "-an"], capture_output=True, text=True, timeout=5)
+                if ':5037' in netstat_result.stdout and 'LISTENING' in netstat_result.stdout:
+                    self.after(0, lambda: self._append_output("   ✅ ADB server is running\n", "success"))
+                else:
+                    issues.append("ADB server not running")
+                    self.after(0, lambda: self._append_output("   ❌ ADB server is NOT running\n", "error"))
+
+                # Test 4: ADB Devices
+                self.after(0, lambda: self._append_output("\n4. ADB DEVICE CONNECTION\n", "command"))
+                devices_result = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=5)
+                self.after(0, lambda r=devices_result: self._append_output(f"   {r.stdout}\n", "info"))
+
+                if device_addr in devices_result.stdout:
+                    if "offline" in devices_result.stdout:
+                        warnings.append("Device is offline")
+                        self.after(0, lambda: self._append_output("   ⚠️  Device connected but OFFLINE\n", "warning"))
+                    elif "device" in devices_result.stdout:
+                        self.after(0, lambda: self._append_output("   ✅ Device connected and online\n", "success"))
+                    else:
+                        warnings.append("Device connection status unclear")
+                        self.after(0, lambda: self._append_output("   ⚠️  Device connection unclear\n", "warning"))
+                else:
+                    issues.append("Device not in ADB devices list")
+                    self.after(0, lambda: self._append_output("   ❌ Device NOT in ADB devices list\n", "error"))
+
+                # Test 5: Local connections
+                self.after(0, lambda: self._append_output("\n5. LOCAL PORT 5555 CONNECTIONS\n", "command"))
+                port_lines = [l for l in netstat_result.stdout.split('\n') if ':5555' in l]
+                if port_lines:
+                    established = [l for l in port_lines if 'ESTABLISHED' in l]
+                    self.after(0, lambda: self._append_output(f"   Found {len(port_lines)} connection(s), {len(established)} ESTABLISHED\n", "info"))
+                    if established:
+                        self.after(0, lambda: self._append_output("   ✅ Active connection on port 5555\n", "success"))
+                    else:
+                        warnings.append("Port 5555 connections exist but not established")
+                        self.after(0, lambda: self._append_output("   ⚠️  Port 5555 connections not established\n", "warning"))
+                else:
+                    issues.append("No port 5555 connections")
+                    self.after(0, lambda: self._append_output("   ❌ No connections on port 5555\n", "error"))
+
+                # Summary
+                self.after(0, lambda: self._append_output("\n" + "=" * 80 + "\n", "info"))
+                self.after(0, lambda: self._append_output("DIAGNOSTIC SUMMARY\n", "command"))
+                self.after(0, lambda: self._append_output("=" * 80 + "\n\n", "info"))
+
+                if not issues and not warnings:
+                    self.after(0, lambda: self._append_output("✅ All tests passed! ADB connection appears healthy.\n", "success"))
+                    self.after(0, lambda: self.status_label.config(text="All tests passed"))
+                else:
+                    if issues:
+                        self.after(0, lambda: self._append_output(f"❌ {len(issues)} ISSUE(S) FOUND:\n", "error"))
+                        for issue in issues:
+                            self.after(0, lambda i=issue: self._append_output(f"   • {i}\n", "error"))
+                    if warnings:
+                        self.after(0, lambda: self._append_output(f"\n⚠️  {len(warnings)} WARNING(S):\n", "warning"))
+                        for warning in warnings:
+                            self.after(0, lambda w=warning: self._append_output(f"   • {w}\n", "warning"))
+
+                    self.after(0, lambda: self._append_output("\nRECOMMENDATIONS:\n", "command"))
+                    if "H16 not reachable" in str(issues):
+                        self.after(0, lambda: self._append_output("   • Check H16 is powered on and on the same network\n", "info"))
+                    if "Port 5555 is closed" in str(issues):
+                        self.after(0, lambda: self._append_output("   • Enable 'ADB over Network' in H16 Developer Options\n", "info"))
+                    if "ADB server not running" in str(issues):
+                        self.after(0, lambda: self._append_output("   • Click 'Start ADB Server' button\n", "info"))
+                    if "Device not in ADB devices list" in str(issues) or "Device is offline" in str(warnings):
+                        self.after(0, lambda: self._append_output("   • Click 'Full ADB Reset & Reconnect' button\n", "info"))
+
+                    self.after(0, lambda: self.status_label.config(text="Diagnostic complete - issues found"))
+
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Diagnostic error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Diagnostic error"))
+
+        threading.Thread(target=run_complete, daemon=True).start()

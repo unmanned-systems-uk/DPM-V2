@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.8.0"
-VERSION_NAME = "ADB Connection Fix & HITL Testing Workflow"
+VERSION = "1.9.0"
+VERSION_NAME = "H16 App Status & ADB Troubleshooting Tools"
 BUILD_DATE = "2025-11-07"
 
 # Build metadata
