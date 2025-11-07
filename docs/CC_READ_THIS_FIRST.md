@@ -260,6 +260,11 @@ When ending a PM session (after issue closure):
 5. **Read Progress** - Check domain-specific PROGRESS_AND_TODO.md
 6. **Check Status** - `git status` for uncommitted changes
 
+### 🔴 Air-Side Sessions MUST ALSO:
+7. **Review Sony SDK Reference** - `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+8. **BEFORE implementing camera function** - Check `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
+9. **Document SDK findings** - Note function signatures, prerequisites, constraints in issue comments
+
 ### Protocol Sync Commands:
 ```bash
 # Check unimplemented air-side items
@@ -427,6 +432,21 @@ cd sbc/
 ./run_payload_manager.sh      # Run application
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/sony_sdk/lib
 ```
+
+**🔴 CRITICAL: Sony SDK API Reference**
+```bash
+# ALWAYS reference SDK docs when implementing camera functions:
+# Location: docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html
+# 2000+ pages of comprehensive API documentation
+
+# How to use:
+# 1. Open index.html in browser
+# 2. Search for function/property name
+# 3. Check parameters, return values, examples
+# 4. Verify supported camera models
+```
+
+**See:** `docs/AIR_SIDE/SONY_SDK_REFERENCE.md` for quick guide
 
 ### Ground-Side (H16 Android)
 ```bash

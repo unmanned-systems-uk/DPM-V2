@@ -167,9 +167,43 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 
 ### Sony SDK
 
+**🔴 CRITICAL: Sony SDK API Reference Documentation**
+
+**Location:** `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
+**Size:** 2000+ pages of comprehensive API documentation
+**Quick Guide:** `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+
+**ALWAYS CHECK SDK DOCS BEFORE implementing ANY camera function!**
+
+**Why:**
+- Saves hours of trial-and-error
+- Avoids wrong APIs and incorrect assumptions
+- Documents prerequisites and constraints
+- Provides valid parameter ranges
+- Includes working example code
+
+**How to use:**
+1. Open `index.html` in browser
+2. Search for function/property name
+3. Read full documentation (not just signature)
+4. Check prerequisites and constraints
+5. Verify parameter types and ranges
+6. Review example code
+7. Document findings in issue comment
+
+**See:** `docs/AIR_SIDE/SONY_SDK_REFERENCE.md` for complete workflow guide.
+
+---
+
 **General Lessons:**
 
 #### ✅ Best Practices
+
+0. **ALWAYS reference SDK documentation FIRST** ⭐ MOST IMPORTANT
+   - **Why:** Prevents all the failures documented below
+   - **How:** See `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+   - **Result:** Saves 2-4 hours per implementation
+   - **Example:** Issue #1, #2 - would have been solved instantly with SDK docs
 
 1. **Always check camera connection before SDK calls**
    - **Why:** SDK calls on disconnected camera crash the application
