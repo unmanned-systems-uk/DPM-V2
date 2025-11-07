@@ -129,7 +129,7 @@ class ConnectionTab(ttk.Frame):
         hb_frame = self._create_status_row(frame, "💓 Heartbeat:")
         self.air_hb_indicator = StatusIndicator(hb_frame, size=14)
         self.air_hb_indicator.pack(side=tk.LEFT, padx=5)
-        self.air_hb_label = ttk.Label(hb_frame, text="No heartbeat", font=('Arial', 9))
+        self.air_hb_label = ttk.Label(hb_frame, text="No heartbeat", font=('Arial', 9), width=25)
         self.air_hb_label.pack(side=tk.LEFT)
 
         # Camera Detection
@@ -181,7 +181,7 @@ class ConnectionTab(ttk.Frame):
         hb_frame = self._create_status_row(frame, "💓 Heartbeat:")
         self.ground_hb_indicator = StatusIndicator(hb_frame, size=14)
         self.ground_hb_indicator.pack(side=tk.LEFT, padx=5)
-        self.ground_hb_label = ttk.Label(hb_frame, text="No heartbeat", font=('Arial', 9))
+        self.ground_hb_label = ttk.Label(hb_frame, text="No heartbeat", font=('Arial', 9), width=25)
         self.ground_hb_label.pack(side=tk.LEFT)
 
         # Camera Visibility
