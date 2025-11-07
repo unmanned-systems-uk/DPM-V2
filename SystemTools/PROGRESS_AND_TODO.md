@@ -3,7 +3,7 @@
 **Project:** DPM Windows Diagnostic Tool
 **Platform:** Windows 11
 **Language:** Python 3.x with tkinter
-**Version:** 1.1
+**Version:** 1.8.0
 **Start Date:** October 29, 2025
 **Status:** 🟢 **Phase 2 Complete - Full Protocol Monitoring Operational!**
 
@@ -964,7 +964,7 @@ Local Network
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.8.0
 **Created:** October 29, 2025
 **Last Updated:** November 7, 2025
 **Maintained By:** Claude Code
