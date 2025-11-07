@@ -91,6 +91,7 @@ class ADBClient:
 
         Args:
             device_id: Specific device ID (optional, will use first available if None)
+                      Can be network address (e.g., "10.0.1.92:5555") or USB device ID
 
         Returns:
             True if connected successfully
@@ -106,6 +107,30 @@ class ADBClient:
                     self.on_error(error_msg)
                 return False
 
+            # If device_id is provided and looks like a network address (contains colon),
+            # first establish network connection with adb connect
+            if device_id and ':' in device_id:
+                logger.info(f"ADB: Network device detected, connecting to {device_id}...")
+                exit_code, stdout, stderr = self._run_adb_command(['adb', 'connect', device_id], timeout=10)
+
+                if exit_code != 0:
+                    error_msg = f"Failed to connect to network device {device_id}: {stderr}"
+                    logger.error(f"ADB: {error_msg}")
+                    if self.on_error:
+                        self.on_error(error_msg)
+                    return False
+
+                # Check if connection succeeded
+                if "connected" not in stdout.lower() and "already connected" not in stdout.lower():
+                    error_msg = f"Network connection failed: {stdout}"
+                    logger.error(f"ADB: {error_msg}")
+                    if self.on_error:
+                        self.on_error(error_msg)
+                    return False
+
+                logger.info(f"ADB: Network connection established: {stdout.strip()}")
+                self.device_id = device_id
+
             # Get available devices
             devices = self.get_devices()
 
@@ -119,7 +144,7 @@ class ADBClient:
             # Select device
             if device_id:
                 if device_id not in devices:
-                    error_msg = f"Device {device_id} not found"
+                    error_msg = f"Device {device_id} not found in device list. Available: {devices}"
                     logger.error(f"ADB: {error_msg}")
                     if self.on_error:
                         self.on_error(error_msg)

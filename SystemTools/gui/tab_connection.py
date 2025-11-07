@@ -316,10 +316,13 @@ class ConnectionTab(ttk.Frame):
 
             # Connect ADB
             self.log.append("  → Connecting ADB to H16...", "INFO")
+            h16_ip = config.get("network", "h16_ip", "10.0.1.92")
+            device_id = f"{h16_ip}:5555"
+
             if self.adb_client:
-                self.adb_client.connect()
+                self.adb_client.connect(device_id=device_id)
             elif self._create_adb_client():
-                self.adb_client.connect()
+                self.adb_client.connect(device_id=device_id)
 
             # Enable disconnect button
             self.smart_disconnect_btn.config(state=tk.NORMAL)
@@ -376,7 +379,11 @@ class ConnectionTab(ttk.Frame):
         if self.adb_client:
             return True
 
-        self.adb_client = ADBClient()
+        # Get H16 IP from config
+        h16_ip = config.get("network", "h16_ip", "10.0.1.92")
+        device_id = f"{h16_ip}:5555"  # Network ADB uses port 5555
+
+        self.adb_client = ADBClient(device_id=device_id)
         self.set_adb_client(self.adb_client)
         return True
 
@@ -421,7 +428,14 @@ class ConnectionTab(ttk.Frame):
         if not self.adb_client:
             self._create_adb_client()
 
-        threading.Thread(target=self.adb_client.connect, daemon=True).start()
+        # Get H16 IP from config
+        h16_ip = config.get("network", "h16_ip", "10.0.1.92")
+        device_id = f"{h16_ip}:5555"
+
+        def connect_adb():
+            self.adb_client.connect(device_id=device_id)
+
+        threading.Thread(target=connect_adb, daemon=True).start()
 
     def _on_test_h16_network(self):
         """Test H16 network connectivity to Air-Side"""
