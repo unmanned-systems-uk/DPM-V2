@@ -242,6 +242,129 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [PM][COORDINATION] Create cross-domain integration plan for Issue #24
 ```
 
+## 🏷️ WHO Tag Protocol (40 lines)
+
+### MANDATORY: All GitHub Issue Comments Must Use WHO Tags
+
+**Every GitHub issue comment/update MUST start with a WHO tag identifying the author:**
+
+**Format:**
+```markdown
+**WHO:** CC-Air-Side
+**WHO:** CC-Ground-Side
+**WHO:** CC-Dev-Tools
+**WHO:** CC-Project-Manager
+**WHO:** User (name)
+```
+
+### Purpose
+1. **Clear Attribution** - Know who worked on what and when
+2. **Cross-Domain Tracking** - See when work transitions Air↔Ground↔Tools
+3. **Historical Context** - Future Claude instances understand decision-making context
+4. **Workflow Analysis** - Track how issues flow across domains
+5. **Accountability** - Clear ownership of implementations and decisions
+6. **Knowledge Transfer** - Self-documenting collaboration between sessions
+
+### When to Use WHO Tags
+
+**ALWAYS use WHO tags when:**
+- Creating new GitHub issues
+- Commenting on existing issues
+- Updating issue status or progress
+- Documenting implementation decisions
+- Reporting test results
+- Requesting cross-domain work
+- Documenting failures or lessons learned
+
+### Examples
+
+**Good - Clear Attribution:**
+```markdown
+**WHO:** CC-Air-Side
+
+Implementation complete. Air-Side changes:
+- camera_sony.cpp: Added getFocalDistanceMeters()
+- messages.h: Added focal_distance_meters field
+- Container rebuilt and tested
+
+Ground-Side needs to:
+- Update ProtocolMessages.kt to parse focal_distance_meters field
+- See android/docs/ISSUE-001-FOCAL-DISTANCE-GROUNDSIDE-FIX.md
+```
+
+**Good - Cross-Domain Handoff:**
+```markdown
+**WHO:** CC-Ground-Side
+
+Air-Side implementation verified. Ground-Side testing results:
+- ✅ Receiving focal_distance_meters in UDP status packets
+- ✅ Parsing correctly in ProtocolMessages.kt
+- ❌ UI not updating - investigating CameraViewModel.kt
+
+Next: Fix LiveData update in CameraViewModel
+```
+
+**Good - User Input:**
+```markdown
+**WHO:** User (Anthony)
+
+Testing complete. Focus distance now displays correctly on both manual and auto focus modes.
+
+Approve closing this issue.
+```
+
+**Bad - No WHO Tag:**
+```markdown
+Implementation complete. Testing required.
+```
+*Why bad: Can't tell if this was CC-Air, CC-Ground, or User. No context for future sessions.*
+
+### Benefits in Practice
+
+**Without WHO tags (confusing):**
+```
+Comment 1: "Tried approach A, didn't work"
+Comment 2: "Implemented solution B"
+Comment 3: "Still not working"
+```
+*Who tried what? Which domain? What's the current status?*
+
+**With WHO tags (clear):**
+```
+**WHO:** CC-Air-Side
+Tried approach A (adding debug logging), didn't work - no logs appeared
+
+**WHO:** CC-Ground-Side
+Implemented solution B (fixed UDP parsing), ready for Air-Side testing
+
+**WHO:** CC-Air-Side
+Tested solution B - still not working. Air-Side never receives UDP packets.
+Found: Network configuration issue in docker-compose.yml
+```
+*Clear narrative: Ground fixed parsing, but Air has network issue. Next step obvious.*
+
+### Integration with Historical Learning (Issue #21)
+
+WHO tags enable powerful historical search patterns:
+```bash
+# Find all Air-Side work on focus issues
+gh issue list --search "focus WHO: CC-Air-Side" --state all
+
+# Find User-reported bugs
+gh issue list --search "WHO: User bug" --state all
+
+# Track cross-domain coordination
+gh issue view 24 --comments | grep "WHO:"
+```
+
+### Enforcement
+
+**Issue templates** (`.github/ISSUE_TEMPLATE/`) include WHO tag fields.
+
+**All Claude Code instances** must use WHO tags - no exceptions.
+
+**Users** are encouraged to use WHO tags for clarity, especially when providing test results or reporting issues.
+
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
 ```bash
@@ -343,5 +466,5 @@ git push origin main          # End of session
     ```
 
 ---
-*Total: ~345 lines | Details in domain-specific docs under `docs/`*
-*Version 2.7 includes Project Manager role definition and responsibilities*
+*Total: ~469 lines | Details in domain-specific docs under `docs/`*
+*Version 2.7 includes Project Manager role definition and WHO tag protocol*
