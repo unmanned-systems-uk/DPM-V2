@@ -1,0 +1,379 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Diagnostics Protocol",
+  "description": "Diagnostic request/response protocol for H16 (Ground-Side) system monitoring and troubleshooting",
+  "version": "1.0.0",
+  "protocol_version": "1.0",
+
+  "overview": {
+    "purpose": "Enable Air-Side and SystemTools to query H16 system state, health, and diagnostics on-demand",
+    "transport": "TCP port 5000 (existing command channel)",
+    "response_format": "Standard DPM response message with diagnostic payload",
+    "rationale": "H16 does not send heartbeats to SystemTools. This protocol enables active health checks and deep diagnostics without ADB dependency."
+  },
+
+  "commands": {
+    "diagnostics.ping": {
+      "description": "Simple alive check - H16 responds immediately",
+      "category": "connectivity",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "pong": true,
+          "timestamp": "ISO 8601 timestamp",
+          "source": "ground"
+        }
+      },
+      "use_cases": [
+        "Verify H16 app is running",
+        "Measure round-trip latency",
+        "Quick health check without full diagnostics"
+      ]
+    },
+
+    "diagnostics.get_system_info": {
+      "description": "Get comprehensive H16 system information",
+      "category": "system",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "battery_percent": "integer (0-100)",
+          "cpu_usage_percent": "float (0-100)",
+          "memory_total_mb": "integer",
+          "memory_available_mb": "integer",
+          "memory_used_mb": "integer",
+          "storage_total_gb": "float",
+          "storage_available_gb": "float",
+          "storage_used_gb": "float",
+          "cpu_temperature_c": "float (optional, -1 if unavailable)",
+          "uptime_seconds": "integer",
+          "system_time": "ISO 8601 timestamp",
+          "android_version": "string",
+          "kernel_version": "string"
+        }
+      },
+      "use_cases": [
+        "Monitor H16 resource usage",
+        "Check battery before long mission",
+        "Diagnose performance issues",
+        "Verify sufficient storage for captures"
+      ]
+    },
+
+    "diagnostics.get_app_status": {
+      "description": "Get H16 Payload Manager app detailed status",
+      "category": "application",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "app_running": "boolean",
+          "app_version": "string (e.g., '1.2.0')",
+          "app_state": "string (running|starting|stopping|error)",
+          "pid": "integer (process ID)",
+          "uptime_seconds": "integer",
+          "last_error": "string (null if no error)",
+          "last_error_time": "ISO 8601 timestamp (null if no error)",
+          "active_connections": {
+            "air_side_connected": "boolean",
+            "camera_connected": "boolean",
+            "gimbal_connected": "boolean"
+          },
+          "thread_count": "integer",
+          "memory_usage_mb": "float"
+        }
+      },
+      "use_cases": [
+        "Diagnose H16 app crashes",
+        "Check connection states",
+        "Monitor app health",
+        "Troubleshoot camera/gimbal disconnections"
+      ]
+    },
+
+    "diagnostics.get_network_stats": {
+      "description": "Get network connection quality and statistics",
+      "category": "network",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "interfaces": [
+            {
+              "name": "string (e.g., 'eth0', 'wlan0')",
+              "type": "string (ethernet|wifi|cellular)",
+              "status": "string (up|down)",
+              "ip_address": "string",
+              "mac_address": "string",
+              "rx_bytes": "integer (bytes received)",
+              "tx_bytes": "integer (bytes transmitted)",
+              "rx_packets": "integer",
+              "tx_packets": "integer",
+              "rx_errors": "integer",
+              "tx_errors": "integer",
+              "rx_dropped": "integer",
+              "tx_dropped": "integer"
+            }
+          ],
+          "air_side_connection": {
+            "connected": "boolean",
+            "ip_address": "string (Air-Side IP)",
+            "latency_ms": "float (round-trip time)",
+            "packet_loss_percent": "float (0-100)",
+            "connection_uptime_seconds": "integer"
+          },
+          "wifi_signal_strength_dbm": "integer (optional, null if not wifi)",
+          "wifi_link_speed_mbps": "integer (optional, null if not wifi)"
+        }
+      },
+      "use_cases": [
+        "Diagnose network connectivity issues",
+        "Measure Air-Side connection quality",
+        "Identify packet loss or errors",
+        "Monitor WiFi signal strength"
+      ]
+    },
+
+    "diagnostics.get_adb_status": {
+      "description": "Get ADB (Android Debug Bridge) daemon status",
+      "category": "debug",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "adbd_running": "boolean",
+          "adbd_pid": "integer (null if not running)",
+          "tcp_port_5555_listening": "boolean",
+          "tcp_port_setting": "integer (adb tcp port from props)",
+          "usb_debugging_enabled": "boolean",
+          "adb_connections_count": "integer",
+          "adb_connection_ips": ["array of connected IP addresses"]
+        }
+      },
+      "use_cases": [
+        "Troubleshoot ADB connection issues",
+        "Verify ADB is listening on port 5555",
+        "Check if SystemTools can connect via ADB",
+        "Diagnose 'device offline' errors"
+      ]
+    },
+
+    "diagnostics.get_logs": {
+      "description": "Retrieve recent H16 app logs",
+      "category": "debug",
+      "parameters": {
+        "level": "string (all|error|warning|info|debug) - default: all",
+        "lines": "integer (number of recent lines) - default: 100, max: 1000",
+        "since_timestamp": "ISO 8601 timestamp (optional - only logs after this time)"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "logs": [
+            {
+              "timestamp": "ISO 8601 timestamp",
+              "level": "string (error|warning|info|debug)",
+              "category": "string (camera|gimbal|network|system)",
+              "message": "string"
+            }
+          ],
+          "total_lines": "integer (total matching lines)",
+          "truncated": "boolean (true if max lines exceeded)"
+        }
+      },
+      "use_cases": [
+        "Remote log inspection without ADB",
+        "Diagnose errors from SystemTools",
+        "Capture error context",
+        "Debug issues without physical access"
+      ]
+    },
+
+    "diagnostics.get_camera_diagnostics": {
+      "description": "Get camera connection and SDK diagnostics",
+      "category": "camera",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "camera_connected": "boolean",
+          "camera_model": "string (null if not connected)",
+          "sdk_version": "string",
+          "connection_method": "string (usb|network)",
+          "last_connection_time": "ISO 8601 timestamp",
+          "last_disconnection_time": "ISO 8601 timestamp (null if never disconnected)",
+          "reconnection_attempts": "integer (since last disconnect)",
+          "property_query_success_rate": "float (0-100, last 100 queries)",
+          "capture_success_rate": "float (0-100, last 100 captures)",
+          "last_error": "string (null if no error)",
+          "supported_properties": ["array of property names"]
+        }
+      },
+      "use_cases": [
+        "Diagnose camera connection issues",
+        "Check SDK version compatibility",
+        "Monitor capture success rate",
+        "Troubleshoot property query failures"
+      ]
+    },
+
+    "diagnostics.get_gimbal_diagnostics": {
+      "description": "Get gimbal connection and communication diagnostics",
+      "category": "gimbal",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "gimbal_connected": "boolean",
+          "gimbal_model": "string (null if not connected)",
+          "firmware_version": "string (null if not connected)",
+          "connection_method": "string (serial|canbus)",
+          "serial_port": "string (e.g., '/dev/ttyUSB0')",
+          "baud_rate": "integer",
+          "last_connection_time": "ISO 8601 timestamp",
+          "last_disconnection_time": "ISO 8601 timestamp (null if never)",
+          "command_success_rate": "float (0-100, last 100 commands)",
+          "communication_errors": "integer (error count since connection)",
+          "last_error": "string (null if no error)",
+          "current_angles": {
+            "pitch": "float (degrees)",
+            "roll": "float (degrees)",
+            "yaw": "float (degrees)"
+          }
+        }
+      },
+      "use_cases": [
+        "Diagnose gimbal connection issues",
+        "Check communication quality",
+        "Monitor command success rate",
+        "Verify gimbal positioning"
+      ]
+    },
+
+    "diagnostics.run_self_test": {
+      "description": "Run comprehensive H16 system self-test",
+      "category": "test",
+      "parameters": {
+        "include_network_test": "boolean (default: true)",
+        "include_storage_test": "boolean (default: true)",
+        "include_camera_test": "boolean (default: false - may disrupt operations)"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "test_start_time": "ISO 8601 timestamp",
+          "test_end_time": "ISO 8601 timestamp",
+          "duration_seconds": "float",
+          "overall_status": "string (pass|fail|warning)",
+          "tests": [
+            {
+              "name": "string (test name)",
+              "category": "string (system|network|camera|gimbal|storage)",
+              "status": "string (pass|fail|warning|skipped)",
+              "message": "string (details)",
+              "duration_ms": "integer"
+            }
+          ],
+          "recommendations": ["array of string recommendations if issues found"]
+        }
+      },
+      "use_cases": [
+        "Pre-flight system check",
+        "Post-update validation",
+        "Comprehensive health check",
+        "Identify multiple issues at once"
+      ]
+    },
+
+    "diagnostics.clear_errors": {
+      "description": "Clear stored error states and reset error counters",
+      "category": "maintenance",
+      "parameters": {},
+      "response": {
+        "success": true,
+        "data": {
+          "errors_cleared": "integer (number of errors cleared)",
+          "counters_reset": ["array of counter names reset"]
+        }
+      },
+      "use_cases": [
+        "Clear error indicators after fix",
+        "Reset counters for fresh monitoring",
+        "Clean state after troubleshooting"
+      ]
+    }
+  },
+
+  "response_format": {
+    "description": "All diagnostic commands return standard DPM response format",
+    "structure": {
+      "type": "response",
+      "protocol_version": "string (1.0)",
+      "command": "string (original command name)",
+      "timestamp": "ISO 8601 timestamp",
+      "success": "boolean",
+      "error_code": "integer (0 if success, error code if failed)",
+      "error_message": "string (null if success)",
+      "data": "object (command-specific response data)"
+    }
+  },
+
+  "error_codes": {
+    "6000": "DIAGNOSTIC_NOT_AVAILABLE",
+    "6001": "DIAGNOSTIC_TIMEOUT",
+    "6002": "DIAGNOSTIC_PERMISSION_DENIED",
+    "6003": "DIAGNOSTIC_DATA_UNAVAILABLE",
+    "6004": "DIAGNOSTIC_COMMAND_FAILED"
+  },
+
+  "implementation_notes": {
+    "ground_side": [
+      "Implement all diagnostic commands as TCP command handlers",
+      "Use existing command processing infrastructure",
+      "Collect system metrics using Android APIs and shell commands",
+      "Cache frequently requested data (e.g., system_info) with 1-second TTL",
+      "Implement timeouts for long-running diagnostics (max 5 seconds)",
+      "Log all diagnostic requests for audit trail"
+    ],
+    "air_side": [
+      "Can query H16 diagnostics when needed for health monitoring",
+      "Use diagnostics.ping for H16 alive checks",
+      "Query diagnostics.get_system_info before mission start",
+      "Optional: integrate into Air-Side status monitoring"
+    ],
+    "systemtools": [
+      "Add Diagnostics tab or section to H16 Diagnostics",
+      "Implement one-click diagnostic buttons for each command",
+      "Display results in structured, color-coded format",
+      "Add 'Run All Diagnostics' button using diagnostics.run_self_test",
+      "Cache diagnostic results with auto-refresh option",
+      "Export diagnostic reports to JSON/text file"
+    ]
+  },
+
+  "performance_considerations": {
+    "request_rate_limit": "Maximum 10 diagnostic requests per second to prevent system overload",
+    "cache_ttl_recommendations": {
+      "system_info": "1 second (frequently accessed)",
+      "app_status": "1 second",
+      "network_stats": "2 seconds",
+      "logs": "No caching (always fetch fresh)",
+      "self_test": "No caching (run on-demand only)"
+    },
+    "timeout_recommendations": {
+      "ping": "1 second",
+      "get_system_info": "2 seconds",
+      "get_logs": "5 seconds",
+      "run_self_test": "10 seconds (long-running)"
+    }
+  },
+
+  "security_considerations": {
+    "authentication": "Use existing DPM authentication mechanism",
+    "authorization": "Diagnostic commands should require authenticated connection",
+    "sensitive_data": "Do not expose sensitive credentials or keys in diagnostic responses",
+    "log_privacy": "Sanitize logs to remove any PII or sensitive information"
+  }
+}

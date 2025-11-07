@@ -1,0 +1,495 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM System Properties",
+  "description": "H16 (Ground-Side) system property definitions - separate from camera properties",
+  "version": "1.0.0",
+  "protocol_version": "1.0",
+
+  "overview": {
+    "purpose": "Define standardized system properties for H16 device monitoring",
+    "scope": "System-level properties (battery, CPU, memory, storage, temperature) separate from camera-specific properties",
+    "transport": "Can be sent via UDP status broadcasts, diagnostic responses, or dedicated system status messages",
+    "rationale": "System properties (like battery) were incorrectly mixed with camera properties. This specification provides proper separation of concerns."
+  },
+
+  "property_categories": {
+    "power": [
+      "battery_percent",
+      "battery_voltage",
+      "battery_current",
+      "battery_temperature",
+      "battery_status",
+      "power_source"
+    ],
+    "performance": [
+      "cpu_usage_percent",
+      "cpu_temperature",
+      "memory_total_mb",
+      "memory_available_mb",
+      "memory_used_mb"
+    ],
+    "storage": [
+      "storage_total_gb",
+      "storage_available_gb",
+      "storage_used_gb",
+      "storage_type"
+    ],
+    "network": [
+      "network_interface_type",
+      "network_status",
+      "ip_address",
+      "signal_strength_dbm",
+      "link_speed_mbps"
+    ],
+    "system": [
+      "uptime_seconds",
+      "system_time",
+      "android_version",
+      "kernel_version",
+      "device_model",
+      "device_serial"
+    ]
+  },
+
+  "properties": {
+    "battery_percent": {
+      "display_name": "Battery Level",
+      "category": "power",
+      "description": "Battery charge percentage",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 100,
+        "unit": "percent"
+      },
+      "android_api": {
+        "source": "BatteryManager.BATTERY_PROPERTY_CAPACITY",
+        "method": "getBatteryProperty() or Intent.ACTION_BATTERY_CHANGED extra EXTRA_LEVEL"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value}%",
+        "color_coding": {
+          "green": "> 50",
+          "orange": "20-50",
+          "red": "< 20"
+        },
+        "warning_threshold": 20,
+        "critical_threshold": 10
+      },
+      "protocol": {
+        "key_name": "battery_percent",
+        "format": "integer",
+        "example": 75,
+        "notes": "Always use 'battery_percent' - NOT 'battery_persent', 'batteryLevel', or 'Battery_Persent'"
+      }
+    },
+
+    "battery_voltage": {
+      "display_name": "Battery Voltage",
+      "category": "power",
+      "description": "Battery voltage in millivolts",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 10000,
+        "unit": "millivolts"
+      },
+      "android_api": {
+        "source": "Intent.ACTION_BATTERY_CHANGED extra EXTRA_VOLTAGE"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value/1000:.2f}V"
+      }
+    },
+
+    "battery_temperature": {
+      "display_name": "Battery Temperature",
+      "category": "power",
+      "description": "Battery temperature in tenths of degrees Celsius",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": -500,
+        "max": 1000,
+        "unit": "tenths_of_celsius"
+      },
+      "android_api": {
+        "source": "Intent.ACTION_BATTERY_CHANGED extra EXTRA_TEMPERATURE"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value/10:.1f}°C",
+        "warning_threshold": 450,
+        "critical_threshold": 500
+      }
+    },
+
+    "battery_status": {
+      "display_name": "Battery Status",
+      "category": "power",
+      "description": "Battery charging status",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "unknown",
+          "charging",
+          "discharging",
+          "not_charging",
+          "full"
+        ]
+      },
+      "android_api": {
+        "source": "Intent.ACTION_BATTERY_CHANGED extra EXTRA_STATUS",
+        "mapping": {
+          "1": "unknown",
+          "2": "charging",
+          "3": "discharging",
+          "4": "not_charging",
+          "5": "full"
+        }
+      }
+    },
+
+    "power_source": {
+      "display_name": "Power Source",
+      "category": "power",
+      "description": "Current power source type",
+      "type": "string",
+      "validation": {
+        "type": "enum",
+        "values": [
+          "battery",
+          "ac",
+          "usb",
+          "wireless"
+        ]
+      },
+      "android_api": {
+        "source": "Intent.ACTION_BATTERY_CHANGED extra EXTRA_PLUGGED",
+        "mapping": {
+          "0": "battery",
+          "1": "ac",
+          "2": "usb",
+          "4": "wireless"
+        }
+      }
+    },
+
+    "cpu_usage_percent": {
+      "display_name": "CPU Usage",
+      "category": "performance",
+      "description": "Overall CPU usage percentage",
+      "type": "float",
+      "validation": {
+        "type": "range",
+        "min": 0.0,
+        "max": 100.0,
+        "unit": "percent",
+        "precision": 1
+      },
+      "linux_api": {
+        "source": "/proc/stat",
+        "method": "Calculate from user+nice+system time deltas"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value:.1f}%",
+        "warning_threshold": 80.0,
+        "critical_threshold": 95.0
+      }
+    },
+
+    "cpu_temperature": {
+      "display_name": "CPU Temperature",
+      "category": "performance",
+      "description": "CPU temperature in degrees Celsius",
+      "type": "float",
+      "validation": {
+        "type": "range",
+        "min": -50.0,
+        "max": 150.0,
+        "unit": "celsius",
+        "precision": 1
+      },
+      "linux_api": {
+        "source": "/sys/class/thermal/thermal_zone*/temp",
+        "method": "Read thermal zone files, divide by 1000",
+        "notes": "May not be available on all devices"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value:.1f}°C",
+        "warning_threshold": 75.0,
+        "critical_threshold": 85.0
+      }
+    },
+
+    "memory_total_mb": {
+      "display_name": "Total Memory",
+      "category": "performance",
+      "description": "Total system RAM in megabytes",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 16384,
+        "unit": "megabytes"
+      },
+      "linux_api": {
+        "source": "/proc/meminfo MemTotal",
+        "method": "Parse MemTotal line, convert kB to MB"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value} MB"
+      }
+    },
+
+    "memory_available_mb": {
+      "display_name": "Available Memory",
+      "category": "performance",
+      "description": "Available system RAM in megabytes",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 16384,
+        "unit": "megabytes"
+      },
+      "linux_api": {
+        "source": "/proc/meminfo MemAvailable",
+        "method": "Parse MemAvailable line, convert kB to MB"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value} MB",
+        "warning_threshold": 200,
+        "critical_threshold": 100
+      }
+    },
+
+    "memory_used_mb": {
+      "display_name": "Used Memory",
+      "category": "performance",
+      "description": "Used system RAM in megabytes",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 16384,
+        "unit": "megabytes"
+      },
+      "calculation": "total_mb - available_mb",
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value} MB"
+      }
+    },
+
+    "storage_total_gb": {
+      "display_name": "Total Storage",
+      "category": "storage",
+      "description": "Total internal storage in gigabytes",
+      "type": "float",
+      "validation": {
+        "type": "range",
+        "min": 0.0,
+        "max": 1024.0,
+        "unit": "gigabytes",
+        "precision": 2
+      },
+      "android_api": {
+        "source": "StatFs.getTotalBytes() for data partition",
+        "method": "new StatFs('/data').getTotalBytes() / (1024^3)"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value:.2f} GB"
+      }
+    },
+
+    "storage_available_gb": {
+      "display_name": "Available Storage",
+      "category": "storage",
+      "description": "Available internal storage in gigabytes",
+      "type": "float",
+      "validation": {
+        "type": "range",
+        "min": 0.0,
+        "max": 1024.0,
+        "unit": "gigabytes",
+        "precision": 2
+      },
+      "android_api": {
+        "source": "StatFs.getAvailableBytes() for data partition",
+        "method": "new StatFs('/data').getAvailableBytes() / (1024^3)"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value:.2f} GB",
+        "warning_threshold": 5.0,
+        "critical_threshold": 1.0
+      }
+    },
+
+    "storage_used_gb": {
+      "display_name": "Used Storage",
+      "category": "storage",
+      "description": "Used internal storage in gigabytes",
+      "type": "float",
+      "validation": {
+        "type": "range",
+        "min": 0.0,
+        "max": 1024.0,
+        "unit": "gigabytes",
+        "precision": 2
+      },
+      "calculation": "total_gb - available_gb",
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "{value:.2f} GB"
+      }
+    },
+
+    "uptime_seconds": {
+      "display_name": "System Uptime",
+      "category": "system",
+      "description": "Time since H16 system boot in seconds",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 2147483647,
+        "unit": "seconds"
+      },
+      "linux_api": {
+        "source": "/proc/uptime",
+        "method": "Parse first value from /proc/uptime"
+      },
+      "ui_hints": {
+        "control_type": "read_only",
+        "display_format": "human_readable_duration (e.g., '2h 34m')"
+      }
+    },
+
+    "system_time": {
+      "display_name": "System Time",
+      "category": "system",
+      "description": "Current H16 system time",
+      "type": "string",
+      "validation": {
+        "type": "format",
+        "format": "ISO 8601 timestamp"
+      },
+      "android_api": {
+        "source": "System.currentTimeMillis()",
+        "method": "Format as ISO 8601 UTC timestamp"
+      }
+    },
+
+    "android_version": {
+      "display_name": "Android Version",
+      "category": "system",
+      "description": "Android OS version",
+      "type": "string",
+      "validation": {
+        "type": "string",
+        "example": "11.0"
+      },
+      "android_api": {
+        "source": "Build.VERSION.RELEASE"
+      }
+    },
+
+    "device_model": {
+      "display_name": "Device Model",
+      "category": "system",
+      "description": "H16 device model name",
+      "type": "string",
+      "validation": {
+        "type": "string"
+      },
+      "android_api": {
+        "source": "Build.MODEL"
+      }
+    }
+  },
+
+  "transport_options": {
+    "option_1_heartbeat": {
+      "description": "Include system properties in periodic heartbeat messages",
+      "frequency": "1 Hz (every 1 second)",
+      "port": "UDP 5003 or piggyback on existing heartbeat port",
+      "message_type": "heartbeat",
+      "recommended_properties": [
+        "battery_percent",
+        "battery_status",
+        "cpu_usage_percent",
+        "memory_available_mb",
+        "uptime_seconds"
+      ],
+      "pros": [
+        "Real-time monitoring",
+        "Low latency",
+        "Automatic updates"
+      ],
+      "cons": [
+        "Continuous network traffic",
+        "May include unnecessary data"
+      ]
+    },
+    "option_2_diagnostic_response": {
+      "description": "Return system properties in response to diagnostics.get_system_info command",
+      "frequency": "On-demand (when requested)",
+      "port": "TCP 5000 (command channel)",
+      "message_type": "response",
+      "recommended_properties": "All system properties",
+      "pros": [
+        "No unnecessary traffic",
+        "Complete data set on demand",
+        "Lower network overhead"
+      ],
+      "cons": [
+        "Requires active query",
+        "Slight request latency"
+      ]
+    },
+    "option_3_hybrid": {
+      "description": "Critical properties in heartbeat, full set via diagnostic query",
+      "heartbeat_properties": [
+        "battery_percent",
+        "battery_status"
+      ],
+      "diagnostic_properties": "All properties",
+      "recommended": true,
+      "rationale": "Best balance of real-time monitoring and on-demand diagnostics"
+    }
+  },
+
+  "implementation_priority": {
+    "phase_1_critical": [
+      "battery_percent",
+      "battery_status",
+      "cpu_usage_percent",
+      "memory_available_mb",
+      "storage_available_gb"
+    ],
+    "phase_2_important": [
+      "cpu_temperature",
+      "battery_temperature",
+      "uptime_seconds",
+      "system_time"
+    ],
+    "phase_3_nice_to_have": [
+      "battery_voltage",
+      "battery_current",
+      "power_source",
+      "network_signal_strength"
+    ]
+  }
+}
