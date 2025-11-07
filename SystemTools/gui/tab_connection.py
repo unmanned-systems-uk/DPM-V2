@@ -279,6 +279,13 @@ class ConnectionTab(ttk.Frame):
         other_frame = ttk.LabelFrame(params_container, text="Other Settings", padding=10)
         other_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
+        # Battery
+        battery_frame = ttk.Frame(other_frame)
+        battery_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(battery_frame, text="Battery:", font=('Arial', 8, 'bold'), width=10).pack(side=tk.LEFT)
+        self.battery_value_label = ttk.Label(battery_frame, text="---", font=('Arial', 9, 'bold'), foreground='green')
+        self.battery_value_label.pack(side=tk.LEFT)
+
         # White Balance
         wb_frame = ttk.Frame(other_frame)
         wb_frame.pack(fill=tk.X, pady=2)
@@ -717,23 +724,67 @@ class ConnectionTab(ttk.Frame):
         # Extract property values (handle both direct dict and nested payload)
         props = properties.get('payload', properties) if isinstance(properties, dict) else {}
 
+        # Log received properties for debugging
+        logger.debug(f"Received camera properties: {list(props.keys())}")
+
+        # Helper function to find property value case-insensitively
+        def find_prop(prop_dict, *possible_keys):
+            """Find property value by trying multiple possible key names (case-insensitive)"""
+            if not isinstance(prop_dict, dict):
+                return '---'
+
+            # Create lowercase key mapping
+            lower_keys = {k.lower(): k for k in prop_dict.keys()}
+
+            for key in possible_keys:
+                # Try exact match first
+                if key in prop_dict:
+                    return prop_dict[key]
+                # Try case-insensitive match
+                key_lower = key.lower()
+                if key_lower in lower_keys:
+                    return prop_dict[lower_keys[key_lower]]
+
+            return '---'
+
         # Update Exposure Triangle labels
-        iso_val = props.get('iso', props.get('ISO', '---'))
-        shutter_val = props.get('shutter_speed', props.get('shutter', props.get('shutterSpeed', '---')))
-        aperture_val = props.get('aperture', props.get('fNumber', '---'))
+        iso_val = find_prop(props, 'iso', 'ISO', 'isoValue', 'isoSpeed')
+        shutter_val = find_prop(props, 'shutter_speed', 'shutterSpeed', 'shutter', 'shutterSpeedValue')
+        aperture_val = find_prop(props, 'aperture', 'fNumber', 'fnumber', 'apertureValue')
 
         self.iso_value_label.config(text=str(iso_val))
         self.shutter_value_label.config(text=str(shutter_val))
         self.aperture_value_label.config(text=str(aperture_val))
 
         # Update Other Settings labels
-        wb_val = props.get('white_balance', props.get('whiteBalance', '---'))
-        focus_val = props.get('focus_mode', props.get('focusMode', '---'))
-        drive_val = props.get('drive_mode', props.get('driveMode', '---'))
+        battery_val = find_prop(props, 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')
+        wb_val = find_prop(props, 'white_balance', 'whiteBalance', 'wb', 'WB')
+        focus_val = find_prop(props, 'focus_mode', 'focusMode', 'focus', 'autofocusMode')
+        drive_val = find_prop(props, 'drive_mode', 'driveMode', 'drive', 'stillCaptureMode')
+
+        # Format battery display with percentage if numeric
+        if battery_val != '---':
+            try:
+                battery_num = int(battery_val) if isinstance(battery_val, (int, float)) else int(str(battery_val).rstrip('%'))
+                battery_display = f"{battery_num}%"
+                # Color code battery level
+                if battery_num > 50:
+                    self.battery_value_label.config(text=battery_display, foreground='green')
+                elif battery_num > 20:
+                    self.battery_value_label.config(text=battery_display, foreground='orange')
+                else:
+                    self.battery_value_label.config(text=battery_display, foreground='red')
+            except:
+                self.battery_value_label.config(text=str(battery_val), foreground='gray')
+        else:
+            self.battery_value_label.config(text='---', foreground='gray')
 
         self.wb_value_label.config(text=str(wb_val))
         self.focus_value_label.config(text=str(focus_val))
         self.drive_value_label.config(text=str(drive_val))
+
+        # Log what values we found for debugging
+        logger.debug(f"Extracted values - ISO: {iso_val}, Shutter: {shutter_val}, Aperture: {aperture_val}, Battery: {battery_val}, WB: {wb_val}, Focus: {focus_val}, Drive: {drive_val}")
 
         # Update "All Properties" details text
         self.camera_details_text.config(state=tk.NORMAL)
