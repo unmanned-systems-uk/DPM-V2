@@ -30,11 +30,14 @@ docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/
 
 **How to open:**
 ```bash
-# From repository
-cd /home/anthony/DPM-V2/docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/
-xdg-open index.html     # Linux
+# From project root
+cd docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/html/
+xdg-open index.html     # Linux (Air-Side Pi 5)
 open index.html         # macOS
 start index.html        # Windows
+
+# Or from anywhere in project
+xdg-open docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/html/index.html
 ```
 
 ---
