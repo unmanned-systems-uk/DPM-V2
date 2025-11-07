@@ -154,11 +154,13 @@ class ADBClient:
                 # Use first available device
                 self.device_id = devices[0]
 
+            # Temporarily mark as connected to allow test command to run
+            self.connected = True
+
             # Test connection with a simple command
             exit_code, stdout, stderr = self.execute_command('echo ADB_TEST')
 
             if exit_code == 0 and 'ADB_TEST' in stdout:
-                self.connected = True
                 logger.info(f"ADB: Connected to device {self.device_id}")
 
                 if self.on_connected:
@@ -166,6 +168,8 @@ class ADBClient:
 
                 return True
             else:
+                # Test failed, mark as not connected
+                self.connected = False
                 error_msg = f"Failed to communicate with device {self.device_id}"
                 logger.error(f"ADB: {error_msg}")
                 if self.on_error:
