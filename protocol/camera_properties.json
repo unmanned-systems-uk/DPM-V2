@@ -45,6 +45,9 @@
       "picture_profile",
       "color_mode",
       "dynamic_range"
+    ],
+    "system": [
+      "battery_percent"
     ]
   },
   "properties": {
@@ -423,6 +426,38 @@
         "ground_side": false,
         "version": "1.1.0",
         "notes": "✅ AIR-SIDE IMPLEMENTED Oct 30, 2025. Converts decimal EV values (e.g., '+1.0', '-0.3') to Sony SDK fixed-point format (value × 1000). Ground-side UI exists but not yet wired up."
+      }
+    },
+    "battery_percent": {
+      "display_name": "Battery Level",
+      "category": "system",
+      "description": "Camera battery level percentage (read-only)",
+      "type": "integer",
+      "validation": {
+        "type": "range",
+        "min": 0,
+        "max": 100,
+        "default": 0,
+        "notes": "0-100%, 0 if battery status unavailable or not installed"
+      },
+      "sony_sdk": {
+        "property_code": "CrDeviceProperty_BatteryRemain",
+        "get_function": "GetDeviceProperty",
+        "set_function": null,
+        "value_mapping": "Direct value: 0-100 percentage. 0xFFFF (65535) indicates unavailable.",
+        "notes": "Read-only property. Some cameras may return 'untaken' status (0xFFFF) if battery not installed or status unavailable."
+      },
+      "ui_hints": {
+        "control_type": "readonly_indicator",
+        "group": "System Status",
+        "priority": "medium",
+        "display_format": "%d%%"
+      },
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "version": "1.1.0",
+        "notes": "✅ FULLY IMPLEMENTED Nov 7, 2025. Air-side queries from Sony SDK and broadcasts in UDP status messages. Ground-side displays in Connection Monitor. Documented to resolve Issue #32."
       }
     }
   },
