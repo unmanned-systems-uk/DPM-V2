@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.10.0"
-VERSION_NAME = "H16-Side Diagnostics via ADB Shell"
+VERSION = "1.11.0"
+VERSION_NAME = "Live Camera Parameters Display & Connection Monitor Enhancements"
 BUILD_DATE = "2025-11-07"
 
 # Build metadata
