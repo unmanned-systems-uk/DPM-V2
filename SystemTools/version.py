@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.11.2"
-VERSION_NAME = "Use Standardized Protocol Property Names"
+VERSION = "1.11.3"
+VERSION_NAME = "Fix Battery Display with Actual Key Name"
 BUILD_DATE = "2025-11-07"
 
 # Build metadata

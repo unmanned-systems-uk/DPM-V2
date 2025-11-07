@@ -758,7 +758,7 @@ class ConnectionTab(ttk.Frame):
         self.aperture_value_label.config(text=str(aperture_val))
 
         # Update Other Settings labels
-        battery_val = find_prop(props, 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')  # Not in protocol - see Issue #32
+        battery_val = find_prop(props, 'battery_persent', 'Battery_Persent', 'battery_percent', 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')  # Not in protocol - see Issue #32
         wb_val = find_prop(props, 'white_balance')  # Protocol standard: 'white_balance'
         focus_val = find_prop(props, 'focus_mode')  # Protocol standard: 'focus_mode'
         drive_val = find_prop(props, 'drive_mode')  # Protocol standard: 'drive_mode'
