@@ -748,19 +748,20 @@ class ConnectionTab(ttk.Frame):
             return '---'
 
         # Update Exposure Triangle labels
-        iso_val = find_prop(props, 'iso', 'ISO', 'isoValue', 'isoSpeed')
-        shutter_val = find_prop(props, 'shutter_speed', 'shutterSpeed', 'shutter', 'shutterSpeedValue')
-        aperture_val = find_prop(props, 'aperture', 'fNumber', 'fnumber', 'apertureValue')
+        # Use standardized protocol property names from protocol/camera_properties.json
+        iso_val = find_prop(props, 'iso')  # Protocol standard: 'iso'
+        shutter_val = find_prop(props, 'shutter_speed')  # Protocol standard: 'shutter_speed'
+        aperture_val = find_prop(props, 'aperture')  # Protocol standard: 'aperture'
 
         self.iso_value_label.config(text=str(iso_val))
         self.shutter_value_label.config(text=str(shutter_val))
         self.aperture_value_label.config(text=str(aperture_val))
 
         # Update Other Settings labels
-        battery_val = find_prop(props, 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')
-        wb_val = find_prop(props, 'white_balance', 'whiteBalance', 'wb', 'WB')
-        focus_val = find_prop(props, 'focus_mode', 'focusMode', 'focus', 'autofocusMode')
-        drive_val = find_prop(props, 'drive_mode', 'driveMode', 'drive', 'stillCaptureMode')
+        battery_val = find_prop(props, 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')  # Not in protocol - see Issue #32
+        wb_val = find_prop(props, 'white_balance')  # Protocol standard: 'white_balance'
+        focus_val = find_prop(props, 'focus_mode')  # Protocol standard: 'focus_mode'
+        drive_val = find_prop(props, 'drive_mode')  # Protocol standard: 'drive_mode'
 
         # Format battery display with percentage if numeric
         if battery_val != '---':
