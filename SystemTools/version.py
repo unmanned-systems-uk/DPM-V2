@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.9.0"
-VERSION_NAME = "H16 App Status & ADB Troubleshooting Tools"
+VERSION = "1.11.3"
+VERSION_NAME = "Fix Battery Display with Actual Key Name"
 BUILD_DATE = "2025-11-07"
 
 # Build metadata

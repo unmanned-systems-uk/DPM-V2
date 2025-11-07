@@ -240,13 +240,80 @@ class ConnectionTab(ttk.Frame):
         self.param_label = ttk.Label(param_frame, text="No data", font=('Arial', 9))
         self.param_label.pack(side=tk.LEFT)
 
-        # Camera Details (larger area)
+        # Live Camera Parameters (prominent display)
         ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
 
-        details_label = ttk.Label(frame, text="Last Properties:", font=('Arial', 9, 'bold'))
+        params_header = ttk.Label(frame, text="📸 Live Camera Parameters:", font=('Arial', 10, 'bold'))
+        params_header.pack(anchor='w', pady=(0, 5))
+
+        # Create frame for parameter boxes
+        params_container = ttk.Frame(frame)
+        params_container.pack(fill=tk.X, pady=5)
+
+        # Exposure Triangle - 3 columns
+        exposure_frame = ttk.LabelFrame(params_container, text="Exposure Triangle", padding=10)
+        exposure_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        # ISO
+        iso_frame = ttk.Frame(exposure_frame)
+        iso_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(iso_frame, text="ISO:", font=('Arial', 8, 'bold'), width=12).pack(side=tk.LEFT)
+        self.iso_value_label = ttk.Label(iso_frame, text="---", font=('Arial', 11, 'bold'), foreground='blue')
+        self.iso_value_label.pack(side=tk.LEFT)
+
+        # Shutter Speed
+        shutter_frame = ttk.Frame(exposure_frame)
+        shutter_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(shutter_frame, text="Shutter:", font=('Arial', 8, 'bold'), width=12).pack(side=tk.LEFT)
+        self.shutter_value_label = ttk.Label(shutter_frame, text="---", font=('Arial', 11, 'bold'), foreground='blue')
+        self.shutter_value_label.pack(side=tk.LEFT)
+
+        # Aperture
+        aperture_frame = ttk.Frame(exposure_frame)
+        aperture_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(aperture_frame, text="Aperture:", font=('Arial', 8, 'bold'), width=12).pack(side=tk.LEFT)
+        self.aperture_value_label = ttk.Label(aperture_frame, text="---", font=('Arial', 11, 'bold'), foreground='blue')
+        self.aperture_value_label.pack(side=tk.LEFT)
+
+        # Other Settings
+        other_frame = ttk.LabelFrame(params_container, text="Other Settings", padding=10)
+        other_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Battery
+        battery_frame = ttk.Frame(other_frame)
+        battery_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(battery_frame, text="Battery:", font=('Arial', 8, 'bold'), width=10).pack(side=tk.LEFT)
+        self.battery_value_label = ttk.Label(battery_frame, text="---", font=('Arial', 9, 'bold'), foreground='green')
+        self.battery_value_label.pack(side=tk.LEFT)
+
+        # White Balance
+        wb_frame = ttk.Frame(other_frame)
+        wb_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(wb_frame, text="WB:", font=('Arial', 8, 'bold'), width=10).pack(side=tk.LEFT)
+        self.wb_value_label = ttk.Label(wb_frame, text="---", font=('Arial', 9))
+        self.wb_value_label.pack(side=tk.LEFT)
+
+        # Focus Mode
+        focus_frame = ttk.Frame(other_frame)
+        focus_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(focus_frame, text="Focus:", font=('Arial', 8, 'bold'), width=10).pack(side=tk.LEFT)
+        self.focus_value_label = ttk.Label(focus_frame, text="---", font=('Arial', 9))
+        self.focus_value_label.pack(side=tk.LEFT)
+
+        # Drive Mode
+        drive_frame = ttk.Frame(other_frame)
+        drive_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(drive_frame, text="Drive:", font=('Arial', 8, 'bold'), width=10).pack(side=tk.LEFT)
+        self.drive_value_label = ttk.Label(drive_frame, text="---", font=('Arial', 9))
+        self.drive_value_label.pack(side=tk.LEFT)
+
+        # Additional Properties (scrollable text)
+        ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        details_label = ttk.Label(frame, text="All Properties:", font=('Arial', 9, 'bold'))
         details_label.pack(anchor='w')
 
-        self.camera_details_text = tk.Text(frame, height=6, font=('Courier', 8),
+        self.camera_details_text = tk.Text(frame, height=4, font=('Courier', 8),
                                            wrap=tk.WORD, state=tk.DISABLED)
         self.camera_details_text.pack(fill=tk.BOTH, expand=True, pady=5)
 
@@ -654,20 +721,88 @@ class ConnectionTab(ttk.Frame):
         time_ago = "just now"
         self.param_label.config(text=f"{self.camera_properties_count} properties ({time_ago})")
 
-        # Update details text
+        # Extract property values (handle both direct dict and nested payload)
+        props = properties.get('payload', properties) if isinstance(properties, dict) else {}
+
+        # Log received properties for debugging
+        logger.debug(f"Received camera properties: {list(props.keys())}")
+
+        # Helper function to find property value case-insensitively
+        def find_prop(prop_dict, *possible_keys):
+            """Find property value by trying multiple possible key names (case-insensitive)"""
+            if not isinstance(prop_dict, dict):
+                return '---'
+
+            # Create lowercase key mapping
+            lower_keys = {k.lower(): k for k in prop_dict.keys()}
+
+            for key in possible_keys:
+                # Try exact match first
+                if key in prop_dict:
+                    return prop_dict[key]
+                # Try case-insensitive match
+                key_lower = key.lower()
+                if key_lower in lower_keys:
+                    return prop_dict[lower_keys[key_lower]]
+
+            return '---'
+
+        # Update Exposure Triangle labels
+        # Use standardized protocol property names from protocol/camera_properties.json
+        iso_val = find_prop(props, 'iso')  # Protocol standard: 'iso'
+        shutter_val = find_prop(props, 'shutter_speed')  # Protocol standard: 'shutter_speed'
+        aperture_val = find_prop(props, 'aperture')  # Protocol standard: 'aperture'
+
+        self.iso_value_label.config(text=str(iso_val))
+        self.shutter_value_label.config(text=str(shutter_val))
+        self.aperture_value_label.config(text=str(aperture_val))
+
+        # Update Other Settings labels
+        battery_val = find_prop(props, 'battery_persent', 'Battery_Persent', 'battery_percent', 'battery_level', 'batteryLevel', 'battery', 'batteryRemaining')  # Not in protocol - see Issue #32
+        wb_val = find_prop(props, 'white_balance')  # Protocol standard: 'white_balance'
+        focus_val = find_prop(props, 'focus_mode')  # Protocol standard: 'focus_mode'
+        drive_val = find_prop(props, 'drive_mode')  # Protocol standard: 'drive_mode'
+
+        # Format battery display with percentage if numeric
+        if battery_val != '---':
+            try:
+                battery_num = int(battery_val) if isinstance(battery_val, (int, float)) else int(str(battery_val).rstrip('%'))
+                battery_display = f"{battery_num}%"
+                # Color code battery level
+                if battery_num > 50:
+                    self.battery_value_label.config(text=battery_display, foreground='green')
+                elif battery_num > 20:
+                    self.battery_value_label.config(text=battery_display, foreground='orange')
+                else:
+                    self.battery_value_label.config(text=battery_display, foreground='red')
+            except:
+                self.battery_value_label.config(text=str(battery_val), foreground='gray')
+        else:
+            self.battery_value_label.config(text='---', foreground='gray')
+
+        self.wb_value_label.config(text=str(wb_val))
+        self.focus_value_label.config(text=str(focus_val))
+        self.drive_value_label.config(text=str(drive_val))
+
+        # Log what values we found for debugging
+        logger.debug(f"Extracted values - ISO: {iso_val}, Shutter: {shutter_val}, Aperture: {aperture_val}, Battery: {battery_val}, WB: {wb_val}, Focus: {focus_val}, Drive: {drive_val}")
+
+        # Update "All Properties" details text
         self.camera_details_text.config(state=tk.NORMAL)
         self.camera_details_text.delete(1.0, tk.END)
 
-        details = []
-        # Show key exposure triangle properties
-        if "iso" in properties:
-            details.append(f"ISO: {properties['iso']}")
-        if "shutter_speed" in properties:
-            details.append(f"Shutter: {properties['shutter_speed']}")
-        if "aperture" in properties:
-            details.append(f"Aperture: {properties['aperture']}")
+        if props:
+            # Show all properties in a readable format
+            details = []
+            for key, value in sorted(props.items()):
+                # Format key nicely
+                display_key = key.replace('_', ' ').title()
+                details.append(f"{display_key}: {value}")
 
-        self.camera_details_text.insert(1.0, "\n".join(details) if details else "No properties available")
+            self.camera_details_text.insert(1.0, "\n".join(details))
+        else:
+            self.camera_details_text.insert(1.0, "No properties received yet")
+
         self.camera_details_text.config(state=tk.DISABLED)
 
         # Update cross-domain indicators

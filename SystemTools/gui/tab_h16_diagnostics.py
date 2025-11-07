@@ -235,6 +235,27 @@ class H16DiagnosticsTab(ttk.Frame):
                   command=self._troubleshoot_complete_diagnostic,
                   width=35).pack(side=tk.LEFT, padx=5)
 
+        # H16-Side Diagnostics Section
+        h16_diag_frame = ttk.LabelFrame(troubleshoot_tab, text="H16-Side Diagnostics (via ADB Shell)", padding=10)
+        h16_diag_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        h16_info = ttk.Frame(h16_diag_frame)
+        h16_info.pack(fill=tk.X, pady=2)
+
+        ttk.Label(h16_info, text="Run diagnostics directly on H16 to check if ADB issue is on device side",
+                 font=('Arial', 8, 'italic'), foreground="gray").pack(anchor=tk.W, padx=5)
+
+        h16_btns = ttk.Frame(h16_diag_frame)
+        h16_btns.pack(fill=tk.X, pady=5)
+
+        ttk.Button(h16_btns, text="📱 Run H16 Diagnostics",
+                  command=self._troubleshoot_h16_diagnostics,
+                  width=35).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(h16_btns, text="📋 Generate Termux Script",
+                  command=self._troubleshoot_generate_termux_script,
+                  width=35).pack(side=tk.LEFT, padx=5)
+
         # Firewall Check Section (Windows specific)
         firewall_frame = ttk.LabelFrame(troubleshoot_tab, text="Windows Firewall & Security", padding=10)
         firewall_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -1664,3 +1685,274 @@ class H16DiagnosticsTab(ttk.Frame):
                 self.after(0, lambda: self.status_label.config(text="Diagnostic error"))
 
         threading.Thread(target=run_complete, daemon=True).start()
+
+    def _troubleshoot_h16_diagnostics(self):
+        """Run H16-side diagnostics via ADB shell"""
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  H16-SIDE DIAGNOSTIC REPORT (via ADB Shell)\n", "command")
+        self._append_output("  Running diagnostics directly on H16 Android device\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+        self.status_label.config(text="Running H16-side diagnostics...")
+
+        def run_h16_diagnostics():
+            try:
+                h16_ip = self.ip_entry.get()
+                h16_port = self.port_entry.get()
+                device_addr = f"{h16_ip}:{h16_port}"
+
+                # First check if ADB is connected
+                devices_result = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=5)
+                if device_addr not in devices_result.stdout or "offline" in devices_result.stdout:
+                    self.after(0, lambda: self._append_output("❌ ADB not connected to H16!\n", "error"))
+                    self.after(0, lambda: self._append_output("\nPlease connect ADB first using 'Full ADB Reset & Reconnect' button.\n", "warning"))
+                    self.after(0, lambda: self.status_label.config(text="ADB not connected"))
+                    return
+
+                # Test 1: Check adbd status
+                self.after(0, lambda: self._append_output("1. CHECKING ADB DAEMON (adbd)\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "ps -A | grep adbd"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    self.after(0, lambda: self._append_output("   ✅ adbd is running\n", "success"))
+                    self.after(0, lambda r=result: self._append_output(f"   {r.stdout.strip()}\n", "info"))
+                else:
+                    self.after(0, lambda: self._append_output("   ⚠️  adbd status unclear\n", "warning"))
+
+                # Test 2: Check network interfaces
+                self.after(0, lambda: self._append_output("\n2. NETWORK INTERFACES\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "ip addr show | grep 'inet 10.0.1'"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    self.after(0, lambda: self._append_output("   ✅ Network interface found\n", "success"))
+                    for line in result.stdout.strip().split('\n'):
+                        self.after(0, lambda l=line: self._append_output(f"   {l}\n", "info"))
+                else:
+                    self.after(0, lambda: self._append_output("   ⚠️  Could not get network info\n", "warning"))
+
+                # Test 3: Check port 5555 status
+                self.after(0, lambda: self._append_output("\n3. PORT 5555 STATUS\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "netstat -anp 2>/dev/null | grep 5555"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    self.after(0, lambda: self._append_output("   ✅ Port 5555 found\n", "success"))
+                    for line in result.stdout.strip().split('\n')[:5]:  # Limit to 5 lines
+                        self.after(0, lambda l=line: self._append_output(f"   {l}\n", "info"))
+
+                    # Check for ESTABLISHED connections
+                    if "ESTABLISHED" in result.stdout:
+                        self.after(0, lambda: self._append_output("   ✅ Has ESTABLISHED connection(s)\n", "success"))
+                    else:
+                        self.after(0, lambda: self._append_output("   ⚠️  No ESTABLISHED connections\n", "warning"))
+                else:
+                    self.after(0, lambda: self._append_output("   ❌ Port 5555 not in use\n", "error"))
+
+                # Test 4: Check ADB TCP port setting
+                self.after(0, lambda: self._append_output("\n4. ADB TCP PORT SETTING\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "getprop service.adb.tcp.port"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    port = result.stdout.strip()
+                    if port == "5555":
+                        self.after(0, lambda p=port: self._append_output(f"   ✅ ADB over network ENABLED (port {p})\n", "success"))
+                    elif port == "-1":
+                        self.after(0, lambda: self._append_output("   ❌ ADB over network DISABLED (USB only mode)\n", "error"))
+                    else:
+                        self.after(0, lambda p=port: self._append_output(f"   ⚠️  ADB port set to {p}\n", "warning"))
+
+                # Test 5: Check ADB daemon service status
+                self.after(0, lambda: self._append_output("\n5. ADB DAEMON SERVICE\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "getprop init.svc.adbd"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    status = result.stdout.strip()
+                    if status == "running":
+                        self.after(0, lambda: self._append_output("   ✅ adbd service is running\n", "success"))
+                    else:
+                        self.after(0, lambda s=status: self._append_output(f"   ⚠️  adbd service is {s}\n", "warning"))
+
+                # Test 6: Check Developer Options
+                self.after(0, lambda: self._append_output("\n6. DEVELOPER OPTIONS\n", "command"))
+
+                # Check each setting
+                settings_to_check = [
+                    ("development_settings_enabled", "Developer Options"),
+                    ("adb_enabled", "USB Debugging"),
+                    ("adb_wifi_enabled", "ADB WiFi")
+                ]
+
+                for setting, name in settings_to_check:
+                    result = subprocess.run(
+                        ["adb", "-s", device_addr, "shell", f"settings get global {setting}"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        value = result.stdout.strip()
+                        if value == "1":
+                            self.after(0, lambda n=name: self._append_output(f"   ✅ {n}: Enabled\n", "success"))
+                        elif value == "0":
+                            self.after(0, lambda n=name: self._append_output(f"   ❌ {n}: Disabled\n", "error"))
+                        else:
+                            self.after(0, lambda n=name, v=value: self._append_output(f"   ⚠️  {n}: {v}\n", "warning"))
+
+                # Test 7: Ping PC from H16
+                self.after(0, lambda: self._append_output("\n7. CONNECTIVITY TEST (H16 → PC)\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "ping -c 2 10.0.1.37 2>/dev/null"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode == 0 and "0% packet loss" in result.stdout:
+                    self.after(0, lambda: self._append_output("   ✅ H16 can reach PC (10.0.1.37)\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output("   ⚠️  H16 cannot ping PC or network issue\n", "warning"))
+
+                # Test 8: Check DPM app status
+                self.after(0, lambda: self._append_output("\n8. DPM APP STATUS\n", "command"))
+                result = subprocess.run(
+                    ["adb", "-s", device_addr, "shell", "pidof com.uksystems.payloadmanager"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pid = result.stdout.strip()
+                    self.after(0, lambda p=pid: self._append_output(f"   ✅ DPM app is running (PID: {p})\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output("   ❌ DPM app is NOT running\n", "error"))
+
+                # Summary
+                self.after(0, lambda: self._append_output("\n" + "=" * 80 + "\n", "info"))
+                self.after(0, lambda: self._append_output("H16-SIDE DIAGNOSTIC COMPLETE\n", "command"))
+                self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+                self.after(0, lambda: self._append_output("\nThis diagnostic ran commands directly on H16 via 'adb shell'\n", "info"))
+                self.after(0, lambda: self._append_output("If issues found, try fixing on H16 side using Termux commands\n", "info"))
+                self.after(0, lambda: self.status_label.config(text="H16 diagnostic complete"))
+
+            except subprocess.TimeoutExpired:
+                self.after(0, lambda: self._append_output("\n❌ Diagnostic timed out\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Diagnostic timeout"))
+            except Exception as e:
+                self.after(0, lambda: self._append_output(f"\n❌ Diagnostic error: {e}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Diagnostic error"))
+
+        threading.Thread(target=run_h16_diagnostics, daemon=True).start()
+
+    def _troubleshoot_generate_termux_script(self):
+        """Generate H16 diagnostic script for manual execution in Termux"""
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  H16 TERMUX DIAGNOSTIC SCRIPT\n", "command")
+        self._append_output("  Copy and paste this into Termux on H16\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+
+        script = '''#!/bin/bash
+# H16 ADB Diagnostic Script
+# Run this in Termux on H16 to diagnose ADB issues
+
+echo "======================================"
+echo "H16 ADB Diagnostic Report"
+echo "======================================"
+
+echo -e "\\n1. ADB Daemon Status:"
+ps -A | grep adbd || echo "  [!] adbd not running!"
+
+echo -e "\\n2. Network Interfaces:"
+ip addr show | grep -E "inet |wlan0|eth0"
+
+echo -e "\\n3. Port 5555 Status:"
+netstat -anp 2>/dev/null | grep 5555 || echo "  [!] Port 5555 not in use!"
+
+echo -e "\\n4. ADB TCP Port Setting:"
+PORT=$(getprop service.adb.tcp.port)
+if [ "$PORT" = "5555" ]; then
+  echo "  [✓] ADB over network enabled (port $PORT)"
+else
+  echo "  [!] ADB over network DISABLED (port $PORT)"
+fi
+
+echo -e "\\n5. ADB Daemon Service:"
+STATUS=$(getprop init.svc.adbd)
+if [ "$STATUS" = "running" ]; then
+  echo "  [✓] adbd is running"
+else
+  echo "  [!] adbd is $STATUS"
+fi
+
+echo -e "\\n6. Developer Settings:"
+DEV=$(settings get global development_settings_enabled)
+ADB=$(settings get global adb_enabled)
+WIFI=$(settings get global adb_wifi_enabled)
+echo "  Developer Options: $DEV (1=enabled, 0=disabled)"
+echo "  USB Debugging: $ADB (1=enabled, 0=disabled)"
+echo "  ADB WiFi: $WIFI (1=enabled, 0=disabled)"
+
+echo -e "\\n7. Test Ping to PC (10.0.1.37):"
+ping -c 2 10.0.1.37 2>/dev/null && echo "  [✓] PC reachable" || echo "  [!] PC unreachable"
+
+echo -e "\\n8. Active Connections:"
+netstat -ant 2>/dev/null | grep ESTABLISHED | head -5
+
+echo -e "\\n9. DPM App Status:"
+if pidof com.uksystems.payloadmanager > /dev/null; then
+  echo "  [✓] DPM app is running"
+else
+  echo "  [!] DPM app is NOT running"
+fi
+
+echo -e "\\n======================================"
+echo "Diagnostic Complete"
+echo "======================================"
+
+echo -e "\\n--- QUICK FIXES ---"
+echo "To enable ADB over network:"
+echo "  settings put global adb_enabled 1"
+echo "  settings put global adb_wifi_enabled 1"
+echo ""
+echo "To restart ADB:"
+echo "  settings put global adb_wifi_enabled 0"
+echo "  sleep 2"
+echo "  settings put global adb_wifi_enabled 1"
+'''
+
+        self._append_output(script, "info")
+
+        self._append_output("\n\n" + "=" * 80 + "\n", "info")
+        self._append_output("HOW TO USE:\n", "command")
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("1. Select all text above (Ctrl+A in output window or use 'Copy Output' button)\n", "info")
+        self._append_output("2. Copy to clipboard (Ctrl+C)\n", "info")
+        self._append_output("3. On H16, open Termux app\n", "info")
+        self._append_output("4. Paste and run: bash <(cat)\n", "info")
+        self._append_output("5. Paste the script, then press Ctrl+D\n", "info")
+        self._append_output("\nOr save to file and run:\n", "warning")
+        self._append_output("1. In Termux: nano h16-diag.sh\n", "info")
+        self._append_output("2. Paste the script\n", "info")
+        self._append_output("3. Save with Ctrl+X, Y, Enter\n", "info")
+        self._append_output("4. Make executable: chmod +x h16-diag.sh\n", "info")
+        self._append_output("5. Run: ./h16-diag.sh\n", "info")
+
+        self.status_label.config(text="Termux script generated - ready to copy")

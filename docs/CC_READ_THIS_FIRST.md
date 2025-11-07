@@ -1,5 +1,5 @@
 # DPM-V2 Payload Manager
-*Last Updated: 2025-11-04 | Branch: main | Version: 2.6*
+*Last Updated: 2025-11-07 | Branch: main | Version: 2.7 - PM Role Added*
 
 ## 🎯 Quick Start
 **Type `START` at session beginning for automatic setup!**
@@ -10,6 +10,7 @@ START AIR     - Air-side (Pi 5/C++ SBC)
 START GROUND  - Ground-side (H16 Android)
 START TOOLS   - SystemTools (Python diagnostics)
 START DOCS    - Documentation/Protocol work
+START PM      - Project Manager (Coordination/Oversight)
 ```
 
 ## 🚨 CRITICAL WORKFLOW RULES (MUST READ!)
@@ -47,12 +48,13 @@ gh issue comment <#> --body "Found previous attempts in #X and #Y:
 I will try [NEW approach] because [why it's different]"
 ```
 
-## 📂 Three-Domain Architecture (20 lines)
+## 📂 Three-Domain Architecture + PM Coordination (25 lines)
 | Domain | Platform | Language | Location | Purpose |
 |--------|----------|----------|----------|---------|
 | **Air-Side** | Pi 5 SBC | C++/Sony SDK | `sbc/` | Camera control, edge processing |
 | **Ground-Side** | H16 Android | Java/Kotlin | `android/` | User interface, mission control |
 | **Dev-Side** | Cross-platform | Python | `SystemTools/` | Diagnostics, testing, monitoring |
+| **PM (Project Manager)** | Cross-domain | N/A | All domains | Coordination, oversight, planning |
 
 ## 🗂️ Critical Paths (30 lines)
 ```
@@ -75,6 +77,151 @@ DPM-V2/
     ├── GROUND_SIDE/       # Ground-specific docs
     └── DEVELOPMENT_SIDE/  # Tool docs
 ```
+
+## 🎯 Project Manager Role & Responsibilities (50 lines)
+
+### Overview
+**PM Domain** is a coordination layer that oversees all three implementation domains (Air/Ground/Dev) without directly modifying code. The PM role enables Claude Code to provide strategic oversight, cross-domain planning, and project management.
+
+### Core Responsibilities
+
+#### 1. Cross-Domain Coordination
+- **Review work across Air-Side, Ground-Side, and Dev-Side**
+- **Identify dependencies between domains**
+- **Ensure protocol synchronization** (`protocol/*.json` alignment)
+- **Coordinate handoffs** (e.g., Air implements → Ground needs update)
+- **Track cross-domain issues** (affects multiple domains)
+
+#### 2. GitHub Issue Management
+- **Create, triage, and assign issues** across all domains
+- **Apply appropriate labels** (domain, priority, status)
+- **Track issue lifecycle** (open → in-progress → testing → closed)
+- **Link related issues** (parent/child, blockers, dependencies)
+- **Ensure WHO tags** are used in all issue comments
+
+#### 3. Protocol & Architecture Oversight
+- **Monitor `protocol/*.json` changes** for cross-domain impact
+- **Assess feasibility** of proposed features/changes
+- **Recommend architectural patterns** and best practices
+- **Identify technical debt** and refactoring opportunities
+- **Ensure Rule 11 compliance** (cross-domain approval protocol)
+
+#### 4. Progress Tracking & Reporting
+- **Monitor PROGRESS_AND_TODO.md** files across domains
+- **Track implementation status** via GitHub Issues/Projects
+- **Generate progress reports** and sprint summaries
+- **Identify bottlenecks** and blockers
+- **Measure velocity** and estimate timelines
+
+#### 5. Testing & Quality Assurance
+- **Coordinate testing workflow** (Rules 15-19)
+- **Ensure test coverage** before issue closure
+- **Track bug reports** and regression issues
+- **Verify integration testing** across domains
+- **Enforce testing protocols** before merging
+
+#### 6. Git Workflow & Documentation
+- **Review commit messages** for proper format
+- **Verify branch strategy** compliance
+- **Coordinate pull requests** across domains
+- **Ensure documentation updates** accompany code changes
+- **Maintain project documentation** consistency
+
+### Permissions & Constraints
+
+#### ✅ PM CAN:
+- **Read** any file in any domain (Air/Ground/Dev)
+- **Create/update** GitHub Issues, PRs, and project boards
+- **Modify** documentation files (`docs/`, `README.md`, etc.)
+- **Update** protocol files (`protocol/*.json`) with user approval
+- **Run** git commands (status, log, diff, branch)
+- **Execute** analysis scripts (search-history, analyze-failures)
+- **Request** changes from domain-specific implementations
+- **Coordinate** cross-domain work and handoffs
+
+#### ❌ PM CANNOT:
+- **Modify** Air-Side code (`sbc/`) without explicit approval
+- **Modify** Ground-Side code (`android/`) without explicit approval
+- **Modify** Dev-Side code (`SystemTools/`) without explicit approval
+- **Directly implement** features (must delegate to appropriate domain)
+- **Override** domain-specific technical decisions
+- **Merge** PRs without user approval for critical changes
+
+#### ⚠️ PM MUST:
+- **Follow Rule 11** - Get approval before ANY cross-domain code changes
+- **Delegate implementation** to appropriate domain (Air/Ground/Dev)
+- **Provide clear specifications** when requesting implementation
+- **Use WHO tags** in all issue comments: `**WHO:** CC-Project-Manager`
+- **Document decisions** and rationale in issues/PRs
+- **Coordinate** rather than dictate
+
+### Git Tags for PM Work
+- `[PM][COORDINATION]` - Cross-domain coordination
+- `[PM][PLANNING]` - Project planning and roadmaps
+- `[PM][DOCS]` - Documentation updates
+- `[PM][PROTOCOL]` - Protocol oversight (with approval)
+- `[PM][WORKFLOW]` - Process improvements
+
+### Example PM Workflow
+
+**Scenario: User reports focus distance not working**
+
+1. **PM analyzes issue:**
+   - Search historical issues (`.github/scripts/search-history.sh "focus"`)
+   - Find related: #1, #2, #10 (closed), #22
+   - Read closed issue #10 → Ground-Side already solved
+
+2. **PM creates coordination plan:**
+   - Issue #1: Air-Side needs focus distance implementation
+   - Issue #2: Air-Side AF Hold bug
+   - Issue #22: Ground-Side command routing problem
+   - Identify: Ground parsing works, Air implementation incomplete
+
+3. **PM delegates:**
+   - Create issue for CC-Air-Side: "Implement getFocalDistanceMeters()"
+   - Create issue for CC-Ground-Side: "Debug command routing for manual focus"
+   - Link issues with dependencies
+
+4. **PM tracks progress:**
+   - CC-Air-Side implements → marks issue in-progress
+   - CC-Ground-Side debugs → finds network layer bug
+   - PM coordinates: Air waits for Ground fix before testing
+
+5. **PM ensures testing:**
+   - Both domains complete → PM creates integration test plan
+   - User tests → Reports success
+   - PM closes both issues, creates PRs, coordinates merge
+
+**Result:** Coordinated cross-domain solution instead of isolated fixes
+
+### When to Use PM Role
+
+**Use PM role when:**
+- Starting new project phase or sprint
+- Coordinating work across multiple domains
+- Assessing feasibility of complex features
+- Investigating cross-domain bugs
+- Planning architectural changes
+- Conducting project retrospectives
+- Creating roadmaps or timelines
+- Managing GitHub Issues/Projects
+
+**Do NOT use PM role when:**
+- Implementing specific features (use Air/Ground/Dev)
+- Writing actual code (delegate to appropriate domain)
+- Debugging domain-specific issues (let domain expert handle)
+- Doing routine single-domain tasks
+
+### PM Session Checklist
+
+When starting a PM session:
+1. ✅ Run historical search for relevant topics
+2. ✅ Check all domain PROGRESS_AND_TODO.md files
+3. ✅ Review open GitHub Issues across all domains
+4. ✅ Check protocol sync status (`protocol/*.json`)
+5. ✅ Review recent commits for cross-domain impact
+6. ✅ Identify blockers and dependencies
+7. ✅ Create coordination plan if needed
 
 ## 🔌 Network Configuration (20 lines)
 | Service | Protocol | Port | Direction | Purpose |
@@ -105,7 +252,7 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implemented.ground_side == false) | .key'
 ```
 
-## 📝 Git Commit Protocol (30 lines)
+## 📝 Git Commit Protocol (35 lines)
 **Format:** `[DOMAIN][TYPE] Brief description`
 
 **Domain Tags:**
@@ -113,6 +260,7 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 - `[GROUND]` - Ground-side (Android) changes
 - `[TOOLS]` - SystemTools (Python) changes
 - `[DOCS]` - Documentation/Protocol changes
+- `[PM]` - Project Manager (Coordination/Planning)
 
 **Type Tags:**
 - `[FEATURE]` - New functionality
@@ -125,8 +273,134 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [AIR][PROTOCOL] Implement shutter_speed property via Sony SDK
 [GROUND][FEATURE] Add gimbal control UI to camera screen
 [TOOLS][FIX] Resolve UDP timeout in diagnostic panel
+[PM][DOCS] Add Project Manager role to CC_READ_THIS_FIRST.md
+[PM][COORDINATION] Create cross-domain integration plan for Issue #24
 ```
 
+<<<<<<< HEAD
+## 🏷️ WHO Tag Protocol (40 lines)
+
+### MANDATORY: All GitHub Issue Comments Must Use WHO Tags
+
+**Every GitHub issue comment/update MUST start with a WHO tag identifying the author:**
+
+**Format:**
+```markdown
+**WHO:** CC-Air-Side
+**WHO:** CC-Ground-Side
+**WHO:** CC-Dev-Tools
+**WHO:** CC-Project-Manager
+**WHO:** User (name)
+```
+
+### Purpose
+1. **Clear Attribution** - Know who worked on what and when
+2. **Cross-Domain Tracking** - See when work transitions Air↔Ground↔Tools
+3. **Historical Context** - Future Claude instances understand decision-making context
+4. **Workflow Analysis** - Track how issues flow across domains
+5. **Accountability** - Clear ownership of implementations and decisions
+6. **Knowledge Transfer** - Self-documenting collaboration between sessions
+
+### When to Use WHO Tags
+
+**ALWAYS use WHO tags when:**
+- Creating new GitHub issues
+- Commenting on existing issues
+- Updating issue status or progress
+- Documenting implementation decisions
+- Reporting test results
+- Requesting cross-domain work
+- Documenting failures or lessons learned
+
+### Examples
+
+**Good - Clear Attribution:**
+```markdown
+**WHO:** CC-Air-Side
+
+Implementation complete. Air-Side changes:
+- camera_sony.cpp: Added getFocalDistanceMeters()
+- messages.h: Added focal_distance_meters field
+- Container rebuilt and tested
+
+Ground-Side needs to:
+- Update ProtocolMessages.kt to parse focal_distance_meters field
+- See android/docs/ISSUE-001-FOCAL-DISTANCE-GROUNDSIDE-FIX.md
+```
+
+**Good - Cross-Domain Handoff:**
+```markdown
+**WHO:** CC-Ground-Side
+
+Air-Side implementation verified. Ground-Side testing results:
+- ✅ Receiving focal_distance_meters in UDP status packets
+- ✅ Parsing correctly in ProtocolMessages.kt
+- ❌ UI not updating - investigating CameraViewModel.kt
+
+Next: Fix LiveData update in CameraViewModel
+```
+
+**Good - User Input:**
+```markdown
+**WHO:** User (Anthony)
+
+Testing complete. Focus distance now displays correctly on both manual and auto focus modes.
+
+Approve closing this issue.
+```
+
+**Bad - No WHO Tag:**
+```markdown
+Implementation complete. Testing required.
+```
+*Why bad: Can't tell if this was CC-Air, CC-Ground, or User. No context for future sessions.*
+
+### Benefits in Practice
+
+**Without WHO tags (confusing):**
+```
+Comment 1: "Tried approach A, didn't work"
+Comment 2: "Implemented solution B"
+Comment 3: "Still not working"
+```
+*Who tried what? Which domain? What's the current status?*
+
+**With WHO tags (clear):**
+```
+**WHO:** CC-Air-Side
+Tried approach A (adding debug logging), didn't work - no logs appeared
+
+**WHO:** CC-Ground-Side
+Implemented solution B (fixed UDP parsing), ready for Air-Side testing
+
+**WHO:** CC-Air-Side
+Tested solution B - still not working. Air-Side never receives UDP packets.
+Found: Network configuration issue in docker-compose.yml
+```
+*Clear narrative: Ground fixed parsing, but Air has network issue. Next step obvious.*
+
+### Integration with Historical Learning (Issue #21)
+
+WHO tags enable powerful historical search patterns:
+```bash
+# Find all Air-Side work on focus issues
+gh issue list --search "focus WHO: CC-Air-Side" --state all
+
+# Find User-reported bugs
+gh issue list --search "WHO: User bug" --state all
+
+# Track cross-domain coordination
+gh issue view 24 --comments | grep "WHO:"
+```
+
+### Enforcement
+
+**Issue templates** (`.github/ISSUE_TEMPLATE/`) include WHO tag fields.
+
+**All Claude Code instances** must use WHO tags - no exceptions.
+
+**Users** are encouraged to use WHO tags for clarity, especially when providing test results or reporting issues.
+=======
 ### Issue Title Format (GitHub Issues)
 
 **Format:** `[SCOPE][DOMAIN][TYPE] Description`
@@ -151,6 +425,7 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 **Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
 
 **See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.
+>>>>>>> 98ce648a2903736a211ac0f5baad5bea7154fb5a
 
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
@@ -270,4 +545,5 @@ git push origin main          # End of session
     ```
 
 ---
-*Total: ~260 lines | Details in domain-specific docs under `docs/`*
+*Total: ~469 lines | Details in domain-specific docs under `docs/`*
+*Version 2.7 includes Project Manager role definition and WHO tag protocol*
