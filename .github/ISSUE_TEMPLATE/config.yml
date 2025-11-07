@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/unmanned-systems-uk/DPM-V2/tree/main/docs
+    about: Check documentation for guides and reference materials
+  - name: 🔍 Historical Search
+    url: https://github.com/unmanned-systems-uk/DPM-V2/blob/main/.github/scripts/search-history.sh
+    about: Search historical issues before creating a new one (MANDATORY)
