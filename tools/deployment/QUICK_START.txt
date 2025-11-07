@@ -1,0 +1,86 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║                   NVMe MIGRATION QUICK START                      ║
+║                   DPM-V2 Air-Side Pi 5                           ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+🔴 STEP 1: BACKUP (DO THIS TODAY!)
+═══════════════════════════════════════════════════════════════════
+Run:
+  sudo ~/DPM-V2/tools/deployment/backup-air-side.sh
+
+Then:
+  # Copy to external USB/SSD
+  rsync -av /home/dpm/air-side-backup-* /media/external-drive/
+
+⚠️ DO NOT SKIP THIS STEP - IT'S YOUR SAFETY NET! ⚠️
+
+═══════════════════════════════════════════════════════════════════
+
+🟢 STEP 2: MIGRATION (TOMORROW WHEN NVME ARRIVES)
+═══════════════════════════════════════════════════════════════════
+
+OPTION A: SD Card Clone (Faster)
+  1. Use Raspberry Pi Imager to clone SD to NVMe
+  2. Boot from NVMe
+  3. Verify network: ip addr show eth0
+  4. Should show: 192.168.144.10/24
+
+OPTION B: Fresh Install (More Reliable - RECOMMENDED)
+  1. Flash Raspberry Pi OS to NVMe
+  2. Boot from NVMe, complete setup
+  3. Run: sudo ~/DPM-V2/tools/deployment/deploy-air-side.sh
+  4. Reboot
+  5. Restore files from backup
+  6. Build Docker container
+
+═══════════════════════════════════════════════════════════════════
+
+🔵 STEP 3: VERIFY (AFTER MIGRATION)
+═══════════════════════════════════════════════════════════════════
+
+Network:
+  ip addr show eth0            # Should show 192.168.144.10/24
+  ping 192.168.144.11         # Test H16 (if powered on)
+
+Docker:
+  docker ps                   # Should show payload-manager
+  docker logs payload-manager # Should show camera connected
+
+Storage:
+  lsblk                       # Should show nvme0n1
+  df -h                       # Should show NVMe on /
+
+Camera:
+  lsusb | grep Sony          # Should show camera
+
+═══════════════════════════════════════════════════════════════════
+
+📚 FULL DOCUMENTATION
+═══════════════════════════════════════════════════════════════════
+Complete guide: ~/DPM-V2/tools/deployment/NVME_MIGRATION_CHECKLIST.md
+README: ~/DPM-V2/tools/deployment/README.md
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️ CRITICAL: Network Configuration
+═══════════════════════════════════════════════════════════════════
+Air-Side MUST have:
+  eth0: 192.168.144.10/24 (VXLAN bridge to H16)
+
+This is configured automatically by scripts.
+
+═══════════════════════════════════════════════════════════════════
+
+🆘 IF SOMETHING GOES WRONG
+═══════════════════════════════════════════════════════════════════
+1. Power off Pi 5
+2. Remove NVMe
+3. Insert original SD card
+4. Boot - system works as before
+
+Your backup is safe on external storage!
+
+═══════════════════════════════════════════════════════════════════
+Created: 2025-11-07
+Issue: #33 - SBC Migration to NVMe SSD
+═══════════════════════════════════════════════════════════════════
