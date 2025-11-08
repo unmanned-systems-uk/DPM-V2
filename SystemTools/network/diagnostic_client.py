@@ -1,6 +1,7 @@
 """
 DPM Diagnostic Client
-Sends diagnostic commands to H16 (Ground-Side) and receives responses
+Sends diagnostic commands to H16 via Air-Side TCP server (10.0.1.53:5000)
+Air-Side forwards diagnostic commands to H16 and returns responses
 """
 
 import json
@@ -40,7 +41,7 @@ class DiagnosticClient:
         command: str,
         params: Optional[Dict] = None,
         timeout: int = 5,
-        host: str = "10.0.1.92",
+        host: str = "10.0.1.53",
         port: int = 5000
     ) -> Dict:
         """
@@ -50,8 +51,8 @@ class DiagnosticClient:
             command: Diagnostic command name (e.g., "diagnostics.ping")
             params: Optional command parameters
             timeout: Response timeout in seconds
-            host: H16 IP address
-            port: H16 TCP port (default 5000)
+            host: Air-Side IP address (forwards to H16)
+            port: Air-Side TCP port (default 5000)
 
         Returns:
             Response dictionary with 'success', 'data', 'error_code', 'error_message'
@@ -76,7 +77,7 @@ class DiagnosticClient:
         logger.debug(f"Sending diagnostic command: {command}")
 
         try:
-            # Connect to H16
+            # Connect to Air-Side (which forwards to H16)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
             sock.connect((host, port))
@@ -103,7 +104,7 @@ class DiagnosticClient:
 
             # Parse response
             if not response_data:
-                raise Exception("No response from H16")
+                raise Exception("No response from Air-Side")
 
             response = json.loads(response_data.decode('utf-8'))
             logger.debug(f"Received response: {response.get('command', 'unknown')}")
@@ -129,7 +130,7 @@ class DiagnosticClient:
         params: Optional[Dict] = None,
         callback: Optional[Callable] = None,
         timeout: int = 5,
-        host: str = "10.0.1.92",
+        host: str = "10.0.1.53",
         port: int = 5000
     ):
         """
@@ -140,8 +141,8 @@ class DiagnosticClient:
             params: Optional command parameters
             callback: Function to call with response (receives dict)
             timeout: Response timeout in seconds
-            host: H16 IP address
-            port: H16 TCP port
+            host: Air-Side IP address (forwards to H16)
+            port: Air-Side TCP port
         """
         def async_send():
             try:
@@ -162,9 +163,9 @@ class DiagnosticClient:
 
     # Convenience methods for common commands
 
-    def ping_h16(self, host: str = "10.0.1.92", port: int = 5000) -> bool:
+    def ping_h16(self, host: str = "10.0.1.53", port: int = 5000) -> bool:
         """
-        Quick alive check for H16
+        Quick alive check for H16 via Air-Side
 
         Returns:
             True if H16 responds, False otherwise
@@ -175,18 +176,18 @@ class DiagnosticClient:
         except Exception:
             return False
 
-    def get_system_info(self, host: str = "10.0.1.92", port: int = 5000) -> Dict:
+    def get_system_info(self, host: str = "10.0.1.53", port: int = 5000) -> Dict:
         """
-        Get H16 system information (battery, CPU, memory, storage)
+        Get H16 system information (battery, CPU, memory, storage) via Air-Side
 
         Returns:
             Response dictionary
         """
         return self.send_command("diagnostics.get_system_info", timeout=2, host=host, port=port)
 
-    def get_app_status(self, host: str = "10.0.1.92", port: int = 5000) -> Dict:
+    def get_app_status(self, host: str = "10.0.1.53", port: int = 5000) -> Dict:
         """
-        Get H16 app status and health
+        Get H16 app status and health via Air-Side
 
         Returns:
             Response dictionary
