@@ -57,8 +57,8 @@ class DPMApplication : Application() {
                 Log.d(TAG, "Auto-connect enabled: $autoConnectEnabled")
                 Log.d(TAG, "Auto-reconnect enabled: $autoReconnectEnabled, interval: ${autoReconnectInterval}s")
 
-                // Initialize NetworkManager with saved settings and client ID
-                NetworkManager.initialize(savedSettings, clientId)
+                // Initialize NetworkManager with context, saved settings and client ID
+                NetworkManager.initialize(this@DPMApplication, savedSettings, clientId)
 
                 // Configure auto-reconnect
                 NetworkManager.configureAutoReconnect(autoReconnectEnabled, autoReconnectInterval)

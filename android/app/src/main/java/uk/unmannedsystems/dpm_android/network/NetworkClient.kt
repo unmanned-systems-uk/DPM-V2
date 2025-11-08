@@ -1,11 +1,13 @@
 package uk.unmannedsystems.dpm_android.network
 
+import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import uk.unmannedsystems.dpm_android.diagnostics.DiagnosticsCommandHandler
 import uk.unmannedsystems.dpm_android.eventlog.EventCategory
 import uk.unmannedsystems.dpm_android.eventlog.EventLevel
 import uk.unmannedsystems.dpm_android.eventlog.EventLogViewModel
@@ -22,8 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Network client for communication with Raspberry Pi payload manager
  * Implements the command protocol specification v1.0
+ * Supports bidirectional communication including diagnostic command handling
  */
 class NetworkClient(
+    private val context: Context,
     private val settings: NetworkSettings = NetworkSettings(),
     private val clientId: String = "H16"
 ) {
@@ -35,6 +39,9 @@ class NetworkClient(
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val sequenceId = AtomicInteger(0)
+
+    // Diagnostics command handler
+    private val diagnosticsHandler = DiagnosticsCommandHandler(context)
 
     // Sockets
     private var tcpSocket: Socket? = null
@@ -636,6 +643,70 @@ class NetworkClient(
             LogLevel.ERROR -> EventLevel.ERROR
         }
         EventLogViewModel.logEvent(EventCategory.NETWORK, eventLevel, message)
+    }
+
+    /**
+     * Handle incoming diagnostic command from Air-Side
+     * This method processes diagnostic requests and sends responses
+     *
+     * @param command CommandPayload from incoming message
+     * @return ResponsePayload to send back
+     */
+    private fun handleIncomingDiagnosticCommand(command: CommandPayload): ResponsePayload {
+        Log.d(TAG, "Handling incoming diagnostic command: ${command.command}")
+
+        return try {
+            if (command.command.startsWith("diagnostics.")) {
+                // Route to diagnostics handler
+                diagnosticsHandler.handleCommand(command.command, command.parameters)
+            } else {
+                // Not a diagnostic command - return error
+                ResponsePayload(
+                    command = command.command,
+                    status = "error",
+                    error = ErrorInfo(
+                        code = 5003,
+                        message = "UNKNOWN_COMMAND: ${command.command} not supported on Ground-Side"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling incoming command", e)
+            ResponsePayload(
+                command = command.command,
+                status = "error",
+                error = ErrorInfo(
+                    code = 5004,
+                    message = "INTERNAL_ERROR: ${e.message}"
+                )
+            )
+        }
+    }
+
+    /**
+     * Send a diagnostic command response back to Air-Side
+     *
+     * @param response ResponsePayload to send
+     */
+    private suspend fun sendDiagnosticResponse(response: ResponsePayload) {
+        withContext(Dispatchers.IO) {
+            try {
+                val message = BaseMessage(
+                    messageType = "response",
+                    sequenceId = sequenceId.incrementAndGet(),
+                    timestamp = System.currentTimeMillis() / 1000,
+                    payload = response
+                )
+
+                val json = gson.toJson(message)
+                Log.d(TAG, "Sending diagnostic response: $json")
+
+                tcpWriter?.println(json)
+                tcpWriter?.flush()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending diagnostic response", e)
+            }
+        }
     }
 
     fun close() {
