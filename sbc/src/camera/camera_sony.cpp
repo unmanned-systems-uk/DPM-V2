@@ -410,106 +410,11 @@ public:
             Logger::warning("Could not query Focus_Speed_Range, using defaults (-7 to 7)");
         }
 
-        // CRITICAL FIX #2: Check FocalDistanceInMeter property's enable status
-        // The property must be "enabled" (IsGetEnableCurrentValue = true) for Focus_Operation to work
-        CrInt32u focal_distance_codes[] = {
-            SDK::CrDevicePropertyCode::CrDeviceProperty_FocalDistanceInMeter
-        };
-        SDK::CrDeviceProperty* focal_distance_list = nullptr;
-        int focal_distance_count = 0;
-
-        auto focal_result = SDK::GetSelectDeviceProperties(
-            device_handle_,
-            1,
-            focal_distance_codes,
-            &focal_distance_list,
-            &focal_distance_count
-        );
-
-        bool focal_distance_enabled = false;
-
-        if (CR_SUCCEEDED(focal_result) && focal_distance_list && focal_distance_count > 0) {
-            // Check if the property is enabled (can be read)
-            focal_distance_enabled = focal_distance_list[0].IsGetEnableCurrentValue();
-
-            if (focal_distance_enabled) {
-                Logger::debug("FocalDistanceInMeter property is enabled and readable");
-
-                // Log current focal distance for debugging
-                auto current_value = focal_distance_list[0].GetCurrentValue();
-                Logger::debug("Current focal distance: " + std::to_string(current_value) + " mm");
-            } else {
-                Logger::warning("FocalDistanceInMeter property is NOT enabled - attempting to enable LiveView");
-
-                // CRITICAL FIX #3: Try to enable LiveView to enable FocalDistanceInMeter
-                // Some cameras require live view to be active for focus operations
-                // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
-                auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
-                if (CR_SUCCEEDED(lv_result)) {
-                    Logger::info("LiveView enabled - waiting for property updates");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give camera time to update
-
-                    // Re-check if FocalDistanceInMeter is now enabled
-                    SDK::CrDeviceProperty* focal_distance_recheck = nullptr;
-                    int focal_distance_recheck_count = 0;
-                    auto focal_recheck = SDK::GetSelectDeviceProperties(
-                        device_handle_,
-                        1,
-                        focal_distance_codes,
-                        &focal_distance_recheck,
-                        &focal_distance_recheck_count
-                    );
-
-                    if (CR_SUCCEEDED(focal_recheck) && focal_distance_recheck && focal_distance_recheck_count > 0) {
-                        focal_distance_enabled = focal_distance_recheck[0].IsGetEnableCurrentValue();
-
-                        if (focal_distance_enabled) {
-                            Logger::info("FocalDistanceInMeter is now enabled after starting LiveView");
-                        } else {
-                            Logger::error("FocalDistanceInMeter still not enabled even after LiveView start");
-                        }
-                        SDK::ReleaseDeviceProperties(device_handle_, focal_distance_recheck);
-                    }
-                } else {
-                    Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
-                }
-            }
-
-            SDK::ReleaseDeviceProperties(device_handle_, focal_distance_list);
-        } else {
-            Logger::warning("Failed to query FocalDistanceInMeter property - attempting to enable LiveView first");
-
-            // Try to enable LiveView - this often makes focus properties available
-            // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
-            auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
-            if (CR_SUCCEEDED(lv_result)) {
-                Logger::info("LiveView enabled - waiting for property updates");
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-                // Now re-try querying FocalDistanceInMeter
-                SDK::CrDeviceProperty* focal_distance_retry = nullptr;
-                int focal_distance_retry_count = 0;
-                auto focal_retry = SDK::GetSelectDeviceProperties(
-                    device_handle_,
-                    1,
-                    focal_distance_codes,
-                    &focal_distance_retry,
-                    &focal_distance_retry_count
-                );
-
-                if (CR_SUCCEEDED(focal_retry) && focal_distance_retry && focal_distance_retry_count > 0) {
-                    focal_distance_enabled = focal_distance_retry[0].IsGetEnableCurrentValue();
-                    if (focal_distance_enabled) {
-                        Logger::info("FocalDistanceInMeter is now available after enabling LiveView");
-                    }
-                    SDK::ReleaseDeviceProperties(device_handle_, focal_distance_retry);
-                } else {
-                    Logger::error("FocalDistanceInMeter still not queryable even after LiveView start");
-                }
-            } else {
-                Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
-            }
-        }
+        // DISABLED: FocalDistanceInMeter check - Issue #40
+        // This check was preventing manual focus from working because LiveView enable fails
+        // Manual focus should work WITHOUT requiring FocalDistanceInMeter property
+        // Sony SDK Focus_Operation works in Manual Focus mode without LiveView
+        Logger::debug("Skipping FocalDistanceInMeter check - not required for manual focus");
 
         // CRITICAL FIX #4: Validate and clamp speed to camera's supported range
         // Ensure speed is within the valid range reported by the camera
@@ -567,13 +472,8 @@ public:
                 Logger::error("Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
                 Logger::error("Possible causes:");
                 Logger::error("  1. Camera not in manual focus mode");
-                Logger::error("  2. FocalDistanceInMeter property not enabled");
-                Logger::error("  3. Camera in an incompatible shooting mode");
-                Logger::error("  4. Live view may need to be started first");
-
-                if (!focal_distance_enabled) {
-                    Logger::error("  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
-                }
+                Logger::error("  2. Camera in an incompatible shooting mode");
+                Logger::error("  3. Camera body settings may restrict focus control");
             }
 
             return false;
