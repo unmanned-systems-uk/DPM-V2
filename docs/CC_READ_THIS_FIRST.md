@@ -234,6 +234,11 @@ When starting a PM session:
 6. ✅ Review LESSONS_LEARNED.md for relevant patterns
 7. ✅ Identify blockers and dependencies
 8. ✅ Create coordination plan if needed
+9. ✅ **Analyze & report operational insights to CCPM** (unmanned-systems-uk/cc-project-management Issue #69)
+   - Workflow effectiveness updates
+   - New patterns discovered
+   - Pain points identified
+   - Metrics from recent work
 
 When ending a PM session (after issue closure):
 1. ✅ Extract lessons from closed issues
@@ -241,6 +246,7 @@ When ending a PM session (after issue closure):
 3. ✅ Document what failed and what worked
 4. ✅ Link lessons back to source issues
 5. ✅ Update Quick Reference Index if needed
+6. ✅ **Send session summary to CCPM** (if significant patterns/insights discovered)
 
 ## 🔌 Network Configuration (20 lines)
 | Service | Protocol | Port | Direction | Purpose |
