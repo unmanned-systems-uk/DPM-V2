@@ -7,9 +7,9 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.11.4"
-VERSION_NAME = "Use Protocol Standard battery_percent Key"
-BUILD_DATE = "2025-11-07"
+VERSION = "1.12.0"
+VERSION_NAME = "Protocol Diagnostics Dashboard - Issue #36"
+BUILD_DATE = "2025-11-08"
 
 # Build metadata
 BUILD_INFO = {
