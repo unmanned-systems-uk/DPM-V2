@@ -3,6 +3,7 @@
 
 ## 🎯 Quick Start
 **Type `START` at session beginning for automatic setup!**
+**Type `EOD` at session end for lessons learned reflection!**
 
 ```
 START         - Interactive platform selection
@@ -11,6 +12,7 @@ START GROUND  - Ground-side (H16 Android)
 START TOOLS   - SystemTools (Python diagnostics)
 START DOCS    - Documentation/Protocol work
 START PM      - Project Manager (Coordination/Oversight)
+EOD           - End-of-day reflection and lessons learned
 ```
 
 ## 🚨 CRITICAL WORKFLOW RULES (MUST READ!)
@@ -229,16 +231,21 @@ When starting a PM session:
 1. ✅ Run historical search for relevant topics
 2. ✅ Check all domain PROGRESS_AND_TODO.md files
 3. ✅ Review open GitHub Issues across all domains
-4. ✅ Check protocol sync status (`protocol/*.json`)
-5. ✅ Review recent commits for cross-domain impact
-6. ✅ Review LESSONS_LEARNED.md for relevant patterns
-7. ✅ Identify blockers and dependencies
-8. ✅ Create coordination plan if needed
-9. ✅ **Analyze & report operational insights to CCPM** (unmanned-systems-uk/cc-project-management Issue #69)
-   - Workflow effectiveness updates
-   - New patterns discovered
-   - Pain points identified
-   - Metrics from recent work
+4. ✅ **Check for lessons-learned issues** from domains (`gh issue list --label lessons-learned --state open`)
+   - Review domain end-of-day reflections
+   - Evaluate if lessons should be implemented
+   - Forward validated lessons to CCPM Issue #69
+   - Close lessons-learned issues after processing
+5. ✅ Check protocol sync status (`protocol/*.json`)
+6. ✅ Review recent commits for cross-domain impact
+7. ✅ Review LESSONS_LEARNED.md for relevant patterns
+8. ✅ Identify blockers and dependencies
+9. ✅ Create coordination plan if needed
+10. ✅ **Analyze & report operational insights to CCPM** (unmanned-systems-uk/cc-project-management Issue #69)
+    - Workflow effectiveness updates
+    - New patterns discovered
+    - Pain points identified
+    - Metrics from recent work
 
 When ending a PM session (after issue closure):
 1. ✅ Extract lessons from closed issues
@@ -247,6 +254,82 @@ When ending a PM session (after issue closure):
 4. ✅ Link lessons back to source issues
 5. ✅ Update Quick Reference Index if needed
 6. ✅ **Send session summary to CCPM** (if significant patterns/insights discovered)
+
+### EOD (End-of-Day) Workflow for All Domains
+
+**Command:** `EOD` - Triggers end-of-day reflection and lessons learned creation
+
+**Purpose:** Systematic capture of operational insights from each domain's daily work for CCPM analysis and continuous improvement.
+
+**When to Use:**
+- At the end of each working session (Air-Side, Ground-Side, Dev-Tools, PM)
+- After completing significant work or encountering important lessons
+- Before closing a session where new patterns or problems were discovered
+
+**Workflow:**
+
+When domain receives `EOD` command:
+1. **Reflect on the session:**
+   - What worked well?
+   - What didn't work?
+   - What mistakes were made?
+   - What could be optimized?
+
+2. **Create lessons-learned issue:**
+   - Use template: `.github/ISSUE_TEMPLATE/lessons_learned.md`
+   - Title format: `[CCPM][LESSONS] YYYY-MM-DD - [Domain] Session Retrospective`
+   - Label: `lessons-learned`
+   - Complete ALL sections thoughtfully with specific examples
+
+3. **Include in issue:**
+   - Session metadata (date, duration, issues worked)
+   - What was accomplished
+   - What went wrong (with honest self-assessment)
+   - Key lessons learned
+   - Process improvements for future sessions
+   - Recommendations for CCPM development
+   - Action items for next session
+
+**PM Processing:**
+- PM checks for `lessons-learned` labeled issues at START PM
+- PM reviews each issue for validity and value
+- PM forwards valuable lessons to CCPM Issue #69
+- PM evaluates if process improvements should be implemented
+- PM closes lessons-learned issues after processing
+
+**Label Requirements:**
+- **Label:** `lessons-learned` (purple #8B5CF6)
+- **Purpose:** Identifies end-of-day reflections for PM processing
+- **Required on:** All EOD reflection issues
+- **Created by:** All domains (Air-Side, Ground-Side, Dev-Tools)
+- **Processed by:** PM role only
+
+**Format Requirements:**
+- **Title:** `[CCPM][LESSONS] YYYY-MM-DD - [Domain] Session Retrospective`
+- **WHO Tag:** Required (CC-Air-Side | CC-Ground-Side | CC-Dev-Tools)
+- **Label:** `lessons-learned` (mandatory)
+- **Template:** Use `.github/ISSUE_TEMPLATE/lessons_learned.md`
+- **Destination:** PM forwards to unmanned-systems-uk/cc-project-management Issue #69
+
+**Example EOD Usage:**
+
+```
+User: "EOD"
+CC-Air-Side: "Reflecting on today's session..."
+
+[Creates issue #45]
+Title: [CCPM][LESSONS] 2025-11-08 - Air-Side Session Retrospective
+Label: lessons-learned
+Content: [Full reflection using lessons_learned.md template]
+```
+
+**Benefits:**
+- Systematic capture of operational insights
+- Continuous improvement feedback loop
+- Real-world input for CCPM development
+- Pattern recognition across sessions
+- Knowledge transfer between sessions
+- Process optimization opportunities identified
 
 ## 🔌 Network Configuration (20 lines)
 | Service | Protocol | Port | Direction | Purpose |
