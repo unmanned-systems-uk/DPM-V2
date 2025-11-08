@@ -231,17 +231,27 @@ When starting a PM session:
 1. ✅ Run historical search for relevant topics
 2. ✅ Check all domain PROGRESS_AND_TODO.md files
 3. ✅ Review open GitHub Issues across all domains
-4. ✅ **Check for lessons-learned issues** from domains (`gh issue list --label lessons-learned --state open`)
+4. ✅ **Check for overlapping/duplicate issues** (detect and consolidate)
+   - Run overlap detection: `gh issue list --state open --limit 50`
+   - Review flagged issue pairs for similarities (same keywords, overlapping scope)
+   - Score using consolidation criteria (work done, priority, detail, etc.)
+   - If overlap detected: Recommend consolidation to user
+   - If user approves: Close duplicate with proper cross-reference
+   - **Log decision** to CCPM training data (`model-training-data/pm-decisions/issue-consolidation/decisions.jsonl`)
+   - **Update confidence score** in `confidence-history.csv`
+   - **Timing:** PM does this during PM sessions so domains see clean issues when they start
+   - See `docs/ALL_DOMAINS/ISSUE_CONSOLIDATION_GUIDE.md` for detailed process
+5. ✅ **Check for lessons-learned issues** from domains (`gh issue list --label lessons-learned --state open`)
    - Review domain end-of-day reflections
    - Evaluate if lessons should be implemented
    - Forward validated lessons to CCPM Issue #69
    - Close lessons-learned issues after processing
-5. ✅ Check protocol sync status (`protocol/*.json`)
-6. ✅ Review recent commits for cross-domain impact
-7. ✅ Review LESSONS_LEARNED.md for relevant patterns
-8. ✅ Identify blockers and dependencies
-9. ✅ Create coordination plan if needed
-10. ✅ **Analyze & report operational insights to CCPM** (unmanned-systems-uk/cc-project-management Issue #69)
+6. ✅ Check protocol sync status (`protocol/*.json`)
+7. ✅ Review recent commits for cross-domain impact
+8. ✅ Review LESSONS_LEARNED.md for relevant patterns
+9. ✅ Identify blockers and dependencies
+10. ✅ Create coordination plan if needed
+11. ✅ **Analyze & report operational insights to CCPM** (unmanned-systems-uk/cc-project-management Issue #69)
     - Workflow effectiveness updates
     - New patterns discovered
     - Pain points identified
