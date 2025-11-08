@@ -1,5 +1,16 @@
 # Air-Side (Pi 5 SBC) Progress Log
-*Last Updated: 2025-11-04*
+*Last Updated: 2025-11-07*
+
+## 🔴 CRITICAL: Sony SDK Documentation Reference
+
+**BEFORE implementing ANY camera function, ALWAYS check:**
+- **API Reference:** `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
+- **Quick Guide:** `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+- **Lessons Learned:** `docs/ALL_DOMAINS/LESSONS_LEARNED.md` (Sony SDK section)
+
+**Why:** Saves 2-4 hours per implementation by avoiding wrong APIs and undocumented constraints.
+
+---
 
 ## Platform Overview
 - **Hardware**: Raspberry Pi 5 SBC (Onboard aircraft)

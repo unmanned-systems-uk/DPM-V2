@@ -60,6 +60,18 @@
       "content.list",
       "content.download",
       "content.delete"
+    ],
+    "diagnostics": [
+      "diagnostics.ping",
+      "diagnostics.get_system_info",
+      "diagnostics.get_app_status",
+      "diagnostics.get_network_stats",
+      "diagnostics.get_adb_status",
+      "diagnostics.get_logs",
+      "diagnostics.get_camera_diagnostics",
+      "diagnostics.get_gimbal_diagnostics",
+      "diagnostics.run_self_test",
+      "diagnostics.clear_errors"
     ]
   },
 
@@ -115,6 +127,16 @@
         "4001": "FILE_NOT_FOUND",
         "4002": "PERMISSION_DENIED",
         "4003": "SYSTEM_OVERLOAD"
+      }
+    },
+    "diagnostic_errors": {
+      "range": [6000, 6999],
+      "codes": {
+        "6000": "DIAGNOSTIC_NOT_AVAILABLE",
+        "6001": "DIAGNOSTIC_TIMEOUT",
+        "6002": "DIAGNOSTIC_PERMISSION_DENIED",
+        "6003": "DIAGNOSTIC_DATA_UNAVAILABLE",
+        "6004": "DIAGNOSTIC_COMMAND_FAILED"
       }
     }
   },

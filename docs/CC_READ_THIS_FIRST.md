@@ -127,6 +127,15 @@ DPM-V2/
 - **Ensure documentation updates** accompany code changes
 - **Maintain project documentation** consistency
 
+#### 7. Lessons Learned & Knowledge Management
+- **Maintain LESSONS_LEARNED.md** registry (`docs/ALL_DOMAINS/LESSONS_LEARNED.md`)
+- **Extract lessons** from closed issues (what failed, what worked, why)
+- **Update after each issue closure** with key insights
+- **Identify patterns** across multiple issues
+- **Conduct monthly reviews** of lessons learned
+- **Ensure searchability** and proper categorization
+- **Link lessons** back to source issues for traceability
+
 ### Permissions & Constraints
 
 #### ✅ PM CAN:
@@ -220,8 +229,16 @@ When starting a PM session:
 3. ✅ Review open GitHub Issues across all domains
 4. ✅ Check protocol sync status (`protocol/*.json`)
 5. ✅ Review recent commits for cross-domain impact
-6. ✅ Identify blockers and dependencies
-7. ✅ Create coordination plan if needed
+6. ✅ Review LESSONS_LEARNED.md for relevant patterns
+7. ✅ Identify blockers and dependencies
+8. ✅ Create coordination plan if needed
+
+When ending a PM session (after issue closure):
+1. ✅ Extract lessons from closed issues
+2. ✅ Update LESSONS_LEARNED.md with new insights
+3. ✅ Document what failed and what worked
+4. ✅ Link lessons back to source issues
+5. ✅ Update Quick Reference Index if needed
 
 ## 🔌 Network Configuration (20 lines)
 | Service | Protocol | Port | Direction | Purpose |
@@ -237,11 +254,26 @@ When starting a PM session:
 ## ✅ Session Checklist (40 lines)
 ### Every Session MUST:
 1. **Identify Platform** - Claude asks which domain
-2. **Check Branch** - `git branch --show-current` (must be `main`)
-3. **Pull Latest** - `git pull origin main` (check conflicts)
-4. **Check Protocol Sync** - Review protocol/*.json for updates
-5. **Read Progress** - Check domain-specific PROGRESS_AND_TODO.md
-6. **Check Status** - `git status` for uncommitted changes
+2. **Check Open Issues** - `gh issue list --state open` for assigned/relevant issues (CRITICAL: Don't miss domain-specific work!)
+3. **Check Branch** - `git branch --show-current` (must be `main`)
+4. **Pull Latest** - `git pull origin main` (check conflicts)
+5. **Check Protocol Sync** - Review protocol/*.json for updates
+6. **Read Progress** - Check domain-specific PROGRESS_AND_TODO.md
+7. **Check Status** - `git status` for uncommitted changes
+
+### 🔴 Air-Side Sessions MUST ALSO:
+8. **Check Air-Side Issues** - `gh issue list --label air-side --state open`
+9. **Review Sony SDK Reference** - `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+10. **BEFORE implementing camera function** - Check `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
+11. **Document SDK findings** - Note function signatures, prerequisites, constraints in issue comments
+
+### 🟢 Ground-Side Sessions MUST ALSO:
+8. **Check Ground-Side Issues** - `gh issue list --label ground-side --state open`
+9. **Review Android PROGRESS** - `docs/GROUND_SIDE/PROGRESS_AND_TODO.md`
+
+### 🔵 Dev-Tools Sessions MUST ALSO:
+8. **Check Dev-Tools Issues** - `gh issue list --label dev-tools --state open`
+9. **Check SystemTools Version** - `SystemTools/version.py`
 
 ### Protocol Sync Commands:
 ```bash
@@ -277,7 +309,6 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 [PM][COORDINATION] Create cross-domain integration plan for Issue #24
 ```
 
-<<<<<<< HEAD
 ## 🏷️ WHO Tag Protocol (40 lines)
 
 ### MANDATORY: All GitHub Issue Comments Must Use WHO Tags
@@ -400,32 +431,8 @@ gh issue view 24 --comments | grep "WHO:"
 **All Claude Code instances** must use WHO tags - no exceptions.
 
 **Users** are encouraged to use WHO tags for clarity, especially when providing test results or reporting issues.
-=======
-### Issue Title Format (GitHub Issues)
 
-**Format:** `[SCOPE][DOMAIN][TYPE] Description`
-
-**Required (2 prefixes minimum):**
-- **DOMAIN**: `[AIR-SIDE]`, `[GROUND-SIDE]`, `[TOOLS]`, `[ALL-DOMAINS]`, `[WORKFLOW]`, `[PROTOCOL]`
-- **TYPE**: `[BUG]`, `[FIX]`, `[FEATURE]`, `[ENHANCEMENT]`, `[TESTING]`, `[DOCS]`
-
-**Optional (prepend if needed):**
-- **SCOPE**: `[MANDATORY]`, `[URGENT]`, `[BLOCKED]`
-
-**Examples:**
-```
-[GROUND-SIDE][BUG] Focus commands not reaching Air-Side
-[MANDATORY][ALL-DOMAINS][WORKFLOW] New testing workflow requirements
-[AIR-SIDE][FEATURE] Add gimbal control support
-[TOOLS][ENHANCEMENT] Improve diagnostic dashboard
-```
-
-**Official Domain Configuration:** `.github/domain-config.json` (machine-readable)
-
-**Validation:** Use `.github/scripts/create-issue.ps1` which validates format automatically.
-
-**See:** `.github/ISSUE_TEMPLATE/bug_report_with_history.md` for complete reference.
->>>>>>> 98ce648a2903736a211ac0f5baad5bea7154fb5a
+**See full guide:** `docs/ALL_DOMAINS/WHO_TAG_GUIDE.md`
 
 ## 🚀 Quick Commands (40 lines)
 ### Air-Side (Pi 5 SBC)
@@ -435,6 +442,21 @@ cd sbc/
 ./run_payload_manager.sh      # Run application
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/sony_sdk/lib
 ```
+
+**🔴 CRITICAL: Sony SDK API Reference**
+```bash
+# ALWAYS reference SDK docs when implementing camera functions:
+# Location: docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html
+# 2000+ pages of comprehensive API documentation
+
+# How to use:
+# 1. Open index.html in browser
+# 2. Search for function/property name
+# 3. Check parameters, return values, examples
+# 4. Verify supported camera models
+```
+
+**See:** `docs/AIR_SIDE/SONY_SDK_REFERENCE.md` for quick guide
 
 ### Ground-Side (H16 Android)
 ```bash

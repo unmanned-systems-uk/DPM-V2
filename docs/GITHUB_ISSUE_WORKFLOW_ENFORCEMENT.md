@@ -176,10 +176,52 @@ Testing: After both sides implemented, focus distance should update in Android U
 gh issue edit 10 --add-label "status:needs-ground-impl" --add-label "ground-side"
 ```
 
+## 🚨 Session Start Requirements - MANDATORY
+
+**BEFORE starting ANY work, EVERY Claude Code session MUST:**
+
+```bash
+# Step 1: Check ALL open issues
+gh issue list --state open
+
+# Step 2: Check domain-specific issues
+gh issue list --label air-side --state open      # Air-Side sessions
+gh issue list --label ground-side --state open   # Ground-Side sessions
+gh issue list --label dev-tools --state open     # Dev-Tools sessions
+```
+
+**Why This Matters:**
+- **Prevents missed work**: You may have open issues assigned to you
+- **Avoids duplication**: Another domain may have completed their part
+- **Ensures coordination**: Cross-domain issues need visibility
+- **Maintains continuity**: Understand current state before starting
+
+**Common Workflow Violation:**
+```
+❌ Ground-Side session starts
+❌ User: "Implement feature X"
+❌ Claude implements feature X
+❌ User: "Why didn't you check Issue #34?"
+❌ Issue #34 was already open for Ground-Side with detailed requirements!
+```
+
+**Correct Workflow:**
+```
+✅ Ground-Side session starts
+✅ Claude: "Let me check open issues first"
+✅ Claude runs: gh issue list --label ground-side --state open
+✅ Claude: "I see Issue #34 is open for Ground-Side. Should I work on that?"
+✅ User confirms or redirects
+```
+
+**This check is MANDATORY at session start - no exceptions!**
+
 ## Verification Checklist
 
 Claude Code MUST be able to answer YES to all:
 
+- [ ] Did I check open issues at session start?
+- [ ] Did I check domain-specific issues?
 - [ ] Did I include WHO tag in ALL comments? (e.g., `[CC-Ground-Side]`)
 - [ ] Did I update the issue when I started work?
 - [ ] Did I comment on what I'm implementing?
