@@ -14,6 +14,7 @@ from datetime import datetime
 
 from utils.logger import logger
 from utils.config import config
+from network.diagnostic_client import DiagnosticClient
 
 
 class H16DiagnosticsTab(ttk.Frame):
@@ -118,6 +119,7 @@ class H16DiagnosticsTab(ttk.Frame):
         self.diagnostic_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Create sub-tabs
+        self._create_protocol_diagnostics_tab()  # NEW: Protocol-based diagnostics
         self._create_troubleshooting_tab()
         self._create_network_tab()
         self._create_logcat_tab()
@@ -159,6 +161,102 @@ class H16DiagnosticsTab(ttk.Frame):
         self.status_label = ttk.Label(bottom_frame, text="Ready - Connect ADB to begin",
                                      font=('Arial', 9, 'italic'))
         self.status_label.pack(side=tk.RIGHT, padx=10)
+
+        # Initialize diagnostic client
+        self.diagnostic_client = DiagnosticClient()
+        self.auto_refresh_enabled = False
+        self.last_system_info = None
+        self.last_app_status = None
+
+    def _create_protocol_diagnostics_tab(self):
+        """Create Protocol Diagnostics sub-tab (ADB-free diagnostics via TCP)"""
+        diag_tab = ttk.Frame(self.diagnostic_notebook)
+        self.diagnostic_notebook.add(diag_tab, text="🔬 Protocol Diagnostics")
+
+        # Info label
+        info_frame = ttk.Frame(diag_tab)
+        info_frame.pack(fill=tk.X, padx=10, pady=5)
+        ttk.Label(info_frame, text="H16 system diagnostics via protocol (no ADB required) - Issue #36",
+                 font=('Arial', 9, 'italic'), foreground="gray").pack(anchor=tk.W)
+
+        # Quick Diagnostics Section
+        quick_frame = ttk.LabelFrame(diag_tab, text="Quick Diagnostics", padding=10)
+        quick_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        quick_btns_row1 = ttk.Frame(quick_frame)
+        quick_btns_row1.pack(fill=tk.X, pady=2)
+
+        ttk.Button(quick_btns_row1, text="🏓 Ping H16",
+                  command=self._protocol_ping_h16,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(quick_btns_row1, text="📊 Get System Info",
+                  command=self._protocol_get_system_info,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(quick_btns_row1, text="📱 Get App Status",
+                  command=self._protocol_get_app_status,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        quick_btns_row2 = ttk.Frame(quick_frame)
+        quick_btns_row2.pack(fill=tk.X, pady=2)
+
+        ttk.Button(quick_btns_row2, text="🔍 Run Full Diagnostics",
+                  command=self._protocol_run_full_diagnostics,
+                  width=25).pack(side=tk.LEFT, padx=5)
+
+        # Auto-refresh toggle
+        self.auto_refresh_var = tk.BooleanVar(value=False)
+        auto_refresh_check = ttk.Checkbutton(quick_btns_row2, text="Auto-refresh (5s)",
+                                            variable=self.auto_refresh_var,
+                                            command=self._toggle_auto_refresh)
+        auto_refresh_check.pack(side=tk.LEFT, padx=20)
+
+        # System Health Panel
+        health_frame = ttk.LabelFrame(diag_tab, text="System Health", padding=10)
+        health_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Battery
+        battery_frame = ttk.Frame(health_frame)
+        battery_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(battery_frame, text="Battery:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_battery_label = ttk.Label(battery_frame, text="---", font=('Arial', 10, 'bold'), foreground='gray')
+        self.diag_battery_label.pack(side=tk.LEFT, padx=5)
+
+        # CPU Usage
+        cpu_frame = ttk.Frame(health_frame)
+        cpu_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(cpu_frame, text="CPU Usage:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_cpu_label = ttk.Label(cpu_frame, text="---", font=('Arial', 10), foreground='gray')
+        self.diag_cpu_label.pack(side=tk.LEFT, padx=5)
+
+        # Memory
+        memory_frame = ttk.Frame(health_frame)
+        memory_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(memory_frame, text="Memory:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_memory_label = ttk.Label(memory_frame, text="---", font=('Arial', 10), foreground='gray')
+        self.diag_memory_label.pack(side=tk.LEFT, padx=5)
+
+        # Storage
+        storage_frame = ttk.Frame(health_frame)
+        storage_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(storage_frame, text="Storage:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_storage_label = ttk.Label(storage_frame, text="---", font=('Arial', 10), foreground='gray')
+        self.diag_storage_label.pack(side=tk.LEFT, padx=5)
+
+        # Uptime
+        uptime_frame = ttk.Frame(health_frame)
+        uptime_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(uptime_frame, text="Uptime:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_uptime_label = ttk.Label(uptime_frame, text="---", font=('Arial', 10), foreground='gray')
+        self.diag_uptime_label.pack(side=tk.LEFT, padx=5)
+
+        # Last Updated
+        updated_frame = ttk.Frame(health_frame)
+        updated_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(updated_frame, text="Last Updated:", width=15, anchor=tk.W).pack(side=tk.LEFT)
+        self.diag_updated_label = ttk.Label(updated_frame, text="Never", font=('Arial', 9, 'italic'), foreground='gray')
+        self.diag_updated_label.pack(side=tk.LEFT, padx=5)
 
     def _create_troubleshooting_tab(self):
         """Create ADB Troubleshooting sub-tab"""
@@ -1956,3 +2054,190 @@ echo "  settings put global adb_wifi_enabled 1"
         self._append_output("5. Run: ./h16-diag.sh\n", "info")
 
         self.status_label.config(text="Termux script generated - ready to copy")
+
+    # Protocol Diagnostics Methods
+
+    def _protocol_ping_h16(self):
+        """Ping H16 via protocol"""
+        self._append_output("\n🏓 Pinging H16 via protocol...\n", "command")
+
+        def ping_thread():
+            try:
+                start_time = time.time()
+                result = self.diagnostic_client.ping_h16()
+                elapsed_ms = (time.time() - start_time) * 1000
+
+                if result:
+                    self.after(0, lambda: self._append_output(f"✅ H16 is alive and responding ({elapsed_ms:.0f}ms)\n", "success"))
+                else:
+                    self.after(0, lambda: self._append_output("❌ H16 not responding\n", "error"))
+            except Exception as e:
+                self.after(0, lambda e=e: self._append_output(f"❌ Error: {e}\n", "error"))
+
+        threading.Thread(target=ping_thread, daemon=True).start()
+
+    def _protocol_get_system_info(self):
+        """Get H16 system information via protocol"""
+        self._append_output("\n📊 Querying H16 system info...\n", "command")
+
+        def get_info_thread():
+            try:
+                response = self.diagnostic_client.get_system_info()
+
+                if response['success']:
+                    data = response['data']
+                    self.last_system_info = data
+
+                    # Display results
+                    self.after(0, lambda: self._append_output("✅ System Info Retrieved:\n", "success"))
+                    self.after(0, lambda: self._append_output(f"  Battery: {data.get('battery_percent', 'N/A')}%\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  CPU Usage: {data.get('cpu_usage_percent', 'N/A')}%\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Memory: {data.get('memory_available_mb', 'N/A')} MB / {data.get('memory_total_mb', 'N/A')} MB available\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Storage: {data.get('storage_available_gb', 'N/A')} GB / {data.get('storage_total_gb', 'N/A')} GB available\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Uptime: {self._format_uptime(data.get('uptime_seconds', 0))}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Android: {data.get('android_version', 'N/A')}\n", "info"))
+
+                    # Update System Health panel
+                    self.after(0, lambda: self._update_system_health_panel(data))
+                else:
+                    error_msg = response.get('error_message', 'Unknown error')
+                    self.after(0, lambda e=error_msg: self._append_output(f"❌ Error: {e}\n", "error"))
+            except Exception as e:
+                self.after(0, lambda e=e: self._append_output(f"❌ Exception: {e}\n", "error"))
+
+        threading.Thread(target=get_info_thread, daemon=True).start()
+
+    def _protocol_get_app_status(self):
+        """Get H16 app status via protocol"""
+        self._append_output("\n📱 Querying H16 app status...\n", "command")
+
+        def get_app_thread():
+            try:
+                response = self.diagnostic_client.get_app_status()
+
+                if response['success']:
+                    data = response['data']
+                    self.last_app_status = data
+
+                    # Display results
+                    self.after(0, lambda: self._append_output("✅ App Status Retrieved:\n", "success"))
+                    self.after(0, lambda: self._append_output(f"  App Running: {data.get('app_running', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Version: {data.get('app_version', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  State: {data.get('app_state', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  PID: {data.get('pid', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Uptime: {self._format_uptime(data.get('uptime_seconds', 0))}\n", "info"))
+
+                    connections = data.get('active_connections', {})
+                    self.after(0, lambda: self._append_output(f"  Air-Side Connected: {connections.get('air_side_connected', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Camera Connected: {connections.get('camera_connected', 'N/A')}\n", "info"))
+                    self.after(0, lambda: self._append_output(f"  Gimbal Connected: {connections.get('gimbal_connected', 'N/A')}\n", "info"))
+
+                    self.after(0, lambda: self._append_output(f"  Memory Usage: {data.get('memory_usage_mb', 'N/A')} MB\n", "info"))
+                else:
+                    error_msg = response.get('error_message', 'Unknown error')
+                    self.after(0, lambda e=error_msg: self._append_output(f"❌ Error: {e}\n", "error"))
+            except Exception as e:
+                self.after(0, lambda e=e: self._append_output(f"❌ Exception: {e}\n", "error"))
+
+        threading.Thread(target=get_app_thread, daemon=True).start()
+
+    def _protocol_run_full_diagnostics(self):
+        """Run all diagnostic commands"""
+        self._append_output("\n🔍 Running full H16 diagnostics...\n\n", "command")
+
+        # Run all diagnostics in sequence
+        self._protocol_ping_h16()
+        self.after(1000, self._protocol_get_system_info)
+        self.after(2000, self._protocol_get_app_status)
+        self.after(3000, lambda: self._append_output("\n✅ Full diagnostics complete\n", "success"))
+
+    def _update_system_health_panel(self, data):
+        """Update System Health panel with diagnostic data"""
+        # Battery (color-coded)
+        battery = data.get('battery_percent', -1)
+        if battery >= 0:
+            battery_text = f"{battery}%"
+            if battery > 50:
+                battery_color = "green"
+            elif battery > 20:
+                battery_color = "orange"
+            else:
+                battery_color = "red"
+            self.diag_battery_label.config(text=battery_text, foreground=battery_color)
+
+        # CPU Usage
+        cpu = data.get('cpu_usage_percent', -1)
+        if cpu >= 0:
+            self.diag_cpu_label.config(text=f"{cpu:.1f}%", foreground="blue")
+
+        # Memory
+        mem_avail = data.get('memory_available_mb', -1)
+        mem_total = data.get('memory_total_mb', -1)
+        if mem_avail >= 0 and mem_total > 0:
+            mem_percent = (mem_avail / mem_total) * 100
+            mem_text = f"{mem_avail} MB / {mem_total} MB ({mem_percent:.0f}% free)"
+            mem_color = "green" if mem_percent > 20 else "orange"
+            self.diag_memory_label.config(text=mem_text, foreground=mem_color)
+
+        # Storage
+        stor_avail = data.get('storage_available_gb', -1)
+        stor_total = data.get('storage_total_gb', -1)
+        if stor_avail >= 0 and stor_total > 0:
+            stor_percent = (stor_avail / stor_total) * 100
+            stor_text = f"{stor_avail:.1f} GB / {stor_total:.1f} GB ({stor_percent:.0f}% free)"
+            stor_color = "green" if stor_percent > 10 else "orange"
+            self.diag_storage_label.config(text=stor_text, foreground=stor_color)
+
+        # Uptime
+        uptime = data.get('uptime_seconds', 0)
+        if uptime > 0:
+            self.diag_uptime_label.config(text=self._format_uptime(uptime), foreground="blue")
+
+        # Last Updated
+        now = datetime.now().strftime("%H:%M:%S")
+        self.diag_updated_label.config(text=now, foreground="green")
+
+    def _toggle_auto_refresh(self):
+        """Toggle auto-refresh of diagnostics"""
+        self.auto_refresh_enabled = self.auto_refresh_var.get()
+
+        if self.auto_refresh_enabled:
+            self._append_output("🔄 Auto-refresh enabled (5 seconds)\n", "info")
+            self._auto_refresh_loop()
+        else:
+            self._append_output("⏸️  Auto-refresh disabled\n", "info")
+
+    def _auto_refresh_loop(self):
+        """Auto-refresh loop for diagnostics"""
+        if not self.auto_refresh_enabled:
+            return
+
+        # Refresh system info
+        def refresh_thread():
+            try:
+                response = self.diagnostic_client.get_system_info()
+                if response['success']:
+                    self.after(0, lambda d=response['data']: self._update_system_health_panel(d))
+            except:
+                pass  # Silent fail for auto-refresh
+
+        threading.Thread(target=refresh_thread, daemon=True).start()
+
+        # Schedule next refresh
+        self.after(5000, self._auto_refresh_loop)
+
+    def _format_uptime(self, seconds):
+        """Format uptime seconds as human-readable string"""
+        if seconds < 60:
+            return f"{seconds}s"
+        elif seconds < 3600:
+            minutes = seconds // 60
+            return f"{minutes}m"
+        elif seconds < 86400:
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            return f"{hours}h {minutes}m"
+        else:
+            days = seconds // 86400
+            hours = (seconds % 86400) // 3600
+            return f"{days}d {hours}h"
