@@ -212,6 +212,37 @@ sudo udevadm control --reload-rules
 # Unplug and replug camera USB
 ```
 
+### Camera Enumeration Fails (Error 0x34563)
+**Problem:** Camera enumeration fails with error 0x34563 "No adapters available"
+
+**Symptoms:**
+- Camera visible via `lsusb`
+- Sony SDK initializes successfully
+- Error in logs: `Failed to enumerate cameras. Status: 0x34563`
+
+**Root Cause:** Missing CrAdapter/ directory in build folder
+
+**Solution:**
+```bash
+# Inside running container
+docker exec payload-manager cp -r /app/sdk/external/crsdk/CrAdapter /app/sbc/build/
+docker restart payload-manager
+
+# OR rebuild with production Dockerfile
+cd ~/DPM-V2
+docker build -f sbc/Dockerfile.prod -t payload-manager:latest .
+docker rm -f payload-manager
+# Run container (see deployment section)
+
+# Verify fix
+docker exec payload-manager ls /app/sbc/build/CrAdapter/
+# Should show: libCr_PTP_USB.so, libCr_PTP_IP.so, libusb-1.0.so, libssh2.so
+```
+
+**Important:** Always use `sbc/Dockerfile.prod` for production builds - it includes CrAdapter copy step.
+
+**Reference:** See `docs/LESSONS_LEARNED.md` for detailed explanation
+
 ### Container Won't Start
 **Problem:** payload-manager container fails to start
 
