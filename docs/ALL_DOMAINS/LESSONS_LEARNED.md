@@ -68,6 +68,8 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 - **USB Permissions:** → [Build & Deployment](#usb-permissions-for-sony-camera)
 - **Docker Container Restarts:** → [Build & Deployment](#docker-container-issues)
 - **Static IP Configuration:** → [Network & Communication](#critical-static-ip-requirement-for-vxlan-bridge)
+- **🔴 Claude Code Autonomy Limitations:** → [Workflow & Process](#claude-code-autonomy-limitations)
+- **CCPM Architecture Constraints:** → [Workflow & Process](#claude-code-autonomy-limitations)
 
 ### By Issue Number
 - Issue #1: Focus distance readback → [Focus Distance](#focus-distance)
@@ -669,6 +671,102 @@ gh issue view 10 --comments
 - Search by domain: `gh issue list --search "WHO: CC-Air-Side"`
 
 **Lesson:** Standardized WHO tags transform GitHub issues into searchable knowledge base
+
+---
+
+### Claude Code Autonomy Limitations
+
+**Related:** CCPM Issue #69 (unmanned-systems-uk/cc-project-management)
+**Date Discovered:** 2025-11-08
+**Severity:** 🔴 **CRITICAL** - Architectural constraint
+
+#### ❌ What Claude Code CANNOT Do
+
+**1. Autonomous Periodic Execution**
+- **Myth:** Claude can monitor issues every 10 minutes and alert user
+- **Reality:** Claude can run background scripts, but cannot see results until user initiates conversation
+- **Impact:** By the time Claude reports findings, they're 20-50 minutes stale
+- **Lesson:** Claude is **REACTIVE**, not **PROACTIVE**
+
+**Timeline of Limitation:**
+```
+10:00 - User: "Monitor issues every 10 mins"
+10:00 - Claude: *Starts background script*
+10:10 - Script: *Checks issues* ← USER DOESN'T KNOW
+10:20 - Script: *Checks issues* ← USER DOESN'T KNOW
+...
+11:00 - User: "What's up?"
+11:00 - Claude: *Reports 50-minute-old data*
+```
+
+**2. Proactive Notifications**
+- ❌ Claude CANNOT send push notifications
+- ❌ Claude CANNOT interrupt user
+- ❌ Claude CANNOT initiate communication
+- ❌ Claude has NO out-of-band communication channel
+
+**3. Session Persistence**
+- ❌ Background tasks likely terminate when session ends
+- ❌ State does not persist across Claude Code sessions
+- ❌ Each session starts "fresh"
+
+#### ✅ What Claude Code CAN Do
+
+**1. Session-Start Checks** ✅
+- Check issues/status when session starts
+- Provide immediate awareness when user interacts
+- **Implementation:** DPM-V2 session checklist (commit `2b20658`)
+- **Result:** Prevented Ground-Side from missing Issue #34
+
+**2. Reactive Log Analysis** ✅
+- Read accumulated logs from background processes
+- Summarize historical activity
+- Generate insights from collected data
+- **Limitation:** User must ASK first
+
+**3. On-Demand Reports** ✅
+- Daily/weekly/monthly progress reports
+- Metrics analysis
+- Trend identification
+- **Example:** DPM-V2 Daily Progress Report (docs/ALL_DOMAINS/DAILY_PROGRESS_2025-11-08.md)
+- **Limitation:** User must request report
+
+**4. Intelligent Analysis** ✅
+- Deep contextual understanding
+- Historical pattern recognition
+- Strategic recommendations
+- Complex workflow execution
+
+#### 🏗️ Architectural Implications
+
+**For CCPM and Other PM Tools:**
+
+**DON'T:**
+- ❌ Rely on Claude for autonomous monitoring
+- ❌ Expect Claude to send alerts
+- ❌ Design workflows requiring continuous execution
+- ❌ Assume Claude can schedule tasks
+
+**DO:**
+- ✅ Use GitHub Actions for monitoring (autonomous, scheduled)
+- ✅ Use webhooks for real-time events
+- ✅ Have Claude analyze collected data (on-demand)
+- ✅ Use Claude for session-start health checks
+- ✅ Leverage Claude's intelligence for insights, not monitoring
+
+**Recommended Architecture:**
+```
+GitHub Actions (Monitor) → Data Layer → Claude (Analyze) → User (Act)
+                    ↓
+         Webhooks (Alert) → Notification Service → User
+```
+
+**Key Insight:** "Claude Code is a brilliant analyst, not an autonomous agent."
+
+**Reference:**
+- CCPM Issue #69: https://github.com/unmanned-systems-uk/cc-project-management/issues/69
+- DPM-V2 Daily Progress Report: docs/ALL_DOMAINS/DAILY_PROGRESS_2025-11-08.md
+- Session Checklist Implementation: docs/CC_READ_THIS_FIRST.md:254-276
 
 ---
 
