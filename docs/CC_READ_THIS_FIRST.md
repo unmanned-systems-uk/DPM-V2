@@ -129,6 +129,8 @@ DPM-V2/
 
 #### 7. Lessons Learned & Knowledge Management
 - **Maintain LESSONS_LEARNED.md** registry (`docs/ALL_DOMAINS/LESSONS_LEARNED.md`)
+  - ⚠️ **IMPORTANT:** This is the ONLY lessons learned file - do NOT create duplicates in other locations
+  - All domains (Air/Ground/Dev/PM) must append to this centralized file
 - **Extract lessons** from closed issues (what failed, what worked, why)
 - **Update after each issue closure** with key insights
 - **Identify patterns** across multiple issues
