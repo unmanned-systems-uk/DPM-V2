@@ -291,7 +291,10 @@ public:
             cached_status_.model = camera_model_;
             cached_status_.battery_percent = getBatteryLevel();  // Placeholder
             cached_status_.remaining_shots = getRemainingShotsCount();  // Placeholder
-            cached_status_.focal_distance_meters = getFocalDistanceMetersLocked();  // Current focus distance (mutex already held)
+            // TEMPORARILY DISABLED: Focal distance requires LiveView which we don't have yet
+            // Querying this at 5Hz interferes with manual focus commands (Issue #40)
+            // cached_status_.focal_distance_meters = getFocalDistanceMetersLocked();
+            cached_status_.focal_distance_meters = 0.0f;  // Disabled until LiveView implemented
 
             // Keep existing property values from cache
             // (they're updated by setProperty() calls)
@@ -603,7 +606,7 @@ public:
         Logger::info("[DIAGNOSTIC] Querying current focus mode before AF Hold...");
         CrInt32u focus_mode_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode;
         SDK::CrDeviceProperty* focus_properties = nullptr;
-        CrInt32u focus_prop_count = 0;
+        CrInt32 focus_prop_count = 0;
 
         auto focus_query_result = SDK::GetDeviceProperties(device_handle_, &focus_properties, &focus_prop_count);
         if (CR_SUCCEEDED(focus_query_result) && focus_prop_count > 0) {
@@ -633,7 +636,7 @@ public:
         Logger::info("[DIAGNOSTIC] Checking PushAutoFocus property availability...");
         CrInt32u af_code = SDK::CrDevicePropertyCode::CrDeviceProperty_PushAutoFocus;
         SDK::CrDeviceProperty* af_properties = nullptr;
-        CrInt32u af_prop_count = 0;
+        CrInt32 af_prop_count = 0;
 
         auto af_query_result = SDK::GetDeviceProperties(device_handle_, &af_properties, &af_prop_count);
         if (CR_SUCCEEDED(af_query_result) && af_prop_count > 0) {
