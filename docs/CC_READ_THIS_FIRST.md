@@ -254,16 +254,26 @@ When ending a PM session (after issue closure):
 ## ✅ Session Checklist (40 lines)
 ### Every Session MUST:
 1. **Identify Platform** - Claude asks which domain
-2. **Check Branch** - `git branch --show-current` (must be `main`)
-3. **Pull Latest** - `git pull origin main` (check conflicts)
-4. **Check Protocol Sync** - Review protocol/*.json for updates
-5. **Read Progress** - Check domain-specific PROGRESS_AND_TODO.md
-6. **Check Status** - `git status` for uncommitted changes
+2. **Check Open Issues** - `gh issue list --state open` for assigned/relevant issues (CRITICAL: Don't miss domain-specific work!)
+3. **Check Branch** - `git branch --show-current` (must be `main`)
+4. **Pull Latest** - `git pull origin main` (check conflicts)
+5. **Check Protocol Sync** - Review protocol/*.json for updates
+6. **Read Progress** - Check domain-specific PROGRESS_AND_TODO.md
+7. **Check Status** - `git status` for uncommitted changes
 
 ### 🔴 Air-Side Sessions MUST ALSO:
-7. **Review Sony SDK Reference** - `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
-8. **BEFORE implementing camera function** - Check `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
-9. **Document SDK findings** - Note function signatures, prerequisites, constraints in issue comments
+8. **Check Air-Side Issues** - `gh issue list --label air-side --state open`
+9. **Review Sony SDK Reference** - `docs/AIR_SIDE/SONY_SDK_REFERENCE.md`
+10. **BEFORE implementing camera function** - Check `docs/AIR_SIDE/CrSDK_API_Reference_v2.00.00/index.html`
+11. **Document SDK findings** - Note function signatures, prerequisites, constraints in issue comments
+
+### 🟢 Ground-Side Sessions MUST ALSO:
+8. **Check Ground-Side Issues** - `gh issue list --label ground-side --state open`
+9. **Review Android PROGRESS** - `docs/GROUND_SIDE/PROGRESS_AND_TODO.md`
+
+### 🔵 Dev-Tools Sessions MUST ALSO:
+8. **Check Dev-Tools Issues** - `gh issue list --label dev-tools --state open`
+9. **Check SystemTools Version** - `SystemTools/version.py`
 
 ### Protocol Sync Commands:
 ```bash
