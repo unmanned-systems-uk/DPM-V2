@@ -87,7 +87,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }.collect { (savedSettings, savedClientId) ->
                 // Reinitialize NetworkManager when settings change
                 // (This happens after user saves new settings or client ID)
-                NetworkManager.initialize(savedSettings, savedClientId)
+                NetworkManager.initialize(getApplication(), savedSettings, savedClientId)
             }
         }
     }

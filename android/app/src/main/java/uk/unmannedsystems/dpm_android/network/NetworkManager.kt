@@ -1,5 +1,6 @@
 package uk.unmannedsystems.dpm_android.network
 
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,7 @@ import kotlinx.coroutines.launch
 /**
  * Singleton manager for network connection
  * Ensures single connection instance shared across the app
+ * Supports diagnostic command handling
  */
 object NetworkManager {
     private const val TAG = "NetworkManager"
@@ -19,6 +21,7 @@ object NetworkManager {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private var networkClient: NetworkClient? = null
+    private var appContext: Context? = null
 
     // Stable StateFlow that survives networkClient recreation
     private val _connectionStatus = MutableStateFlow(NetworkStatus())
@@ -45,8 +48,11 @@ object NetworkManager {
     /**
      * Initialize or reinitialize network client with new settings
      */
-    fun initialize(settings: NetworkSettings, clientId: String = "H16") {
+    fun initialize(context: Context, settings: NetworkSettings, clientId: String = "H16") {
         Log.d(TAG, "Initializing with settings: ${settings.targetIp}:${settings.commandPort}, clientId: $clientId")
+
+        // Store application context
+        appContext = context.applicationContext
 
         // Disconnect and cleanup old client
         networkClient?.close()
@@ -54,8 +60,8 @@ object NetworkManager {
         // Store client ID
         currentClientId = clientId
 
-        // Create new client with client ID
-        networkClient = NetworkClient(settings, clientId)
+        // Create new client with context and client ID
+        networkClient = NetworkClient(context.applicationContext, settings, clientId)
         _currentSettings.value = settings
 
         // Forward connection status to our stable StateFlow
