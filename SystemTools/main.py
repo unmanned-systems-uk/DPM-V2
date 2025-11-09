@@ -43,6 +43,7 @@ from gui.tab_activity import ActivityLogTab
 from gui.tab_remote_control import RemoteControlTab
 from gui.tab_h16_diagnostics import H16DiagnosticsTab
 from gui.tab_github_integration import GitHubIntegrationTab
+from gui.tab_git_helper import GitHelperTab
 
 
 class DiagnosticApp:
@@ -178,6 +179,9 @@ class DiagnosticApp:
         # GitHub Integration tab (Phase 3)
         self.github_tab = GitHubIntegrationTab(self.window.notebook)
 
+        # Git Helper tab - simplified git operations
+        self.git_helper_tab = GitHelperTab(self.window.notebook)
+
         # Add tabs to window (in display order)
         tabs = {
             "Connection Monitor": self.connection_tab,
@@ -189,6 +193,7 @@ class DiagnosticApp:
             "Remote Control": self.remote_control_tab,
             "H16 ADB Diagnostics": self.h16_diagnostics_tab,
             "GitHub Integration": self.github_tab,
+            "Git Helper": self.git_helper_tab,
             "Activity Log": self.activity_tab,
             "Configuration": self.config_tab,
         }
