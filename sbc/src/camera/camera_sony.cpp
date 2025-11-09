@@ -410,11 +410,70 @@ public:
             Logger::warning("Could not query Focus_Speed_Range, using defaults (-7 to 7)");
         }
 
-        // DISABLED: FocalDistanceInMeter check - Issue #40
-        // This check was preventing manual focus from working because LiveView enable fails
-        // Manual focus should work WITHOUT requiring FocalDistanceInMeter property
-        // Sony SDK Focus_Operation works in Manual Focus mode without LiveView
-        Logger::debug("Skipping FocalDistanceInMeter check - not required for manual focus");
+        // CRITICAL FIX #2: Check FocalDistanceInMeter property's enable status
+        // The property must be "enabled" (IsGetEnableCurrentValue = true) for Focus_Operation to work
+        // This is required per Sony SDK documentation and October 31 fix (commit 706786b)
+        CrInt32u focal_distance_codes[] = {
+            SDK::CrDevicePropertyCode::CrDeviceProperty_FocalDistanceInMeter
+        };
+        SDK::CrDeviceProperty* focal_distance_list = nullptr;
+        CrInt32 focal_distance_count = 0;
+
+        auto focal_result = SDK::GetSelectDeviceProperties(
+            device_handle_,
+            1,
+            focal_distance_codes,
+            &focal_distance_list,
+            &focal_distance_count
+        );
+
+        bool focal_distance_enabled = false;
+
+        if (CR_SUCCEEDED(focal_result) && focal_distance_list && focal_distance_count > 0) {
+            // Check if the property is enabled (can be read)
+            focal_distance_enabled = focal_distance_list[0].IsGetEnableCurrentValue();
+
+            if (focal_distance_enabled) {
+                Logger::debug("FocalDistanceInMeter property is enabled and readable");
+
+                // Log current focal distance for debugging
+                auto current_value = focal_distance_list[0].GetCurrentValue();
+                Logger::debug("Current focal distance: " + std::to_string(current_value) + " mm");
+            } else {
+                Logger::warning("FocalDistanceInMeter property is NOT enabled - focus may fail");
+
+                // CRITICAL FIX #3: Check if we're in manual focus mode
+                // Some cameras require manual focus mode for Focus_Operation to work
+                CrInt32u focus_mode_codes[] = {
+                    SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode
+                };
+                SDK::CrDeviceProperty* focus_mode_list = nullptr;
+                CrInt32 focus_mode_count = 0;
+
+                auto mode_result = SDK::GetSelectDeviceProperties(
+                    device_handle_,
+                    1,
+                    focus_mode_codes,
+                    &focus_mode_list,
+                    &focus_mode_count
+                );
+
+                if (CR_SUCCEEDED(mode_result) && focus_mode_list) {
+                    auto current_mode = focus_mode_list[0].GetCurrentValue();
+                    Logger::debug("Current focus mode: 0x" + toHexString(current_mode));
+
+                    // Check if we're NOT in manual focus mode (MF = 0x0001)
+                    if (current_mode != SDK::CrFocusMode::CrFocus_MF) {
+                        Logger::warning("Camera is not in manual focus mode, Focus_Operation may fail");
+                    }
+                    SDK::ReleaseDeviceProperties(device_handle_, focus_mode_list);
+                }
+            }
+
+            SDK::ReleaseDeviceProperties(device_handle_, focal_distance_list);
+        } else {
+            Logger::error("Failed to query FocalDistanceInMeter property - focus will likely fail");
+        }
 
         // CRITICAL FIX #4: Validate and clamp speed to camera's supported range
         // Ensure speed is within the valid range reported by the camera
@@ -472,8 +531,13 @@ public:
                 Logger::error("Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
                 Logger::error("Possible causes:");
                 Logger::error("  1. Camera not in manual focus mode");
-                Logger::error("  2. Camera in an incompatible shooting mode");
-                Logger::error("  3. Camera body settings may restrict focus control");
+                Logger::error("  2. FocalDistanceInMeter property not enabled");
+                Logger::error("  3. Camera in an incompatible shooting mode");
+                Logger::error("  4. Live view may need to be started first");
+
+                if (!focal_distance_enabled) {
+                    Logger::error("  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
+                }
             }
 
             return false;
