@@ -19,7 +19,18 @@
       "Bash(./gradlew assembleDebug:*)",
       "Bash(adb devices:*)",
       "Bash(adb:*)",
-      "Bash(gh issue edit:*)"
+      "Bash(gh issue edit:*)",
+      "Bash(lsblk:*)",
+      "Bash(ssh:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(if [ ! -f ~/.ssh/id_ed25519 ])",
+      "Bash(then)",
+      "Bash(ssh-keygen:*)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(cat:*)",
+      "Bash(git mv:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

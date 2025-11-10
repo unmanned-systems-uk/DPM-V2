@@ -20,7 +20,9 @@ external/crsdk/
 .idea/
 *.swp
 .gradle/
-.claude/
+
+# Claude Code workflow files (now tracked for consistency)
+# .claude/
 
 # Logs
 logs/
