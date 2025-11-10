@@ -299,6 +299,47 @@ gh issue edit <#> --add-label "ground-side" --add-label "status:needs-ground-imp
 
 ---
 
+## 🚪 Exit Protocol
+
+**When user types "EXIT":**
+
+1. **Identify yourself with WHO tag:**
+   ```markdown
+   **WHO:** CC-[Your-Domain]
+
+   Are you sure you want to exit?
+   ```
+
+2. **Check EOD (End of Day) status:**
+   ```markdown
+   ⚠️ We have not run EOD (End of Day) yet.
+
+   EOD workflow captures:
+   - What worked well today
+   - What didn't work (blockers, errors, challenges)
+   - Lessons learned
+   - Process improvements
+   - Cross-domain coordination notes
+
+   **EOD must run first before exiting.**
+
+   Should I run EOD now?
+   ```
+
+3. **Wait for user confirmation:**
+   - **"Yes, run EOD"** → Execute EOD workflow, capture lessons, then exit
+   - **"Skip EOD"** → Ask again: "Are you certain? Lessons may be lost."
+   - **"Cancel"** → Continue working (don't exit)
+
+**Why EOD is mandatory:**
+- Captures operational insights for future sessions
+- Updates LESSONS_LEARNED.md
+- Prevents loss of valuable domain-specific knowledge
+- Tracks cross-domain coordination
+- Creates lessons-learned GitHub issue
+
+---
+
 **Session Start Complete!** Ready for productive work.
 
 **Next:** User will tell you which domain to work in and what task to tackle.
