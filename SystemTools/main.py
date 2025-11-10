@@ -239,6 +239,12 @@ class DiagnosticApp:
                 except Exception as e:
                     logger.error(f"Error in command tab callback: {e}")
 
+            # Call camera tab's response handler (Issue #55 - show responses in debug panel)
+            try:
+                self.camera_tab.handle_response(message)
+            except Exception as e:
+                logger.error(f"Error in camera tab response handler: {e}")
+
             # Add to protocol inspector
             self.protocol_tab.add_message(message, "received")
 

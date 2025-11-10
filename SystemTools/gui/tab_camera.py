@@ -455,6 +455,55 @@ class CameraDashboardTab(ttk.Frame):
         self.tcp_client = tcp_client
         logger.debug("Camera tab: TCP client reference set")
 
+    def handle_response(self, message: Dict[str, Any]):
+        """Handle response messages from Air-Side (for debug mode)"""
+        if not self.debug_mode_enabled:
+            return
+
+        msg_type = message.get("message_type", "unknown")
+
+        # Only handle responses in debug mode
+        if msg_type == "response":
+            payload = message.get("payload", {})
+            status = payload.get("status", "unknown")
+
+            if status == "error":
+                # Display error response
+                error_code = payload.get("error_code", "N/A")
+                error_msg = payload.get("message", "Unknown error")
+
+                self._log_diagnostic(f"❌ ERROR RESPONSE from Air-Side:", "error")
+                self._log_diagnostic(f"   Status: {status}", "error")
+                self._log_diagnostic(f"   Error Code: {error_code}", "error")
+                self._log_diagnostic(f"   Message: {error_msg}", "error")
+                self._log_diagnostic(f"   Full Response: {json.dumps(message, indent=2)}", "error")
+
+                # Calculate response time
+                if self.last_command_time:
+                    response_time = (datetime.now() - self.last_command_time).total_seconds() * 1000
+                    self._log_diagnostic(f"   Response Time: {response_time:.1f} ms", "info")
+
+            elif status == "success" or status == "ok":
+                # Display success response
+                self._log_diagnostic(f"✅ SUCCESS RESPONSE from Air-Side:", "success")
+                self._log_diagnostic(f"   Status: {status}", "success")
+
+                # Show relevant payload data
+                if "property" in payload:
+                    self._log_diagnostic(f"   Property: {payload.get('property')}", "success")
+                    self._log_diagnostic(f"   Value: {payload.get('value')}", "success")
+
+                self._log_diagnostic(f"   Full Response: {json.dumps(message, indent=2)}", "info")
+
+                # Calculate response time
+                if self.last_command_time:
+                    response_time = (datetime.now() - self.last_command_time).total_seconds() * 1000
+                    self._log_diagnostic(f"   Response Time: {response_time:.1f} ms", "info")
+            else:
+                # Unknown status
+                self._log_diagnostic(f"⚠️ RESPONSE from Air-Side (status: {status}):", "warning")
+                self._log_diagnostic(f"   Full Response: {json.dumps(message, indent=2)}", "info")
+
     def _toggle_debug_mode(self):
         """Toggle debug mode on/off"""
         self.debug_mode_enabled = self.debug_mode_var.get()
