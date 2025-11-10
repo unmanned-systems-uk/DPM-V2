@@ -36,14 +36,40 @@ class CameraDashboardTab(ttk.Frame):
         self.popup_diagnostics_window = None
         self.popup_diagnostics_text = None
 
+        # Scrollable frame reference
+        self.scrollable_frame = None
+
         self._create_ui()
 
         logger.debug("Camera Dashboard tab initialized")
 
     def _create_ui(self):
-        """Create UI elements"""
+        """Create UI elements with scrollable container"""
+        # Create canvas and scrollbar for scrollable content
+        canvas = tk.Canvas(self, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Enable mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # All content goes in scrollable_frame instead of self
         # Top: Camera connection status
-        status_frame = ttk.LabelFrame(self, text="Camera Status", padding=10)
+        status_frame = ttk.LabelFrame(self.scrollable_frame, text="Camera Status", padding=10)
         status_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Connection indicator
@@ -82,7 +108,7 @@ class CameraDashboardTab(ttk.Frame):
         self.shots_label.pack(side=tk.LEFT, padx=5)
 
         # Exposure Triangle (Large Display)
-        exposure_frame = ttk.LabelFrame(self, text="Exposure Triangle", padding=10)
+        exposure_frame = ttk.LabelFrame(self.scrollable_frame, text="Exposure Triangle", padding=10)
         exposure_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Create three columns for shutter, aperture, ISO
@@ -111,8 +137,8 @@ class CameraDashboardTab(ttk.Frame):
         self.iso_label.pack(pady=5)
 
         # Other Properties
-        props_frame = ttk.LabelFrame(self, text="Camera Properties", padding=10)
-        props_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        props_frame = ttk.LabelFrame(self.scrollable_frame, text="Camera Properties", padding=10)
+        props_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Create grid for properties
         props_grid = ttk.Frame(props_frame)
@@ -152,7 +178,7 @@ class CameraDashboardTab(ttk.Frame):
         self._create_debug_mode_section()
 
         # Bottom: Controls
-        control_frame = ttk.Frame(self)
+        control_frame = ttk.Frame(self.scrollable_frame)
         control_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Refresh button
@@ -185,8 +211,8 @@ class CameraDashboardTab(ttk.Frame):
     def _create_debug_mode_section(self):
         """Create debug mode section with camera controls (Issue #55)"""
         # Debug Mode Frame
-        debug_frame = ttk.LabelFrame(self, text="Camera Controls (Debug Mode)", padding=10)
-        debug_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        debug_frame = ttk.LabelFrame(self.scrollable_frame, text="Camera Controls (Debug Mode)", padding=10)
+        debug_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Debug Mode Toggle
         toggle_frame = ttk.Frame(debug_frame)
@@ -225,13 +251,13 @@ class CameraDashboardTab(ttk.Frame):
 
         # Diagnostics Display (Issue #55 - expandable with copy support)
         diag_frame = ttk.LabelFrame(self.controls_container, text="Diagnostics Output", padding=5)
-        diag_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        diag_frame.pack(fill=tk.X, pady=(10, 0))
 
-        # Diagnostics text area - larger, expandable, selectable
-        self.diagnostics_text = scrolledtext.ScrolledText(diag_frame, height=20, width=100,
+        # Diagnostics text area - fixed height to ensure buttons visible
+        self.diagnostics_text = scrolledtext.ScrolledText(diag_frame, height=15, width=100,
                                                           font=('Consolas', 9), wrap=tk.WORD,
                                                           state='normal')  # Enable text selection
-        self.diagnostics_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.diagnostics_text.pack(fill=tk.X, padx=5, pady=5)
 
         # Configure text tags for colored output
         self.diagnostics_text.tag_config("success", foreground="green")
