@@ -7,8 +7,8 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.14.2"
-VERSION_NAME = "Camera Debug Panel - Usability Improvements"
+VERSION = "1.15.0"
+VERSION_NAME = "Pop-Out Diagnostics Window - Separate Terminal Viewer"
 BUILD_DATE = "2025-11-10"
 
 # Build metadata

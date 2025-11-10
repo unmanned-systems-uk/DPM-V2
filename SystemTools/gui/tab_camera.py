@@ -32,6 +32,10 @@ class CameraDashboardTab(ttk.Frame):
         self.last_command_time = None
         self.last_response_time = None
 
+        # Pop-out diagnostics window
+        self.popup_diagnostics_window = None
+        self.popup_diagnostics_text = None
+
         self._create_ui()
 
         logger.debug("Camera Dashboard tab initialized")
@@ -245,9 +249,11 @@ class CameraDashboardTab(ttk.Frame):
                   command=self._copy_diagnostics_to_clipboard).pack(side=tk.LEFT, padx=5)
         ttk.Button(diag_button_frame, text="Copy Selection to Clipboard",
                   command=self._copy_selection_to_clipboard).pack(side=tk.LEFT, padx=5)
+        ttk.Button(diag_button_frame, text="🗗 Pop Out Diagnostics",
+                  command=self._pop_out_diagnostics).pack(side=tk.LEFT, padx=5)
 
         # Info label
-        ttk.Label(diag_button_frame, text="💡 Tip: Select text with mouse to copy",
+        ttk.Label(diag_button_frame, text="💡 Tip: Select text with mouse to copy | Pop out for separate window",
                  font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.RIGHT, padx=5)
 
     def _create_focus_controls(self, parent):
@@ -531,6 +537,14 @@ class CameraDashboardTab(ttk.Frame):
     def _clear_diagnostics(self):
         """Clear diagnostics output"""
         self.diagnostics_text.delete(1.0, tk.END)
+
+        # Also clear popup window if it exists
+        if self.popup_diagnostics_text:
+            try:
+                self.popup_diagnostics_text.delete(1.0, tk.END)
+            except:
+                pass
+
         logger.debug("Camera diagnostics cleared")
 
     def _copy_diagnostics_to_clipboard(self):
@@ -576,13 +590,125 @@ class CameraDashboardTab(ttk.Frame):
             self._log_diagnostic(f"ERROR: Failed to copy selection: {e}", "error")
             logger.error(f"Failed to copy selection to clipboard: {e}")
 
+    def _pop_out_diagnostics(self):
+        """Pop out diagnostics into a separate window"""
+        # If window already exists, just bring it to front
+        if self.popup_diagnostics_window and self.popup_diagnostics_window.winfo_exists():
+            self.popup_diagnostics_window.lift()
+            self.popup_diagnostics_window.focus_force()
+            logger.debug("Pop-out diagnostics window brought to front")
+            return
+
+        # Create new popup window
+        self.popup_diagnostics_window = tk.Toplevel(self)
+        self.popup_diagnostics_window.title("DPM Camera Debug - Diagnostics Output")
+        self.popup_diagnostics_window.geometry("900x600")
+
+        # Set window icon (same as main window if available)
+        try:
+            self.popup_diagnostics_window.iconbitmap(self.master.master.master.iconbitmap())
+        except:
+            pass
+
+        # Create main frame
+        main_frame = ttk.Frame(self.popup_diagnostics_window, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title label
+        title_label = ttk.Label(main_frame, text="📊 Camera Debug Diagnostics Output",
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 10))
+
+        # Diagnostics text area
+        self.popup_diagnostics_text = scrolledtext.ScrolledText(main_frame, height=30, width=120,
+                                                                font=('Consolas', 9), wrap=tk.WORD,
+                                                                state='normal')
+        self.popup_diagnostics_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Configure text tags for colored output (same as main panel)
+        self.popup_diagnostics_text.tag_config("success", foreground="green")
+        self.popup_diagnostics_text.tag_config("error", foreground="red")
+        self.popup_diagnostics_text.tag_config("info", foreground="blue")
+        self.popup_diagnostics_text.tag_config("warning", foreground="orange")
+
+        # Copy existing diagnostics content to popup
+        current_content = self.diagnostics_text.get(1.0, tk.END)
+        self.popup_diagnostics_text.insert(1.0, current_content)
+
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+
+        ttk.Button(button_frame, text="Clear All",
+                  command=self._clear_diagnostics).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Copy All to Clipboard",
+                  command=self._copy_popup_to_clipboard).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Copy Selection to Clipboard",
+                  command=self._copy_popup_selection_to_clipboard).pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(button_frame, text="💡 Diagnostics are synchronized with main panel",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.RIGHT, padx=5)
+
+        # Handle window close
+        self.popup_diagnostics_window.protocol("WM_DELETE_WINDOW", self._close_popup_diagnostics)
+
+        logger.info("Pop-out diagnostics window opened")
+
+    def _close_popup_diagnostics(self):
+        """Close pop-out diagnostics window"""
+        if self.popup_diagnostics_window:
+            self.popup_diagnostics_window.destroy()
+            self.popup_diagnostics_window = None
+            self.popup_diagnostics_text = None
+            logger.info("Pop-out diagnostics window closed")
+
+    def _copy_popup_to_clipboard(self):
+        """Copy all text from popup to clipboard"""
+        if not self.popup_diagnostics_text:
+            return
+
+        try:
+            all_text = self.popup_diagnostics_text.get(1.0, tk.END)
+            self.clipboard_clear()
+            self.clipboard_append(all_text)
+            self.update()
+            logger.info("Popup diagnostics copied to clipboard (all text)")
+        except Exception as e:
+            logger.error(f"Failed to copy popup diagnostics: {e}")
+
+    def _copy_popup_selection_to_clipboard(self):
+        """Copy selected text from popup to clipboard"""
+        if not self.popup_diagnostics_text:
+            return
+
+        try:
+            if self.popup_diagnostics_text.tag_ranges(tk.SEL):
+                selected_text = self.popup_diagnostics_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+                self.update()
+                logger.info("Popup diagnostics copied to clipboard (selection)")
+        except Exception as e:
+            logger.error(f"Failed to copy popup selection: {e}")
+
     def _log_diagnostic(self, message: str, level: str = "info"):
         """Log message to diagnostics panel with timestamp and color"""
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         formatted_message = f"[{timestamp}] {message}\n"
 
+        # Write to main panel
         self.diagnostics_text.insert(tk.END, formatted_message, level)
         self.diagnostics_text.see(tk.END)
+
+        # Also write to popup window if it exists
+        if self.popup_diagnostics_text:
+            try:
+                self.popup_diagnostics_text.insert(tk.END, formatted_message, level)
+                self.popup_diagnostics_text.see(tk.END)
+            except:
+                # Window might have been closed
+                self.popup_diagnostics_text = None
+                self.popup_diagnostics_window = None
 
     def _send_command_with_diagnostics(self, command_name: str, message: str):
         """Send command via TCP with automated diagnostics"""
