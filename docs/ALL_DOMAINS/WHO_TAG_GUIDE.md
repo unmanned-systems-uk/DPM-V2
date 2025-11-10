@@ -565,10 +565,106 @@ Tested with Sony A7S III camera. Focus distance displays correctly.
 
 ---
 
+## 🔴 CRITICAL: Branch Workflow & Issue Closure Rules
+
+**Date Established:** 2025-11-10
+**Severity:** 🔴 **MANDATORY** - Must be followed by all domains
+
+### Rule 1: Branch Workflow for ALL Code Changes
+
+**ALWAYS create a branch for fixes/features:**
+```bash
+# Create branch
+git checkout -b fix/issue-XX-description
+
+# Work and test on branch
+git add .
+git commit -m "[DOMAIN][FIX] Issue #XX: Description"
+
+# After AI + User testing + User approval
+git checkout main
+git merge fix/issue-XX-description
+git push origin main
+```
+
+**❌ NEVER commit directly to main for:**
+- Bug fixes
+- New features
+- Protocol changes
+- Refactoring
+
+**✅ OK to commit directly to main:**
+- Documentation updates (non-code)
+- README changes
+- Comments/clarifications
+
+### Rule 2: Issue Closure Policy
+
+**❌ NEVER close issues until:**
+1. 100% tested by AI agent
+2. 100% tested by User
+3. User explicit approval received
+
+**Issue lifecycle:**
+```
+OPEN → In Progress → Testing (AI) → Testing (User) → User Approves → CLOSED
+```
+
+### Rule 3: Issue Labeling Convention
+
+**✅ Generate issues with [FIX] label**
+**❌ Do NOT change to [FIXED] when resolved**
+
+Maintains clear audit trail of original issue type.
+
+### Rule 4: Follow Explicit User Instructions
+
+When user provides explicit instruction:
+1. Acknowledge instruction verbatim
+2. Confirm understanding
+3. Execute EXACTLY as instructed
+4. Verify execution completed
+5. Report results
+
+**Example:**
+```markdown
+**WHO:** CC-Air-Side
+
+User instruction acknowledged: "Roll back to pre-1st November"
+
+Executing:
+1. git log --since="2025-10-30" --until="2025-11-02"
+2. Found commit abc123 from 2025-10-31
+3. git checkout abc123
+4. Testing Manual Focus...
+5. Manual Focus confirmed working
+
+Rollback complete. Ready for testing.
+```
+
+### Why These Rules Matter
+
+**Lesson from Manual Focus debugging:**
+- Multiple issues closed prematurely
+- Code not rolled back as requested
+- Main branch became unstable
+- Many hours wasted
+
+**These rules prevent:**
+- ❌ Premature issue closure
+- ❌ Untested code in production
+- ❌ Instructions not followed
+- ❌ Main branch instability
+
+**Full details:** `docs/ALL_DOMAINS/LESSONS_LEARNED.md` - Branch Workflow section
+
+---
+
 *For questions or suggestions about WHO tags, create an issue with label: workflow*
 
 **Related Documents:**
 - `docs/CC_READ_THIS_FIRST.md` - WHO Tag Protocol section
+- `docs/ALL_DOMAINS/LESSONS_LEARNED.md` - Branch Workflow section (v1.2)
 - `.github/ISSUE_TEMPLATE/` - All templates include WHO tag fields
 - Issue #24 - WHO Tag Enhancement (parent issue)
 - Issue #21 - Historical Learning System (related)

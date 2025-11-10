@@ -1,7 +1,7 @@
 # DPM-V2 Lessons Learned Registry
 *Maintained by: CC-Project-Manager*
-*Last Updated: 2025-11-08*
-*Version: 1.1*
+*Last Updated: 2025-11-10*
+*Version: 1.2*
 
 ## 🎯 Purpose
 
@@ -57,6 +57,9 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 ## Quick Reference Index
 
 ### By Topic
+- **🔴 Branch Workflow (MANDATORY):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Issue Closure Rules:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Explicit Instructions Not Followed:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **Focus Distance Issues:** → [Focus & Camera Control](#focus-distance)
 - **Manual Focus Problems:** → [Focus & Camera Control](#manual-focus)
 - **AF Hold in MF Mode:** → [Focus & Camera Control](#resolved---af-hold-not-supported-in-manual-focus)
@@ -639,6 +642,183 @@ ls -l /dev/bus/usb/004/019
 
 ## Workflow & Process
 
+### 🔴 CRITICAL: Branch Workflow (NEW MANDATORY RULE)
+
+**Date Established:** 2025-11-10
+**Severity:** 🔴 **CRITICAL** - Protects main branch integrity
+**Source:** Manual Focus debugging experience (Issues #2, #22, #40, #48)
+
+#### ❌ What Was Happening (Anti-Pattern)
+
+**Problem: Working directly on main branch**
+- **What:** All fixes and features committed directly to `main`
+- **Why it failed:**
+  - Untested code merged to production immediately
+  - No easy rollback when bugs discovered
+  - Main branch unstable during active development
+  - User testing happened AFTER code was in production
+- **Impact:** Many hours lost debugging, unstable production code
+
+**Problem: Closing issues prematurely**
+- **What:** Issues closed before complete testing by both AI and User
+- **Result:** Bugs not caught, issues reopened, rework required
+- **Example:** Manual Focus issue - closed multiple times, still broken
+
+**Problem: Explicit instructions not followed**
+- **What:** User: "Roll back Air-Side code to pre-1st November"
+- **What happened:** Air-Side did NOT roll back code
+- **Result:** Many hours wasted debugging current code when known-good version existed
+- **Impact:** HIGH - significant time loss, user frustration
+
+#### ✅ NEW MANDATORY RULES
+
+**Rule 1: Issue Labeling Convention**
+```markdown
+✅ Generate issues with [FIX] label/tag
+❌ Do NOT change to [FIXED] when resolved
+```
+- **Why:** Maintains clear audit trail of original issue type
+- **Example:** Issue remains `[FIX]` even after resolution
+
+**Rule 2: NEVER Close Issues Until 100% Tested + Approved**
+```markdown
+❌ NEVER close issues until:
+  1. 100% tested by AI agent (complete test scenarios)
+  2. 100% tested by User (real-world usage)
+  3. User explicit approval received ("This is fixed, close it")
+
+✅ Issue lifecycle:
+  OPEN → In Progress → Testing (AI) → Testing (User) → User Approves → CLOSED
+```
+- **Why:** Prevents premature closure, ensures quality
+- **Enforcement:** PM checks issue status before any closure
+
+**Rule 3: Branch Workflow for ALL Fixes/Features (MANDATORY)**
+```markdown
+✅ ALWAYS create branch for fixes/features:
+  1. Create branch: git checkout -b fix/issue-XX-description
+  2. Implement and test on branch
+  3. AI agent testing complete
+  4. User testing complete
+  5. User approval received
+  6. THEN merge to main: git merge fix/issue-XX-description
+  7. Push to origin
+
+❌ NEVER commit directly to main for:
+  - Bug fixes
+  - New features
+  - Protocol changes
+  - Refactoring
+
+✅ OK to commit directly to main:
+  - Documentation updates (non-code)
+  - README changes
+  - Comments/clarifications
+```
+
+**Branch Naming Convention:**
+- Fixes: `fix/issue-XX-short-description`
+- Features: `feature/issue-XX-short-description`
+- Refactoring: `refactor/issue-XX-short-description`
+
+**Example Workflow:**
+```bash
+# Start work on Issue #40
+git checkout -b fix/issue-40-manual-focus-regression
+
+# Work, test, iterate
+git add .
+git commit -m "[AIR-SIDE][FIX] Issue #40: Fix manual focus regression"
+
+# AI testing complete, User testing complete, User approves
+git checkout main
+git merge fix/issue-40-manual-focus-regression
+git push origin main
+
+# Keep branch for reference
+# Don't delete branches until issue closed for 30 days
+```
+
+**Rule 4: Follow Explicit User Instructions**
+```markdown
+✅ When user provides explicit instruction:
+  1. Acknowledge instruction verbatim
+  2. Confirm understanding
+  3. Execute EXACTLY as instructed
+  4. Verify execution completed
+  5. Report results
+
+❌ NEVER:
+  - Assume user meant something else
+  - Skip steps thinking they're unnecessary
+  - Implement partial solution
+  - Report completion without verification
+```
+
+**Example of Failure:**
+```markdown
+User: "Roll back Air-Side code to pre-1st November"
+❌ Wrong: Continue debugging current code
+✅ Right:
+  1. "Acknowledged: Rolling back to pre-1st November"
+  2. git log --since="2025-11-01" --until="2025-11-02"
+  3. Find commit hash from Oct 31st or earlier
+  4. git checkout <commit-hash>
+  5. Test that Manual Focus works
+  6. Report: "Rolled back to commit <hash> from <date>. Manual Focus working."
+```
+
+#### 🏗️ Benefits of Branch Workflow
+
+**Protects Main Branch:**
+- Main always in known-good state
+- Easy rollback: just don't merge
+- User can test on branch before production merge
+
+**Enables Parallel Work:**
+- Multiple issues can be worked on different branches
+- Air-Side and Ground-Side can work independently
+- No conflicts in main
+
+**Facilitates Testing:**
+- Branch exists until testing complete
+- Easy to test, revert, retry
+- Known-good state preserved in main
+
+**Clear History:**
+- Git history shows when features merged
+- Can see what changed together
+- Easier to bisect bugs
+
+#### 📊 Implementation Checklist
+
+**For All Future Work:**
+- [ ] Create issue first (always)
+- [ ] Create branch from main
+- [ ] Work and test on branch
+- [ ] AI agent testing complete
+- [ ] User testing complete
+- [ ] User approval received
+- [ ] Merge to main
+- [ ] Push to origin
+- [ ] Keep branch for 30 days post-closure
+
+**For PM Role:**
+- [ ] Enforce branch workflow in all domains
+- [ ] Check branch exists before reviewing PRs
+- [ ] Verify testing complete before merge approval
+- [ ] Update workflow documentation
+- [ ] Add branch workflow to session checklists
+
+#### 🔗 Related
+
+- Manual Focus Issues: #2, #22, #40, #48
+- Known-Good State: Pre-1st November 2025 (Manual Focus working)
+- Who: All domains must follow this workflow
+- Enforcement: CC-Project-Manager oversees compliance
+
+---
+
 ### Historical Learning
 
 **Related Issue:** #21
@@ -929,6 +1109,7 @@ ping 192.168.144.11  # H16 Ground-Side
 |---------|------|---------|-----|
 | 1.0 | 2025-11-07 | Initial creation | CC-Project-Manager |
 | 1.1 | 2025-11-08 | Merged Air-Side deployment lessons (CrAdapter, USB, Static IP, AF Hold) | CC-Project-Manager |
+| 1.2 | 2025-11-10 | **CRITICAL:** Added Branch Workflow mandatory rules, Issue closure policy, Explicit instruction following | CC-Project-Manager |
 
 ---
 
