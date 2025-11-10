@@ -219,14 +219,15 @@ class CameraDashboardTab(ttk.Frame):
         controls_notebook.add(other_tab, text="Other Controls")
         self._create_other_controls(other_tab)
 
-        # Diagnostics Display
+        # Diagnostics Display (Issue #55 - expandable with copy support)
         diag_frame = ttk.LabelFrame(self.controls_container, text="Diagnostics Output", padding=5)
         diag_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        # Diagnostics text area
-        self.diagnostics_text = scrolledtext.ScrolledText(diag_frame, height=10, width=80,
-                                                          font=('Consolas', 9), wrap=tk.WORD)
-        self.diagnostics_text.pack(fill=tk.BOTH, expand=True)
+        # Diagnostics text area - larger, expandable, selectable
+        self.diagnostics_text = scrolledtext.ScrolledText(diag_frame, height=20, width=100,
+                                                          font=('Consolas', 9), wrap=tk.WORD,
+                                                          state='normal')  # Enable text selection
+        self.diagnostics_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Configure text tags for colored output
         self.diagnostics_text.tag_config("success", foreground="green")
@@ -234,9 +235,20 @@ class CameraDashboardTab(ttk.Frame):
         self.diagnostics_text.tag_config("info", foreground="blue")
         self.diagnostics_text.tag_config("warning", foreground="orange")
 
-        # Clear diagnostics button
-        ttk.Button(diag_frame, text="Clear Diagnostics",
-                  command=self._clear_diagnostics).pack(pady=5)
+        # Button frame for diagnostics controls
+        diag_button_frame = ttk.Frame(diag_frame)
+        diag_button_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(diag_button_frame, text="Clear Diagnostics",
+                  command=self._clear_diagnostics).pack(side=tk.LEFT, padx=5)
+        ttk.Button(diag_button_frame, text="Copy All to Clipboard",
+                  command=self._copy_diagnostics_to_clipboard).pack(side=tk.LEFT, padx=5)
+        ttk.Button(diag_button_frame, text="Copy Selection to Clipboard",
+                  command=self._copy_selection_to_clipboard).pack(side=tk.LEFT, padx=5)
+
+        # Info label
+        ttk.Label(diag_button_frame, text="💡 Tip: Select text with mouse to copy",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.RIGHT, padx=5)
 
     def _create_focus_controls(self, parent):
         """Create focus control buttons"""
@@ -520,6 +532,49 @@ class CameraDashboardTab(ttk.Frame):
         """Clear diagnostics output"""
         self.diagnostics_text.delete(1.0, tk.END)
         logger.debug("Camera diagnostics cleared")
+
+    def _copy_diagnostics_to_clipboard(self):
+        """Copy all diagnostics text to clipboard"""
+        try:
+            # Get all text from diagnostics panel
+            all_text = self.diagnostics_text.get(1.0, tk.END)
+
+            # Clear clipboard and set new content
+            self.clipboard_clear()
+            self.clipboard_append(all_text)
+
+            # Update clipboard to make it persistent
+            self.update()
+
+            self._log_diagnostic("✓ All diagnostics copied to clipboard", "info")
+            logger.info("Diagnostics copied to clipboard (all text)")
+        except Exception as e:
+            self._log_diagnostic(f"ERROR: Failed to copy to clipboard: {e}", "error")
+            logger.error(f"Failed to copy diagnostics to clipboard: {e}")
+
+    def _copy_selection_to_clipboard(self):
+        """Copy selected text to clipboard"""
+        try:
+            # Check if there's a selection
+            if self.diagnostics_text.tag_ranges(tk.SEL):
+                # Get selected text
+                selected_text = self.diagnostics_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+
+                # Clear clipboard and set new content
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+
+                # Update clipboard to make it persistent
+                self.update()
+
+                self._log_diagnostic("✓ Selected text copied to clipboard", "info")
+                logger.info("Diagnostics copied to clipboard (selection)")
+            else:
+                self._log_diagnostic("⚠ No text selected. Select text first, then click Copy Selection.", "warning")
+                logger.warning("No text selected for clipboard copy")
+        except Exception as e:
+            self._log_diagnostic(f"ERROR: Failed to copy selection: {e}", "error")
+            logger.error(f"Failed to copy selection to clipboard: {e}")
 
     def _log_diagnostic(self, message: str, level: str = "info"):
         """Log message to diagnostics panel with timestamp and color"""
