@@ -1,14 +1,18 @@
 """
 Camera Dashboard Tab for DPM Diagnostic Tool
 Real-time camera status and property monitoring
+Enhanced with Camera Control Testing Panel (Issue #55)
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, scrolledtext
 from typing import Optional, Dict, Any
+from datetime import datetime
+import json
 
 from utils.logger import logger
 from utils.protocol_loader import protocol
+from network.protocol import protocol_msg
 
 
 class CameraDashboardTab(ttk.Frame):
@@ -21,6 +25,12 @@ class CameraDashboardTab(ttk.Frame):
         self.camera_properties = {}
         self.auto_refresh_enabled = False
         self.refresh_interval = 5000  # ms
+
+        # Debug mode (Issue #55)
+        self.debug_mode_enabled = False
+        self.tcp_client = None
+        self.last_command_time = None
+        self.last_response_time = None
 
         self._create_ui()
 
@@ -134,6 +144,9 @@ class CameraDashboardTab(ttk.Frame):
         self.flash_label = ttk.Label(props_grid, text="N/A", font=('Arial', 10))
         self.flash_label.grid(row=2, column=3, sticky='w', padx=5, pady=5)
 
+        # Debug Mode Section (Issue #55)
+        self._create_debug_mode_section()
+
         # Bottom: Controls
         control_frame = ttk.Frame(self)
         control_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -164,6 +177,163 @@ class CameraDashboardTab(ttk.Frame):
         self.conn_indicator.delete("all")
         color = "green" if connected else "gray"
         self.conn_indicator.create_oval(2, 2, 18, 18, fill=color, outline=color)
+
+    def _create_debug_mode_section(self):
+        """Create debug mode section with camera controls (Issue #55)"""
+        # Debug Mode Frame
+        debug_frame = ttk.LabelFrame(self, text="Camera Controls (Debug Mode)", padding=10)
+        debug_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        # Debug Mode Toggle
+        toggle_frame = ttk.Frame(debug_frame)
+        toggle_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.debug_mode_var = tk.BooleanVar(value=False)
+        debug_check = ttk.Checkbutton(toggle_frame, text="Enable Debug Mode",
+                                      variable=self.debug_mode_var,
+                                      command=self._toggle_debug_mode)
+        debug_check.pack(side=tk.LEFT)
+
+        ttk.Label(toggle_frame, text="(Enable to show camera control testing panel)",
+                 font=('Arial', 9, 'italic')).pack(side=tk.LEFT, padx=10)
+
+        # Camera Controls Container (hidden by default)
+        self.controls_container = ttk.Frame(debug_frame)
+
+        # Create notebook for different control categories
+        controls_notebook = ttk.Notebook(self.controls_container)
+        controls_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # Tab 1: Focus Controls
+        focus_tab = ttk.Frame(controls_notebook)
+        controls_notebook.add(focus_tab, text="Focus Controls")
+        self._create_focus_controls(focus_tab)
+
+        # Tab 2: Camera Settings
+        settings_tab = ttk.Frame(controls_notebook)
+        controls_notebook.add(settings_tab, text="Camera Settings")
+        self._create_settings_controls(settings_tab)
+
+        # Tab 3: Other Controls
+        other_tab = ttk.Frame(controls_notebook)
+        controls_notebook.add(other_tab, text="Other Controls")
+        self._create_other_controls(other_tab)
+
+        # Diagnostics Display
+        diag_frame = ttk.LabelFrame(self.controls_container, text="Diagnostics Output", padding=5)
+        diag_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+        # Diagnostics text area
+        self.diagnostics_text = scrolledtext.ScrolledText(diag_frame, height=10, width=80,
+                                                          font=('Consolas', 9), wrap=tk.WORD)
+        self.diagnostics_text.pack(fill=tk.BOTH, expand=True)
+
+        # Configure text tags for colored output
+        self.diagnostics_text.tag_config("success", foreground="green")
+        self.diagnostics_text.tag_config("error", foreground="red")
+        self.diagnostics_text.tag_config("info", foreground="blue")
+        self.diagnostics_text.tag_config("warning", foreground="orange")
+
+        # Clear diagnostics button
+        ttk.Button(diag_frame, text="Clear Diagnostics",
+                  command=self._clear_diagnostics).pack(pady=5)
+
+    def _create_focus_controls(self, parent):
+        """Create focus control buttons"""
+        # Focus Near/Far controls
+        focus_frame = ttk.LabelFrame(parent, text="Manual Focus", padding=10)
+        focus_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Speed selector
+        speed_frame = ttk.Frame(focus_frame)
+        speed_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(speed_frame, text="Focus Speed:").pack(side=tk.LEFT, padx=5)
+
+        self.focus_speed_var = tk.IntVar(value=2)
+        for speed, label in [(1, "Slow (1)"), (2, "Medium (2)"), (3, "Fast (3)")]:
+            ttk.Radiobutton(speed_frame, text=label, variable=self.focus_speed_var,
+                           value=speed).pack(side=tk.LEFT, padx=5)
+
+        # Focus buttons
+        button_frame = ttk.Frame(focus_frame)
+        button_frame.pack(fill=tk.X)
+
+        ttk.Button(button_frame, text="Focus Near",
+                  command=lambda: self._send_focus_command("near")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Focus Far",
+                  command=lambda: self._send_focus_command("far")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Focus Stop",
+                  command=lambda: self._send_focus_command("stop")).pack(side=tk.LEFT, padx=5)
+
+        # AF Hold controls
+        af_frame = ttk.LabelFrame(parent, text="Auto Focus Hold", padding=10)
+        af_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        af_button_frame = ttk.Frame(af_frame)
+        af_button_frame.pack(fill=tk.X)
+
+        ttk.Button(af_button_frame, text="AF Hold Press",
+                  command=lambda: self._send_af_hold_command("press")).pack(side=tk.LEFT, padx=5)
+        ttk.Button(af_button_frame, text="AF Hold Release",
+                  command=lambda: self._send_af_hold_command("release")).pack(side=tk.LEFT, padx=5)
+
+    def _create_settings_controls(self, parent):
+        """Create camera settings controls"""
+        settings_frame = ttk.Frame(parent, padding=10)
+        settings_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Property selector
+        prop_frame = ttk.LabelFrame(settings_frame, text="Set Camera Property", padding=10)
+        prop_frame.pack(fill=tk.X, pady=5)
+
+        # Property dropdown
+        select_frame = ttk.Frame(prop_frame)
+        select_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(select_frame, text="Property:").pack(side=tk.LEFT, padx=5)
+        self.property_var = tk.StringVar(value="shutter_speed")
+        property_combo = ttk.Combobox(select_frame, textvariable=self.property_var,
+                                     values=["shutter_speed", "aperture", "iso",
+                                            "white_balance", "focus_mode", "file_format"],
+                                     width=20, state='readonly')
+        property_combo.pack(side=tk.LEFT, padx=5)
+
+        # Value entry
+        ttk.Label(select_frame, text="Value:").pack(side=tk.LEFT, padx=(20, 5))
+        self.property_value_var = tk.StringVar()
+        value_entry = ttk.Entry(select_frame, textvariable=self.property_value_var, width=20)
+        value_entry.pack(side=tk.LEFT, padx=5)
+
+        # Set button
+        ttk.Button(select_frame, text="Set Property",
+                  command=self._send_set_property_command).pack(side=tk.LEFT, padx=5)
+
+        # Common values helper
+        helper_frame = ttk.Frame(prop_frame)
+        helper_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(helper_frame, text="Quick Values:", font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
+        ttk.Label(helper_frame, text="Shutter: 1/125, 1/250, 1/500 | ISO: 100, 200, 400, 800 | Aperture: 2.8, 4, 5.6, 8",
+                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=5)
+
+    def _create_other_controls(self, parent):
+        """Create other control buttons"""
+        controls_frame = ttk.Frame(parent, padding=10)
+        controls_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Camera commands
+        camera_frame = ttk.LabelFrame(controls_frame, text="Camera Commands", padding=10)
+        camera_frame.pack(fill=tk.X, pady=5)
+
+        button_frame = ttk.Frame(camera_frame)
+        button_frame.pack(fill=tk.X)
+
+        ttk.Button(button_frame, text="Take Photo (Single)",
+                  command=self._send_capture_command).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(button_frame, text="Get Properties",
+                  command=self._send_get_properties_command).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(button_frame, text="Get Status",
+                  command=self._send_get_status_command).pack(side=tk.LEFT, padx=5, pady=5)
 
     def update_camera_status(self, status_data: Dict[str, Any]):
         """Update camera status from UDP status broadcast"""
@@ -277,3 +447,114 @@ class CameraDashboardTab(ttk.Frame):
         if self.auto_refresh_enabled:
             self._manual_refresh()
             self.after(self.refresh_interval, self._schedule_refresh)
+
+    # Debug Mode Methods (Issue #55)
+
+    def set_tcp_client(self, tcp_client):
+        """Set TCP client reference for sending commands"""
+        self.tcp_client = tcp_client
+        logger.debug("Camera tab: TCP client reference set")
+
+    def _toggle_debug_mode(self):
+        """Toggle debug mode on/off"""
+        self.debug_mode_enabled = self.debug_mode_var.get()
+
+        if self.debug_mode_enabled:
+            logger.info("Camera debug mode ENABLED")
+            self.controls_container.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+            self._log_diagnostic("Debug Mode enabled. Camera control testing panel active.", "info")
+        else:
+            logger.info("Camera debug mode DISABLED")
+            self.controls_container.pack_forget()
+
+    def _clear_diagnostics(self):
+        """Clear diagnostics output"""
+        self.diagnostics_text.delete(1.0, tk.END)
+        logger.debug("Camera diagnostics cleared")
+
+    def _log_diagnostic(self, message: str, level: str = "info"):
+        """Log message to diagnostics panel with timestamp and color"""
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        formatted_message = f"[{timestamp}] {message}\n"
+
+        self.diagnostics_text.insert(tk.END, formatted_message, level)
+        self.diagnostics_text.see(tk.END)
+
+    def _send_command_with_diagnostics(self, command_name: str, message: str):
+        """Send command via TCP with automated diagnostics"""
+        if not self.tcp_client or not self.tcp_client.connected:
+            self._log_diagnostic("ERROR: TCP not connected to Air-Side", "error")
+            logger.warning(f"Cannot send {command_name}: TCP not connected")
+            return
+
+        self._log_diagnostic(f"Sending command: {command_name}", "info")
+        self._log_diagnostic(f"Command JSON: {message}", "info")
+
+        try:
+            self.last_command_time = datetime.now()
+            success = self.tcp_client.send_message(message)
+
+            if success:
+                self._log_diagnostic("Command sent successfully", "success")
+                logger.info(f"Sent {command_name} command")
+            else:
+                self._log_diagnostic("ERROR: Failed to send command", "error")
+                logger.error(f"Failed to send {command_name} command")
+
+        except Exception as e:
+            self._log_diagnostic(f"ERROR: Exception sending command: {e}", "error")
+            logger.error(f"Exception sending {command_name}: {e}")
+
+    def _send_focus_command(self, action: str):
+        """Send camera.focus command"""
+        speed = self.focus_speed_var.get()
+        self._log_diagnostic(f"=== Focus Command: action={action}, speed={speed} ===", "info")
+
+        message = protocol_msg.create_camera_focus(action, speed)
+        self._send_command_with_diagnostics(f"camera.focus({action})", message)
+
+    def _send_af_hold_command(self, state: str):
+        """Send camera.auto_focus_hold command"""
+        self._log_diagnostic(f"=== AF Hold Command: state={state} ===", "info")
+
+        message = protocol_msg.create_camera_auto_focus_hold(state)
+        self._send_command_with_diagnostics(f"camera.auto_focus_hold({state})", message)
+
+    def _send_set_property_command(self):
+        """Send camera.set_property command"""
+        property_name = self.property_var.get()
+        property_value = self.property_value_var.get()
+
+        if not property_value:
+            self._log_diagnostic("ERROR: Property value is empty", "error")
+            return
+
+        self._log_diagnostic(f"=== Set Property: {property_name} = {property_value} ===", "info")
+
+        message = protocol_msg.create_camera_set_property(property_name, property_value)
+        self._send_command_with_diagnostics(f"camera.set_property({property_name})", message)
+
+    def _send_capture_command(self):
+        """Send camera.capture command"""
+        self._log_diagnostic("=== Capture Photo Command ===", "info")
+
+        message = protocol_msg.create_camera_capture("single")
+        self._send_command_with_diagnostics("camera.capture", message)
+
+    def _send_get_properties_command(self):
+        """Send camera.get_properties command"""
+        self._log_diagnostic("=== Get Properties Command ===", "info")
+
+        # Request all common properties
+        properties = ["shutter_speed", "aperture", "iso", "white_balance",
+                     "focus_mode", "file_format", "drive_mode", "exposure_mode"]
+
+        message = protocol_msg.create_camera_get_properties(properties)
+        self._send_command_with_diagnostics("camera.get_properties", message)
+
+    def _send_get_status_command(self):
+        """Send system.get_status command"""
+        self._log_diagnostic("=== Get Status Command ===", "info")
+
+        message = protocol_msg.create_system_get_status()
+        self._send_command_with_diagnostics("system.get_status", message)

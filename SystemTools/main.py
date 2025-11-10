@@ -216,6 +216,9 @@ class DiagnosticApp:
         # Give command sender tab reference to TCP client
         self.command_tab.set_tcp_client(self.tcp_client)
 
+        # Give camera dashboard tab reference to TCP client (Issue #55)
+        self.camera_tab.set_tcp_client(self.tcp_client)
+
         # Save the command tab's callback so we can chain it
         command_tab_on_message = self.tcp_client.on_message_received
 
