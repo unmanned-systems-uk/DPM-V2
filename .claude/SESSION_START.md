@@ -29,16 +29,23 @@ git status
 gh issue list --repo unmanned-systems-uk/DPM-V2 --state open
 
 # Check issues in progress from last session
-gh issue list --label status:fixing --state open --repo unmanned-systems-uk/DPM-V2
+gh issue list --label status:in-progress --state open --repo unmanned-systems-uk/DPM-V2
+
+# Check completed issues awaiting closure
+gh issue list --label status:complete --state open --repo unmanned-systems-uk/DPM-V2
 
 # Check recent commits
 git log --oneline -5
 ```
 
-**⚠️ If you see issues with `status:fixing` label:**
+**⚠️ If you see issues with `status:in-progress` label:**
 - These are works-in-progress from previous session
 - Resume these first before starting new work
 - Check issue comments for latest status
+
+**⚠️ If you see issues with `status:complete` label:**
+- These are done but waiting for user approval to close
+- Review and ask user if ready to close
 
 ### 4. Identify Your Domain
 DPM-V2 has a **three-domain + PM architecture:**
@@ -281,15 +288,18 @@ gh issue list --state open       # View open issues
 
 **During Work:**
 ```bash
-# Start work on issue
+# Start work on issue (change title AND label immediately)
+gh issue edit <#> --title "[FIXING] Issue title" --add-label "status:in-progress"
 gh issue comment <#> --body "**WHO:** CC-[Domain]\n\nStarting work on [task]"
-gh issue edit <#> --add-label "status:in-progress"
 
 # Update progress
 gh issue comment <#> --body "**WHO:** CC-[Domain]\n\nProgress update: [status]"
 
-# Complete work
-gh issue comment <#> --body "**WHO:** CC-[Domain]\n\nImplementation complete. Testing required: [instructions]"
+# Complete work (AI suggests change to complete)
+gh issue comment <#> --body "**WHO:** CC-[Domain]\n\nImplementation complete. Testing:\n✅ AI testing: Complete\n✅ User testing: [status]\n\nSuggestion: Change to [FIXED] + status:complete?"
+
+# After user confirms (change title AND label)
+gh issue edit <#> --title "[FIXED] Issue title" --add-label "status:complete" --remove-label "status:in-progress"
 ```
 
 **Session End:**
