@@ -1,7 +1,7 @@
 # DPM-V2 Lessons Learned Registry
 *Maintained by: CC-Project-Manager*
 *Last Updated: 2025-11-10*
-*Version: 1.2*
+*Version: 1.3*
 
 ## 🎯 Purpose
 
@@ -57,8 +57,10 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 ## Quick Reference Index
 
 ### By Topic
+- **🔴 Three-State Labeling ([FIX]→[FIXING]→[FIXED]):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **🔴 Branch Workflow (MANDATORY):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **🔴 Issue Closure Rules:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 AI as Quality Gate:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **🔴 Explicit Instructions Not Followed:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **Focus Distance Issues:** → [Focus & Camera Control](#focus-distance)
 - **Manual Focus Problems:** → [Focus & Camera Control](#manual-focus)
@@ -672,28 +674,87 @@ ls -l /dev/bus/usb/004/019
 
 #### ✅ NEW MANDATORY RULES
 
-**Rule 1: Issue Labeling Convention**
+**Rule 1: Three-State Issue Labeling System**
+
+**Implementation: Option C (Both labels + title prefix)**
+
 ```markdown
-✅ Generate issues with [FIX] label/tag
-❌ Do NOT change to [FIXED] when resolved
-```
-- **Why:** Maintains clear audit trail of original issue type
-- **Example:** Issue remains `[FIX]` even after resolution
+[FIX] → [FIXING] → [FIXED]
 
-**Rule 2: NEVER Close Issues Until 100% Tested + Approved**
+State 1: [FIX] - Bug identified, not yet started
+  - Label: status:fix (red)
+  - Bug reported and confirmed
+  - Waiting to be worked on
+
+State 2: [FIXING] - Work in progress
+  - Label: status:fixing (yellow)
+  - AI agent actively working on it
+  - Code changes being made
+  - Testing in progress
+  - Change IMMEDIATELY when starting work (not at EOD)
+
+State 3: [FIXED] - Confirmed resolved
+  - Label: status:fixed (green)
+  - AI testing complete ✅
+  - User testing complete ✅
+  - Both AI and User agree it's fixed
+  - AI suggests change to [FIXED], user confirms
+```
+
+**Transition Rules:**
+
+**[FIX] → [FIXING]:**
 ```markdown
-❌ NEVER close issues until:
-  1. 100% tested by AI agent (complete test scenarios)
-  2. 100% tested by User (real-world usage)
-  3. User explicit approval received ("This is fixed, close it")
+Trigger: IMMEDIATELY when AI starts work
+Action:
+  1. Update title: [FIX] → [FIXING]
+  2. Add label: status:fixing
+  3. Comment: "**WHO:** CC-[Domain]\n\nStarting work now"
 
-✅ Issue lifecycle:
-  OPEN → In Progress → Testing (AI) → Testing (User) → User Approves → CLOSED
+❌ DON'T wait for EOD
+❌ DON'T wait for work complete
+✅ DO change immediately
 ```
-- **Why:** Prevents premature closure, ensures quality
-- **Enforcement:** PM checks issue status before any closure
 
-**Rule 3: Branch Workflow for ALL Fixes/Features (MANDATORY)**
+**[FIXING] → [FIXED]:**
+```markdown
+Trigger: All testing complete (AI + User)
+
+AI Responsibility:
+  1. Complete thorough own testing
+  2. Verify user tested comprehensively
+  3. If user testing seems incomplete → QUERY USER
+  4. Suggest specific test scenarios if needed
+  5. Confirm both AI and User agree
+  6. SUGGEST changing to [FIXED] (don't assume)
+  7. Wait for user confirmation
+
+User Can:
+  - Request AI to change to [FIXED]
+  - Confirm AI's suggestion
+  - Reject if more testing needed
+
+AI Should Query If:
+  - User testing seems incomplete
+  - User didn't test all scenarios
+  - User might have misunderstood the fix
+  - Edge cases not covered
+
+Action When Both Agree:
+  1. Update title: [FIXING] → [FIXED]
+  2. Update label: status:fixing → status:fixed
+  3. Comment with full test results
+```
+
+**AI as Quality Gate:**
+- ✅ Support user in understanding what needs testing
+- ✅ Protect user from incomplete fixes
+- ✅ Ask clarifying questions if uncertain
+- ✅ Users make mistakes - AI should verify
+- ❌ NEVER auto-change to [FIXED] without discussion
+- ❌ NEVER accept vague "it works" without details
+
+**Rule 2: Branch Workflow for ALL Fixes/Features (MANDATORY)**
 ```markdown
 ✅ ALWAYS create branch for fixes/features:
   1. Create branch: git checkout -b fix/issue-XX-description
@@ -738,6 +799,21 @@ git push origin main
 # Keep branch for reference
 # Don't delete branches until issue closed for 30 days
 ```
+
+**Rule 3: Issue Closure Policy**
+```markdown
+❌ NEVER close issues until:
+  1. Issue label changed to [FIXED] (both AI + User confirmed)
+  2. User explicit approval to close
+
+✅ Issue lifecycle:
+  [FIX] → [FIXING] → [FIXED] → User Approves → CLOSED
+
+❌ AI NEVER closes issues
+✅ Only User closes issues
+```
+- **Why:** Prevents premature closure, ensures quality
+- **Enforcement:** PM checks label is [FIXED] before suggesting closure
 
 **Rule 4: Follow Explicit User Instructions**
 ```markdown
@@ -1110,6 +1186,7 @@ ping 192.168.144.11  # H16 Ground-Side
 | 1.0 | 2025-11-07 | Initial creation | CC-Project-Manager |
 | 1.1 | 2025-11-08 | Merged Air-Side deployment lessons (CrAdapter, USB, Static IP, AF Hold) | CC-Project-Manager |
 | 1.2 | 2025-11-10 | **CRITICAL:** Added Branch Workflow mandatory rules, Issue closure policy, Explicit instruction following | CC-Project-Manager |
+| 1.3 | 2025-11-10 | **CRITICAL:** Added Three-State Labeling System ([FIX]→[FIXING]→[FIXED]), AI as Quality Gate | CC-Project-Manager |
 
 ---
 

@@ -598,24 +598,46 @@ git push origin main
 - README changes
 - Comments/clarifications
 
-### Rule 2: Issue Closure Policy
+### Rule 2: Three-State Issue Labeling
+
+**Implementation: Both labels + title prefix**
+
+```
+[FIX] → [FIXING] → [FIXED]
+```
+
+**[FIX] (red):** Bug identified, not started
+**[FIXING] (yellow):** Work in progress - Change IMMEDIATELY when starting
+**[FIXED] (green):** Both AI + User confirmed fix
+
+**Transition to [FIXING]:**
+- IMMEDIATELY when starting work (not at EOD)
+- Update title, add label status:fixing
+
+**Transition to [FIXED]:**
+- AI completes testing
+- AI verifies user tested thoroughly
+- If incomplete → AI QUERIES user
+- AI SUGGESTS change to [FIXED]
+- User confirms
+- Update title, add label status:fixed
+
+**AI as Quality Gate:**
+- Support user in testing
+- Ask clarifying questions
+- Verify comprehensive testing
+- NEVER auto-change to [FIXED]
+
+### Rule 3: Issue Closure Policy
 
 **❌ NEVER close issues until:**
-1. 100% tested by AI agent
-2. 100% tested by User
-3. User explicit approval received
+1. Label changed to [FIXED]
+2. User approval to close
 
-**Issue lifecycle:**
-```
-OPEN → In Progress → Testing (AI) → Testing (User) → User Approves → CLOSED
-```
+**Lifecycle:** `[FIX] → [FIXING] → [FIXED] → CLOSED`
 
-### Rule 3: Issue Labeling Convention
-
-**✅ Generate issues with [FIX] label**
-**❌ Do NOT change to [FIXED] when resolved**
-
-Maintains clear audit trail of original issue type.
+**❌ AI NEVER closes issues**
+**✅ Only User closes issues**
 
 ### Rule 4: Follow Explicit User Instructions
 

@@ -28,9 +28,17 @@ git status
 # Check open issues
 gh issue list --repo unmanned-systems-uk/DPM-V2 --state open
 
+# Check issues in progress from last session
+gh issue list --label status:fixing --state open --repo unmanned-systems-uk/DPM-V2
+
 # Check recent commits
 git log --oneline -5
 ```
+
+**⚠️ If you see issues with `status:fixing` label:**
+- These are works-in-progress from previous session
+- Resume these first before starting new work
+- Check issue comments for latest status
 
 ### 4. Identify Your Domain
 DPM-V2 has a **three-domain + PM architecture:**
