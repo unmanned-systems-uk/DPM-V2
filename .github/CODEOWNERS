@@ -1,0 +1,123 @@
+# Code Owners for DPM-V2
+#
+# This file defines individuals or teams responsible for code and documentation
+# in specific parts of the repository. When a pull request modifies files in
+# these areas, the designated owners are automatically requested for review.
+#
+# Syntax: path/to/files @github-username @github-team
+#
+# For more information: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# =============================================================================
+# Architecture Documentation
+# =============================================================================
+
+# Consolidated Software Architecture Document
+# Primary architect must review any changes to the main SAD
+/docs/architecture/SOFTWARE_ARCHITECTURE_DOCUMENT.md @anthonyjclark
+
+# Architecture Decision Records
+# All ADRs require architect review to ensure consistency and quality
+/docs/architecture/adr/*.md @anthonyjclark
+
+# Architecture Views
+# Logical view spans multiple domains, requires architect oversight
+/docs/architecture/view-logical.md @anthonyjclark
+/docs/architecture/view-context.md @anthonyjclark
+/docs/architecture/view-data.md @anthonyjclark
+/docs/architecture/view-security-reliability.md @anthonyjclark
+/docs/architecture/view-deployment.md @anthonyjclark
+/docs/architecture/view-integration.md @anthonyjclark
+
+# C4 Model Diagrams
+# Level 1-2 diagrams (system-wide) require architect review
+/docs/architecture/c4-level1-context.puml @anthonyjclark
+/docs/architecture/c4-level2-container.puml @anthonyjclark
+
+# =============================================================================
+# Domain-Specific Documentation
+# =============================================================================
+
+# Air-Side Documentation
+# C4 Level 3 diagram for Air-Side components
+/docs/architecture/c4-level3-air-side-components.puml @anthonyjclark
+# Note: Add Air-Side domain lead when assigned: @air-side-lead
+
+# Ground-Side Documentation
+# C4 Level 3 diagram for Ground-Side components
+/docs/architecture/c4-level3-ground-side-components.puml @anthonyjclark
+# Note: Add Ground-Side domain lead when assigned: @ground-side-lead
+
+# Tools/Dev-Side Documentation
+# C4 Level 3 diagram for Dev-Tools components
+/docs/architecture/c4-level3-dev-tools-components.puml @anthonyjclark
+# Note: Add Tools domain lead when assigned: @tools-lead
+
+# Protocol Specification
+# CRITICAL: Protocol changes affect both Air-Side and Ground-Side
+/docs/protocol/*.json @anthonyjclark
+# Note: Add Protocol lead when assigned: @protocol-lead
+
+# =============================================================================
+# Domain Code (Future)
+# =============================================================================
+
+# Air-Side Code (C++, Raspberry Pi 5)
+# /sbc/**/*.cpp @air-side-lead
+# /sbc/**/*.h @air-side-lead
+
+# Ground-Side Code (Kotlin, Android)
+# /android/**/*.kt @ground-side-lead
+# /android/**/*.xml @ground-side-lead
+
+# Tools/Dev-Side Code (Python)
+# /SystemTools/**/*.py @tools-lead
+
+# =============================================================================
+# Development Workflow
+# =============================================================================
+
+# GitHub workflows and automation
+/.github/workflows/*.yml @anthonyjclark
+/.github/scripts/* @anthonyjclark
+
+# Contributing guidelines and documentation enforcement
+/CONTRIBUTING.md @anthonyjclark
+/docs/DOCUMENTATION_UPDATE_GUIDE.md @anthonyjclark
+
+# Pull request template
+/.github/PULL_REQUEST_TEMPLATE.md @anthonyjclark
+
+# Domain configuration
+/.github/domain-config.json @anthonyjclark
+
+# =============================================================================
+# Root Documentation
+# =============================================================================
+
+/README.md @anthonyjclark
+/LESSONS_LEARNED.md @anthonyjclark
+
+# =============================================================================
+# Notes for Future
+# =============================================================================
+
+# When domain leads are assigned, uncomment and update the following:
+#
+# Air-Side Lead: Replace @anthonyjclark with @air-side-lead for:
+#   - /sbc/
+#   - /docs/architecture/c4-level3-air-side-components.puml
+#   - ADR-001, ADR-004, ADR-006, ADR-007, ADR-012
+#
+# Ground-Side Lead: Replace @anthonyjclark with @ground-side-lead for:
+#   - /android/
+#   - /docs/architecture/c4-level3-ground-side-components.puml
+#   - ADR-005, ADR-013, ADR-014
+#
+# Protocol Lead: Replace @anthonyjclark with @protocol-lead for:
+#   - /docs/protocol/
+#   - ADR-002, ADR-003, ADR-011
+#
+# Tools Lead: Replace @anthonyjclark with @tools-lead for:
+#   - /SystemTools/
+#   - /docs/architecture/c4-level3-dev-tools-components.puml

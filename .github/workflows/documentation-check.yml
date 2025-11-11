@@ -1,0 +1,218 @@
+name: Documentation Enforcement
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'sbc/**'
+      - 'android/**'
+      - 'SystemTools/**'
+      - 'docs/protocol/**'
+      - 'docs/architecture/**'
+      - '.github/workflows/documentation-check.yml'
+
+jobs:
+  check-documentation-updated:
+    name: Verify Documentation Updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for comparing with base branch
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # Get list of changed files compared to base branch
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          echo "Comparing $BASE_SHA...$HEAD_SHA"
+
+          # Count code files changed
+          CODE_FILES=$(git diff --name-only $BASE_SHA...$HEAD_SHA | grep -E '(sbc/|android/|SystemTools/|docs/protocol/)' | wc -l)
+          echo "code_files=$CODE_FILES" >> $GITHUB_OUTPUT
+          echo "Code files changed: $CODE_FILES"
+
+          # Count documentation files changed
+          DOCS_FILES=$(git diff --name-only $BASE_SHA...$HEAD_SHA | grep -E 'docs/architecture/' | wc -l)
+          echo "docs_files=$DOCS_FILES" >> $GITHUB_OUTPUT
+          echo "Documentation files changed: $DOCS_FILES"
+
+          # List changed code files for debugging
+          if [ "$CODE_FILES" -gt 0 ]; then
+            echo "Changed code files:"
+            git diff --name-only $BASE_SHA...$HEAD_SHA | grep -E '(sbc/|android/|SystemTools/|docs/protocol/)'
+          fi
+
+      - name: Check documentation updated when code changed
+        if: steps.changed-files.outputs.code_files > 0 && steps.changed-files.outputs.docs_files == 0
+        run: |
+          echo "::error::Code files changed but no documentation updates detected"
+          echo ""
+          echo "Code changes were made but docs/architecture/ was not updated."
+          echo ""
+          echo "Please update the relevant documentation:"
+          echo "  - Architecture views (docs/architecture/view-*.md)"
+          echo "  - C4 diagrams (docs/architecture/c4-level*.puml)"
+          echo "  - ADRs (docs/architecture/adr/ADR-*.md) if decisions changed"
+          echo ""
+          echo "See CONTRIBUTING.md for domain-specific documentation requirements."
+          echo "See docs/DOCUMENTATION_UPDATE_GUIDE.md for quick reference."
+          exit 1
+
+  validate-plantuml-syntax:
+    name: Validate PlantUML Diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install PlantUML
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y plantuml
+
+      - name: Validate all PlantUML files
+        run: |
+          echo "Validating PlantUML diagrams..."
+          EXIT_CODE=0
+
+          for file in docs/architecture/*.puml; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              if ! plantuml -checkonly "$file"; then
+                echo "::error file=$file::PlantUML syntax error in $file"
+                EXIT_CODE=1
+              fi
+            fi
+          done
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ All PlantUML diagrams are valid"
+          else
+            echo "::error::PlantUML validation failed. Fix syntax errors and try again."
+          fi
+
+          exit $EXIT_CODE
+
+  validate-markdown-links:
+    name: Validate Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check markdown links (simple validation)
+        run: |
+          echo "Checking for broken markdown links..."
+          EXIT_CODE=0
+
+          # Simple check for broken internal links
+          # (More sophisticated check would use markdown-link-check)
+          for file in docs/architecture/*.md docs/architecture/adr/*.md; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+
+              # Extract markdown links [text](path)
+              grep -oP '\]\(\K[^)]+' "$file" | while read link; do
+                # Skip external links (http/https)
+                if [[ "$link" =~ ^https?:// ]]; then
+                  continue
+                fi
+
+                # Skip anchors
+                if [[ "$link" =~ ^# ]]; then
+                  continue
+                fi
+
+                # Check if file exists (relative to docs/architecture/)
+                if [[ "$link" =~ ^\.\. ]]; then
+                  # Parent directory reference
+                  target_file="docs/$(echo $link | sed 's/\.\.\///')"
+                elif [[ "$link" =~ ^\. ]]; then
+                  # Current directory reference
+                  target_file="docs/architecture/$(echo $link | sed 's/\.\///')"
+                elif [[ "$link" =~ ^/ ]]; then
+                  # Absolute path from repo root
+                  target_file="${link:1}"
+                else
+                  # Relative path
+                  target_file="docs/architecture/$link"
+                fi
+
+                # Remove anchor if present
+                target_file=$(echo "$target_file" | cut -d'#' -f1)
+
+                if [ ! -f "$target_file" ] && [ ! -d "$target_file" ]; then
+                  echo "::warning file=$file::Possibly broken link: $link (looking for $target_file)"
+                fi
+              done
+            fi
+          done
+
+          echo "✅ Markdown link check complete"
+
+  validate-adr-format:
+    name: Validate ADR Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check ADR required sections
+        run: |
+          echo "Validating ADR format..."
+          EXIT_CODE=0
+
+          for file in docs/architecture/adr/ADR-*.md; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+
+              # Check for required sections
+              SECTIONS=("## Context" "## Decision" "## Alternatives Considered" "## Consequences")
+
+              for section in "${SECTIONS[@]}"; do
+                if ! grep -q "^$section" "$file"; then
+                  echo "::error file=$file::Missing required section: $section"
+                  EXIT_CODE=1
+                fi
+              done
+            fi
+          done
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ All ADRs follow the required format"
+          else
+            echo "::error::ADR format validation failed. Add missing sections."
+            echo "Required sections: Context, Decision, Alternatives Considered, Consequences"
+          fi
+
+          exit $EXIT_CODE
+
+  documentation-summary:
+    name: Documentation Check Summary
+    runs-on: ubuntu-latest
+    needs: [check-documentation-updated, validate-plantuml-syntax, validate-markdown-links, validate-adr-format]
+    if: always()
+    steps:
+      - name: Check job results
+        run: |
+          echo "Documentation Enforcement Results:"
+          echo "  - Documentation updated: ${{ needs.check-documentation-updated.result }}"
+          echo "  - PlantUML syntax: ${{ needs.validate-plantuml-syntax.result }}"
+          echo "  - Markdown links: ${{ needs.validate-markdown-links.result }}"
+          echo "  - ADR format: ${{ needs.validate-adr-format.result }}"
+
+          # If any check failed, fail this job
+          if [ "${{ needs.check-documentation-updated.result }}" != "success" ] || \
+             [ "${{ needs.validate-plantuml-syntax.result }}" != "success" ] || \
+             [ "${{ needs.validate-adr-format.result }}" != "success" ]; then
+            echo ""
+            echo "::error::Documentation enforcement checks failed. Review errors above."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All documentation checks passed!"
