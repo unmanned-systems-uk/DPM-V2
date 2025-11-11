@@ -1,7 +1,7 @@
 # DPM-V2 Lessons Learned Registry
 *Maintained by: CC-Project-Manager*
 *Last Updated: 2025-11-10*
-*Version: 1.3*
+*Version: 1.4*
 
 ## 🎯 Purpose
 
@@ -674,31 +674,56 @@ ls -l /dev/bus/usb/004/019
 
 #### ✅ NEW MANDATORY RULES
 
-**Rule 1: Three-State Issue Labeling System**
+**Rule 1: Universal Three-State Issue Labeling System**
 
-**Implementation: Option C (Both labels + title prefix)**
+**Implementation: Option B - Universal Labels + Title Prefixes**
+
+**Applies to ALL issue types:** Bugs, Enhancements, Features, Documentation, Workflow, Investigation
 
 ```markdown
-[FIX] → [FIXING] → [FIXED]
+UNIVERSAL PATTERN: [TYPE] → [TYPE-ING] → [TYPE-ED]
 
-State 1: [FIX] - Bug identified, not yet started
-  - Label: status:fix (red)
-  - Bug reported and confirmed
-  - Waiting to be worked on
+State 1: Not Started
+  - Title: [FIX], [ENHANCE], [FEATURE], [DOC], [WORKFLOW], [INVESTIGATE]
+  - Label: status:todo (gray #d4c5f9)
+  - Work not yet begun
 
-State 2: [FIXING] - Work in progress
-  - Label: status:fixing (yellow)
-  - AI agent actively working on it
-  - Code changes being made
-  - Testing in progress
+State 2: In Progress
+  - Title: [FIXING], [ENHANCING], [IMPLEMENTING], [DOCUMENTING], [WORKING], [INVESTIGATING]
+  - Label: status:in-progress (yellow #fbca04)
   - Change IMMEDIATELY when starting work (not at EOD)
 
-State 3: [FIXED] - Confirmed resolved
-  - Label: status:fixed (green)
+State 3: Complete
+  - Title: [FIXED], [ENHANCED], [IMPLEMENTED], [DOCUMENTED], [COMPLETE], [RESOLVED]
+  - Label: status:complete (green #0e8a16)
   - AI testing complete ✅
-  - User testing complete ✅
-  - Both AI and User agree it's fixed
-  - AI suggests change to [FIXED], user confirms
+  - User testing/review complete ✅
+  - Both AI and User agree it's done
+  - AI suggests change, user confirms
+```
+
+**Examples by Type:**
+
+```markdown
+Bug: [FIX] → [FIXING] → [FIXED] + status:complete
+Enhancement: [ENHANCE] → [ENHANCING] → [ENHANCED] + status:complete
+Feature: [FEATURE] → [IMPLEMENTING] → [IMPLEMENTED] + status:complete
+Documentation: [DOC] → [DOCUMENTING] → [DOCUMENTED] + status:complete
+Workflow: [WORKFLOW] → [WORKING] → [COMPLETE] + status:complete
+Investigation: [INVESTIGATE] → [INVESTIGATING] → [RESOLVED] + status:complete
+```
+
+**Universal Search:**
+
+```bash
+# Find ALL works-in-progress (any type)
+gh issue list --label status:in-progress --state open
+
+# Find ALL completed but not closed (any type)
+gh issue list --label status:complete --state open
+
+# Find ALL not started (any type)
+gh issue list --label status:todo --state open
 ```
 
 **Transition Rules:**
@@ -1187,6 +1212,7 @@ ping 192.168.144.11  # H16 Ground-Side
 | 1.1 | 2025-11-08 | Merged Air-Side deployment lessons (CrAdapter, USB, Static IP, AF Hold) | CC-Project-Manager |
 | 1.2 | 2025-11-10 | **CRITICAL:** Added Branch Workflow mandatory rules, Issue closure policy, Explicit instruction following | CC-Project-Manager |
 | 1.3 | 2025-11-10 | **CRITICAL:** Added Three-State Labeling System ([FIX]→[FIXING]→[FIXED]), AI as Quality Gate | CC-Project-Manager |
+| 1.4 | 2025-11-10 | **CRITICAL:** Expanded to Universal Status System for ALL issue types (Option B implementation) | CC-Project-Manager |
 
 ---
 
