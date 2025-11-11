@@ -75,7 +75,30 @@ DPM-V2 has a **three-domain + PM architecture:**
   - Documentation updates
   - Docs: `docs/ALL_DOMAINS/`
 
-### 5. Mandatory Workflows ⚠️
+### 5. Check Day of Week (Architecture Updates)
+
+**📅 Mid-Week Update (Wednesday):**
+- ⚠️ Mid-week architecture update due today
+- Quick status refresh required (15-30 min)
+- Update domain CURRENT_STATUS.md before starting new work
+- See Issue #62 for details
+
+**📅 End-of-Week Update (Friday):**
+- ⚠️ End-of-week comprehensive update due today
+- Full architecture documentation review (45-90 min)
+- Update architecture docs, progress docs, lessons learned
+- See Issue #62 for complete checklist
+
+**If today is Wednesday or Friday:**
+```bash
+# Check current day
+date +%A
+
+# If Wednesday - quick update needed
+# If Friday - comprehensive update needed
+```
+
+### 6. Mandatory Workflows ⚠️
 
 **Issue-First Workflow (MANDATORY):**
 - ❌ **NEVER start work without a GitHub issue**
@@ -328,7 +351,30 @@ gh issue edit <#> --add-label "ground-side" --add-label "status:needs-ground-imp
    Are you sure you want to exit?
    ```
 
-2. **Check EOD (End of Day) status:**
+2. **Check Day of Week (Architecture Updates):**
+   ```markdown
+   ⚠️ Checking if architecture updates are due...
+
+   **If Wednesday:**
+   Mid-week architecture update is due today. Have you updated:
+   - ✅ Domain CURRENT_STATUS.md?
+   - ✅ MASTER_STATUS.md?
+
+   This is a 15-30 min task. Should I help with the update before exiting?
+   See Issue #62 for details.
+
+   **If Friday:**
+   End-of-week comprehensive architecture documentation is due today. Have you completed:
+   - ✅ Architecture documentation review?
+   - ✅ Progress documentation updates?
+   - ✅ Lessons learned capture?
+   - ✅ MASTER_STATUS.md full refresh?
+
+   This is a 45-90 min task. Should I help with the update before exiting?
+   See Issue #62 for complete checklist.
+   ```
+
+3. **Check EOD (End of Day) status:**
    ```markdown
    ⚠️ We have not run EOD (End of Day) yet.
 
@@ -344,7 +390,7 @@ gh issue edit <#> --add-label "ground-side" --add-label "status:needs-ground-imp
    Should I run EOD now?
    ```
 
-3. **Wait for user confirmation:**
+4. **Wait for user confirmation:**
    - **"Yes, run EOD"** → Execute EOD workflow, capture lessons, then exit
    - **"Skip EOD"** → Ask again: "Are you certain? Lessons may be lost."
    - **"Cancel"** → Continue working (don't exit)
