@@ -1,0 +1,36 @@
+@startuml DPM-V2 System Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+' DPM-V2 System Context Diagram (C4 Level 1)
+' Shows the system boundary and external actors/systems
+
+title DPM-V2 System Context Diagram
+
+Person(operator, "Drone Operator", "Professional UAV operator controlling camera payload from ground station")
+Person(maintainer, "System Maintainer", "Technical personnel maintaining and troubleshooting the system")
+Person(developer, "Software Developer", "Developer extending or debugging the system")
+
+System_Boundary(dpm, "DPM-V2") {
+    System(dpm_system, "Drone Payload Manager", "Professional UAV camera payload management system providing real-time control and monitoring")
+}
+
+System_Ext(camera, "Sony Alpha Camera", "Professional mirrorless camera (α1, α7 series) connected via USB")
+System_Ext(sdk, "Sony Camera Remote SDK", "Proprietary C++ SDK v2.00.00 for camera control")
+System_Ext(android_os, "Android OS", "SkyDroid H16 Android operating system")
+System_Ext(docker, "Docker Engine", "Container runtime on Raspberry Pi 5")
+System_Ext(network_infra, "Network Infrastructure", "WiFi/Ethernet networking (10.0.1.x or 192.168.144.x)")
+
+Rel(operator, dpm_system, "Controls camera, views status", "Touch interface on H16")
+Rel(maintainer, dpm_system, "Monitors, troubleshoots", "SystemTools diagnostic interface")
+Rel(developer, dpm_system, "Develops, debugs", "IDE, SSH, Git")
+
+Rel(dpm_system, camera, "Controls, queries", "USB bulk transfer")
+Rel(dpm_system, sdk, "Uses", "Native C++ library calls")
+Rel(dpm_system, android_os, "Runs on", "Android APK")
+Rel(dpm_system, docker, "Runs in", "Docker container")
+Rel(dpm_system, network_infra, "Communicates over", "TCP/UDP protocols")
+
+Rel(camera, sdk, "Controlled via", "USB camera protocol")
+
+SHOW_LEGEND()
+@enduml

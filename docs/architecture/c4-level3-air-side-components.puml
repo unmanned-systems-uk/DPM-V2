@@ -1,0 +1,100 @@
+@startuml Air-Side Component Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' Air-Side Component Diagram (C4 Level 3)
+' Shows internal components of the Air-Side container
+
+title Air-Side (SBC) Component Diagram
+
+Container_Boundary(air_side, "Air-Side Service (C++17, Docker on Raspberry Pi 5)") {
+    Component(main, "Main Application", "C++17", "Application entry point, coordinates all services")
+    Component(camera_service, "CameraService", "C++17", "Manages Sony camera connection, control, and monitoring")
+    Component(network_service, "NetworkService", "C++17", "Manages TCP server and UDP broadcasters")
+    Component(property_loader, "PropertyLoader", "C++17", "Loads and manages camera property specifications from JSON")
+    Component(command_handler, "CommandHandler", "C++17", "Parses and routes incoming commands to appropriate handlers")
+    Component(status_broadcaster, "StatusBroadcaster", "C++17", "Periodically broadcasts system and camera status")
+    Component(heartbeat_manager, "HeartbeatManager", "C++17", "Manages bidirectional heartbeat protocol")
+    Component(system_monitor, "SystemMonitor", "C++17", "Monitors CPU, memory, disk, temperature")
+    Component(notification_manager, "NotificationManager", "C++17", "Generates and sends real-time UI notifications")
+
+    ComponentDb(property_specs, "Property Specifications", "JSON files", "Camera property definitions, value mappings, constraints")
+}
+
+System_Ext(sony_camera, "Sony Alpha Camera", "Connected via USB")
+System_Ext(sony_sdk, "Sony SDK v2.00.00", "CrAdapter + libCr_Core")
+Container_Ext(tcp_channel, "TCP Command Channel", "Port 5000")
+Container_Ext(udp_status, "UDP Status", "Port 5001")
+Container_Ext(udp_heartbeat, "UDP Heartbeat", "Port 5002")
+
+' Main orchestration
+Rel(main, camera_service, "Initializes, manages lifecycle")
+Rel(main, network_service, "Initializes, manages lifecycle")
+Rel(main, property_loader, "Loads specifications on startup")
+Rel(main, system_monitor, "Starts monitoring")
+
+' CameraService relationships
+Rel(camera_service, sony_sdk, "Controls camera", "Native C++ SDK calls")
+Rel(sony_sdk, sony_camera, "Communicates with", "USB bulk transfer")
+Rel(camera_service, property_loader, "Queries property specs")
+Rel(camera_service, notification_manager, "Sends camera events", "Disconnect/reconnect")
+
+' NetworkService relationships
+Rel(network_service, tcp_channel, "Manages TCP server")
+Rel(network_service, udp_status, "Manages UDP broadcaster")
+Rel(network_service, udp_heartbeat, "Manages heartbeat")
+Rel(network_service, command_handler, "Routes incoming commands")
+Rel(network_service, status_broadcaster, "Triggers status updates")
+Rel(network_service, heartbeat_manager, "Coordinates heartbeats")
+
+' Command processing flow
+Rel(tcp_channel, command_handler, "Receives commands")
+Rel(command_handler, camera_service, "Camera control commands")
+Rel(command_handler, system_monitor, "System query commands")
+Rel(camera_service, tcp_channel, "Sends responses", "Via CommandHandler")
+
+' Status broadcasting flow
+Rel(status_broadcaster, camera_service, "Queries camera status")
+Rel(status_broadcaster, system_monitor, "Queries system metrics")
+Rel(status_broadcaster, udp_status, "Broadcasts JSON status", "5Hz")
+
+' Heartbeat flow
+Rel(heartbeat_manager, udp_heartbeat, "Sends heartbeats", "1Hz")
+Rel(udp_heartbeat, heartbeat_manager, "Receives heartbeats")
+Rel(heartbeat_manager, notification_manager, "Connection status changes")
+
+' Notification flow
+Rel(notification_manager, tcp_channel, "Sends notifications", "Real-time events")
+
+' Property specs
+Rel(property_loader, property_specs, "Loads on startup", "JSON parsing")
+
+SHOW_LEGEND()
+
+note right of camera_service
+  **Key Responsibilities:**
+  - Sony SDK initialization
+  - Camera connection management
+  - Property get/set operations
+  - Shutter release
+  - Auto-reconnection on disconnect
+  - Property value validation
+end note
+
+note right of network_service
+  **Key Responsibilities:**
+  - TCP server (port 5000)
+  - UDP broadcaster (port 5001)
+  - UDP heartbeat (port 5002)
+  - Socket management
+  - Multi-threaded I/O
+end note
+
+note right of property_loader
+  **Key Responsibilities:**
+  - Load property specs from JSON
+  - Value range validation
+  - SDK-to-UI value mapping
+  - Property metadata management
+end note
+
+@enduml

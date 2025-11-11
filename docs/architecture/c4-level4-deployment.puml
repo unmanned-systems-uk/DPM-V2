@@ -1,0 +1,120 @@
+@startuml DPM-V2 Deployment Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+' DPM-V2 Deployment Diagram (C4 Level 4)
+' Shows physical deployment architecture and infrastructure
+
+title DPM-V2 Deployment Diagram
+
+Deployment_Node(uav, "UAV Platform", "Unmanned Aerial Vehicle") {
+    Deployment_Node(air_hardware, "Air-Side Hardware", "Raspberry Pi 5") {
+        Deployment_Node(os_air, "Ubuntu 24.04 LTS ARM64", "Operating System") {
+            Deployment_Node(docker_engine, "Docker Engine", "Container Runtime") {
+                Container(air_service, "payload-manager", "C++17 Service", "Camera control and telemetry service")
+            }
+            System_Ext(sony_sdk_libs, "Sony SDK Libraries", "/usr/local/lib/libCr_Core.so, CrAdapter/")
+        }
+        System_Ext(usb_port, "USB 3.0 Port", "Camera connection")
+    }
+
+    Deployment_Node(camera_mount, "Camera Payload", "Gimbal Mount") {
+        System_Ext(sony_camera, "Sony Alpha Camera", "α1, α7R V, α7 IV (USB connected)")
+    }
+
+    Rel(air_service, sony_sdk_libs, "Uses", "Dynamic linking")
+    Rel(sony_sdk_libs, usb_port, "Communicates via")
+    Rel(usb_port, sony_camera, "USB bulk transfer")
+}
+
+Deployment_Node(ground_station, "Ground Station", "SkyDroid H16 Tablet") {
+    Deployment_Node(android_hw, "H16 Hardware", "Qualcomm, 10.1\" display") {
+        Deployment_Node(android_os, "Android OS", "API 24-36") {
+            Container(ground_app, "DPM Android", "APK", "Kotlin/Compose camera control application")
+            System_Ext(exoplayer, "ExoPlayer", "Media3 RTSP player")
+            System_Ext(datastore, "DataStore", "Preferences storage")
+        }
+    }
+}
+
+Rel(ground_app, exoplayer, "Uses for video")
+Rel(ground_app, datastore, "Persists settings")
+
+Deployment_Node(dev_workstation, "Development Workstation", "Laptop/Desktop") {
+    Deployment_Node(os_dev, "Windows/Linux/macOS", "Operating System") {
+        Deployment_Node(python_env, "Python 3.8+", "Runtime") {
+            Container(systemtools, "SystemTools", "Python/Tkinter", "Diagnostic and testing suite")
+        }
+    }
+}
+
+Deployment_Node(network, "Network Infrastructure", "UAV Data Link") {
+    Deployment_Node(ethernet_link, "Ethernet Network", "192.168.144.x (H16 R16 link)") {
+        System_Ext(vxlan_bridge, "VXLAN Bridge", "Layer 2 tunnel between Air/Ground")
+    }
+
+    Deployment_Node(wifi_network, "WiFi Network", "10.0.1.x (Development/Testing)") {
+        System_Ext(wifi_ap, "WiFi Access Point", "Router/AP")
+    }
+}
+
+' Network connections - Production (Ethernet/R16)
+Rel(air_service, vxlan_bridge, "TCP 5000, UDP 5001/5002", "192.168.144.53")
+Rel(ground_app, vxlan_bridge, "TCP 5000, UDP 5001/5002", "192.168.144.92")
+
+' Network connections - Development (WiFi)
+Rel(air_service, wifi_ap, "TCP 5000, UDP 5001/5002", "10.0.1.53")
+Rel(ground_app, wifi_ap, "TCP 5000, UDP 5001/5002", "10.0.1.92")
+Rel(systemtools, wifi_ap, "TCP 5000, UDP 5001/5002, SSH 22", "Developer IP")
+
+SHOW_LEGEND()
+
+note right of air_hardware
+  **Raspberry Pi 5 Specifications:**
+  - CPU: Broadcom BCM2712 (ARM Cortex-A76, 2.4GHz quad-core)
+  - RAM: 8GB LPDDR4X
+  - Storage: 256GB NVMe SSD (via M.2 HAT)
+  - USB: 2x USB 3.0, 2x USB 2.0
+  - Network: Gigabit Ethernet
+  - Power: 5V/5A USB-C PD
+end note
+
+note right of android_hw
+  **SkyDroid H16 Specifications:**
+  - Display: 10.1" 1920x1200
+  - CPU: Qualcomm (exact model TBD)
+  - RAM: 4-8GB
+  - Storage: 64-128GB
+  - Network: WiFi 5/6, Ethernet via R16
+  - R16 Integration: Digital data link
+end note
+
+note right of docker_engine
+  **Docker Deployment:**
+  - Container: payload-manager
+  - Image: Built from sbc/Dockerfile
+  - Volumes: /usr/local/lib (SDK), /dev/bus/usb (USB devices)
+  - Network: Host mode (for UDP broadcast)
+  - Restart: Always (auto-restart on failure)
+  - Build: Multi-stage (build + runtime)
+end note
+
+note right of vxlan_bridge
+  **R16 Link Architecture:**
+  - H16 Ground Station ↔ R16 Air Unit
+  - VXLAN tunneling (Layer 2 bridge)
+  - Static IPs required: 192.168.144.x
+  - Bandwidth: 20-50 Mbps
+  - Latency: <50ms typical
+  - Range: Up to several km
+end note
+
+note right of wifi_network
+  **Development Network:**
+  - Used for development/testing
+  - Static IPs: 10.0.1.x
+  - SSH access to Air-Side (port 22)
+  - SystemTools diagnostic access
+  - Not used in production flight
+end note
+
+@enduml
