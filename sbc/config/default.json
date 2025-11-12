@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "environment": "production",
+
+  "network": {
+    "tcp_port": 5000,
+    "udp_status_port": 5001,
+    "udp_heartbeat_port": 5002,
+    "udp_logs_port": 5005,
+    "udp_health_port": 5004,
+    "ground_ip": "192.168.144.11",
+    "air_ip": "192.168.144.20"
+  },
+
+  "timing": {
+    "status_interval_ms": 200,
+    "heartbeat_interval_ms": 1000,
+    "heartbeat_timeout_sec": 10,
+    "reconnect_interval_ms": 1000,
+    "reconnect_max_interval_ms": 30000
+  },
+
+  "logging": {
+    "level": "INFO",
+    "console_enabled": true,
+    "file_enabled": true,
+    "file_path": "/var/log/dpm/air-side.jsonl",
+    "file_max_size_mb": 50,
+    "file_max_rotated": 3,
+    "network_ground_enabled": false,
+    "network_systemtools_enabled": true,
+    "network_systemtools_ip": "192.168.0.100",
+    "network_port": 5005
+  },
+
+  "health": {
+    "broadcast_enabled": true,
+    "broadcast_interval_sec": 5,
+    "history_duration_min": 30,
+    "archive_enabled": true,
+    "archive_retention_days": 7,
+    "thresholds": {
+      "cpu_warn": 70,
+      "cpu_critical": 90,
+      "memory_warn_mb": 400,
+      "memory_critical_mb": 480,
+      "camera_latency_warn_ms": 40,
+      "camera_latency_critical_ms": 100,
+      "queue_depth_warn": 10,
+      "queue_depth_critical": 50
+    }
+  },
+
+  "sync": {
+    "exposure_rate_active_hz": 5,
+    "exposure_rate_idle_hz": 1,
+    "health_rate_hz": 1,
+    "on_demand_timeout_sec": 10
+  },
+
+  "camera": {
+    "sony_sdk_timeout_ms": 5000,
+    "retry_attempts": 3,
+    "usb_reconnect_delay_ms": 2000,
+    "init_timeout_sec": 30
+  },
+
+  "buffers": {
+    "tcp_buffer_size": 8192,
+    "udp_buffer_size": 4096,
+    "max_tcp_clients": 5,
+    "command_queue_max": 100
+  },
+
+  "protocol": {
+    "version": "1.0",
+    "server_id": "payload_manager",
+    "server_version": "1.0.0"
+  }
+}

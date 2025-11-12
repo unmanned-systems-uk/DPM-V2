@@ -1,0 +1,23 @@
+{
+  "environment": "development",
+
+  "timing": {
+    "heartbeat_timeout_sec": 2,
+    "reconnect_interval_ms": 500
+  },
+
+  "logging": {
+    "level": "DEBUG",
+    "network_systemtools_enabled": true,
+    "network_ground_enabled": false
+  },
+
+  "health": {
+    "broadcast_interval_sec": 1
+  },
+
+  "camera": {
+    "sony_sdk_timeout_ms": 2000,
+    "init_timeout_sec": 10
+  }
+}

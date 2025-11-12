@@ -51,6 +51,7 @@ set(SOURCES
     src/protocol/heartbeat.cpp
     src/camera/camera_sony.cpp
     src/camera/property_loader.cpp
+    src/config/config_manager.cpp
 )
 
 # Create executable

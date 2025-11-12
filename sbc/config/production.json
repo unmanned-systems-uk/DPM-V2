@@ -1,0 +1,12 @@
+{
+  "environment": "production",
+
+  "logging": {
+    "level": "INFO",
+    "network_systemtools_enabled": false
+  },
+
+  "health": {
+    "broadcast_interval_sec": 5
+  }
+}
