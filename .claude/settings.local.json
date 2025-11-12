@@ -30,7 +30,19 @@
       "Bash(fi)",
       "Bash(cat:*)",
       "Bash(git mv:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(curl:*)",
+      "Bash(git log:*)",
+      "Bash(gh label list:*)",
+      "Bash(chmod:*)",
+      "Bash(gh repo set-default:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh api:*)",
+      "Bash(gh auth status:*)",
+      "WebFetch(domain:www.githubstatus.com)",
+      "Bash(gh repo view:*)",
+      "Bash(cmake:*)",
+      "Bash(dpkg:*)"
     ],
     "deny": [],
     "ask": []
