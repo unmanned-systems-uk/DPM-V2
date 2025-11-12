@@ -52,6 +52,11 @@ set(SOURCES
     src/camera/camera_sony.cpp
     src/camera/property_loader.cpp
     src/config/config_manager.cpp
+    src/logging/structured_logger.cpp
+    src/logging/sinks/console_sink.cpp
+    src/logging/sinks/file_sink.cpp
+    src/logging/sinks/network_sink.cpp
+    src/health/health_monitor.cpp
 )
 
 # Create executable
