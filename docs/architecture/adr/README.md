@@ -57,6 +57,12 @@ An Architecture Decision Record (ADR) captures an important architectural decisi
 | [ADR-014](ADR-014-auto-reconnect-strategy.md) | Auto-Reconnect Strategy | Accepted | Fast recovery (1sec), resource friendly (30sec max), self-healing | Max 30 sec wait, no manual retry |
 | [ADR-015](ADR-015-closed-network-security-posture.md) | Closed Network Security Posture | Accepted | Fast development, easy debugging (plaintext), no key management | Not production-ready, security debt |
 
+### Optimization & Scalability (ADR-016+)
+
+| ADR | Title | Status | Key Benefit | Trade-Off |
+|-----|-------|--------|-------------|-----------|
+| [ADR-016](ADR-016-adaptive-sync-usb-traffic-management.md) | Adaptive Sync for USB Traffic Management | Accepted | 80-94% bandwidth reduction, scales to 50+ params | UI state tracking, ~200ms extended param latency |
+
 ---
 
 ## ADR Relationships
@@ -67,7 +73,7 @@ An Architecture Decision Record (ADR) captures an important architectural decisi
 ADR-001 (Three-Domain Architecture)
   ├── ADR-002 (Spec-First) ──→ ADR-010 (PropertyLoader)
   ├── ADR-003 (TCP/UDP Split)
-  │     ├── ADR-008 (5Hz Rate)
+  │     ├── ADR-008 (5Hz Rate) ──→ ADR-016 (Adaptive Sync) [supersedes Alternative 3]
   │     ├── ADR-009 (10 Sec Timeout)
   │     └── ADR-011 (JSON Protocol)
   ├── ADR-004 (Docker) ──→ ADR-007 (Stateless)
@@ -85,6 +91,7 @@ ADR-001 (Three-Domain Architecture)
 - ADR-006: Multi-threading (parallel processing)
 - ADR-008: 5Hz rate (balance UX and bandwidth)
 - ADR-012: C++ (native performance)
+- ADR-016: Adaptive sync (80-94% bandwidth reduction)
 
 **Reliability:**
 - ADR-004: Docker (auto-restart)
@@ -102,6 +109,7 @@ ADR-001 (Three-Domain Architecture)
 - ADR-001: Three-Domain (independent evolution)
 - ADR-002: Spec-First (add properties without code changes)
 - ADR-013: Jetpack Compose (reusable components)
+- ADR-016: Adaptive sync (scales to 50+ camera parameters)
 
 ---
 
