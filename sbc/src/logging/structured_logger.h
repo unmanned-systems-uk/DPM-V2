@@ -45,6 +45,11 @@ public:
     void addSink(std::shared_ptr<LogSink> sink);
     void removeSink(std::shared_ptr<LogSink> sink);
 
+    // Network streaming control (for Ground-Side on-demand logging)
+    void enableGroundStreaming(int duration_sec = 300);
+    void disableGroundStreaming();
+    bool isGroundStreamingEnabled() const;
+
     // Core logging method with structured fields
     void log(LogLevel level, LogContext context, const std::string& message,
              const json& fields = json::object());

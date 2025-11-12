@@ -66,6 +66,9 @@ private:
     json handleCameraAutoFocusHold(const json& payload, int seq_id);
     json handleCameraSetProperty(const json& payload, int seq_id);
     json handleCameraGetProperties(const json& payload, int seq_id);
+    json handleEnableLogStreaming(const json& payload, int seq_id);
+    json handleDisableLogStreaming(const json& payload, int seq_id);
+    json handleGetHealth(const json& payload, int seq_id);
 
     // Validate message
     bool validateMessage(const json& msg, std::string& error);

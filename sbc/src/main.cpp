@@ -11,6 +11,13 @@
 #include "protocol/heartbeat.h"
 #include "camera/camera_interface.h"
 #include "camera/property_loader.h"
+#include "config/config_manager.h"
+#include "logging/structured_logger.h"
+#include "logging/sinks/console_sink.h"
+#include "logging/sinks/file_sink.h"
+#include "logging/sinks/network_sink.h"
+#include "health/health_monitor.h"
+#include "utils/system_info.h"
 
 // Global components for signal handler access
 std::unique_ptr<TCPServer> g_tcp_server;
@@ -146,6 +153,44 @@ int main(int argc, char* argv[]) {
         std::signal(SIGTERM, signalHandler);
         Logger::info("Signal handlers registered (SIGINT, SIGTERM)");
 
+        // Initialize ConfigManager (Phase 1: Gap 3)
+        Logger::info("Initializing ConfigManager...");
+        ConfigManager::getInstance().load();
+        Logger::info("ConfigManager initialized - config loaded from JSON files");
+
+        // Initialize StructuredLogger (Phase 1: Gap 1)
+        Logger::info("Initializing StructuredLogger with sinks...");
+        StructuredLogger::getInstance().init();
+
+        // Add console sink
+        auto console_sink = std::make_shared<ConsoleSink>();
+        StructuredLogger::getInstance().addSink(console_sink);
+
+        // Add file sink with rotation
+        auto file_sink = std::make_shared<FileSink>(
+            CONFIG_STRING("logging.file_path"),
+            CONFIG_INT("logging.file_max_size_mb") * 1024 * 1024,  // Convert MB to bytes
+            CONFIG_INT("logging.file_max_count")
+        );
+        StructuredLogger::getInstance().addSink(file_sink);
+
+        // Add network sink (dual UDP: Ground on-demand + SystemTools always-on)
+        auto network_sink = std::make_shared<NetworkSink>(
+            CONFIG_STRING("network.ground_ip"),
+            CONFIG_INT("logging.network_port"),
+            CONFIG_STRING("logging.network_systemtools_ip"),
+            CONFIG_INT("logging.network_systemtools_port"),
+            CONFIG_BOOL("logging.network_systemtools_enabled")
+        );
+        StructuredLogger::getInstance().addSink(network_sink);
+
+        Logger::info("StructuredLogger initialized with 3 sinks (console, file, network)");
+
+        // Initialize HealthMonitor (Phase 1: Gap 2)
+        Logger::info("Initializing HealthMonitor...");
+        HealthMonitor::getInstance().init();
+        Logger::info("HealthMonitor initialized with 3-tier retention");
+
         // Initialize PropertyLoader (specification-first architecture)
         Logger::info("Loading camera property specifications from camera_properties.json...");
         if (!PropertyLoader::initialize()) {
@@ -209,6 +254,12 @@ int main(int argc, char* argv[]) {
         g_udp_broadcaster->start();
         g_heartbeat->start();
 
+        // Start HealthMonitor broadcasting (Phase 1: Gap 2)
+        std::string health_broadcast_ip = CONFIG_STRING("network.ground_ip");
+        int health_broadcast_port = CONFIG_INT("network.udp_health_port");
+        HealthMonitor::getInstance().startBroadcasting(health_broadcast_ip, health_broadcast_port);
+        Logger::info("HealthMonitor broadcasting started: " + health_broadcast_ip + ":" + std::to_string(health_broadcast_port) + " (5 Hz)");
+
         // Start camera health check thread
         g_health_check_running = true;
         g_health_check_thread = std::thread(cameraHealthCheckThread);
@@ -233,6 +284,34 @@ int main(int argc, char* argv[]) {
         // Main loop - wait for shutdown signal
         while (!g_shutdown_requested) {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+            // Collect and update system metrics for HealthMonitor (every 500ms)
+            SystemMetrics sys_metrics;
+            sys_metrics.cpu_percent = SystemInfo::getCPUPercent();
+            sys_metrics.memory_used_mb = SystemInfo::getMemoryUsedMB();
+            sys_metrics.memory_total_mb = SystemInfo::getMemoryTotalMB();
+            sys_metrics.disk_used_mb = (SystemInfo::getDiskTotalGB() - SystemInfo::getDiskFreeGB()) * 1024;
+            sys_metrics.disk_total_mb = SystemInfo::getDiskTotalGB() * 1024;
+            sys_metrics.network_rx_mbps = SystemInfo::getNetworkRxMbps();
+            sys_metrics.network_tx_mbps = SystemInfo::getNetworkTxMbps();
+            HealthMonitor::getInstance().updateSystemMetrics(sys_metrics);
+
+            // Update camera metrics
+            CameraMetrics cam_metrics;
+            cam_metrics.connected = g_camera ? g_camera->isConnected() : false;
+            // TODO: Add SDK latency tracking in camera_sony.cpp
+            cam_metrics.sdk_latency_ms = 0.0f;
+            cam_metrics.usb_traffic_mbps = 0;
+            cam_metrics.error_count = 0;
+            HealthMonitor::getInstance().updateCameraMetrics(cam_metrics);
+
+            // Update network metrics
+            NetworkMetrics net_metrics;
+            net_metrics.tcp_connected = g_tcp_server ? g_tcp_server->isRunning() : false;
+            net_metrics.tcp_latency_ms = 0.0f;  // TODO: Track TCP latency
+            net_metrics.udp_loss_percent = 0.0f;  // TODO: Track UDP packet loss
+            net_metrics.command_queue_depth = 0;  // TODO: Track command queue
+            HealthMonitor::getInstance().updateNetworkMetrics(net_metrics);
 
             // Periodic heartbeat check
             double time_since_heartbeat = g_heartbeat->getTimeSinceLastHeartbeat();
@@ -285,6 +364,14 @@ int main(int argc, char* argv[]) {
             g_camera->disconnect();
         }
 
+        // Shutdown Phase 1 components
+        Logger::info("Stopping HealthMonitor...");
+        HealthMonitor::getInstance().stopBroadcasting();
+        HealthMonitor::getInstance().shutdown();
+
+        Logger::info("Stopping StructuredLogger...");
+        StructuredLogger::getInstance().shutdown();
+
         Logger::info("========================================");
         Logger::info("Payload Manager Service Stopped");
         Logger::info("========================================");
@@ -310,6 +397,11 @@ int main(int argc, char* argv[]) {
         if (g_udp_broadcaster) g_udp_broadcaster->stop();
         if (g_tcp_server) g_tcp_server->stop();
         if (g_camera) g_camera->disconnect();
+
+        // Shutdown Phase 1 components on error
+        HealthMonitor::getInstance().stopBroadcasting();
+        HealthMonitor::getInstance().shutdown();
+        StructuredLogger::getInstance().shutdown();
 
         Logger::close();
         return 1;

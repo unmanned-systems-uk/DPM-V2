@@ -6,6 +6,8 @@
 #include "utils/logger.h"
 #include "utils/system_info.h"
 #include "camera/camera_interface.h"
+#include "logging/structured_logger.h"
+#include "health/health_monitor.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -295,6 +297,12 @@ json TCPServer::processCommand(const json& command) {
             return handleCameraSetProperty(command["payload"], seq_id);
         } else if (cmd == "camera.get_properties") {
             return handleCameraGetProperties(command["payload"], seq_id);
+        } else if (cmd == "logging.enable_streaming") {
+            return handleEnableLogStreaming(command["payload"], seq_id);
+        } else if (cmd == "logging.disable_streaming") {
+            return handleDisableLogStreaming(command["payload"], seq_id);
+        } else if (cmd == "health.get_snapshot") {
+            return handleGetHealth(command["payload"], seq_id);
         } else {
             // Check if it's a Phase 2 command
             if (cmd.find("camera.") == 0 || cmd.find("gimbal.") == 0) {
@@ -781,4 +789,64 @@ bool TCPServer::validateMessage(const json& msg, std::string& error) {
     }
 
     return true;
+}
+
+json TCPServer::handleEnableLogStreaming(const json& payload, int seq_id) {
+    Logger::info("Executing logging.enable_streaming");
+
+    // Get optional duration parameter (default: 300 seconds)
+    int duration_sec = 300;
+    if (payload.contains("parameters")) {
+        json parameters = payload["parameters"];
+        if (parameters.contains("duration_sec") && parameters["duration_sec"].is_number()) {
+            duration_sec = parameters["duration_sec"].get<int>();
+
+            // Validate duration (1 second to 1 hour)
+            if (duration_sec < 1 || duration_sec > 3600) {
+                return messages::createErrorResponse(
+                    seq_id, "logging.enable_streaming",
+                    messages::ErrorCode::INVALID_PARAMETERS,
+                    "Duration must be between 1 and 3600 seconds"
+                );
+            }
+        }
+    }
+
+    // Enable ground streaming via StructuredLogger
+    StructuredLogger::getInstance().enableGroundStreaming(duration_sec);
+
+    json result = {
+        {"status", "enabled"},
+        {"duration_sec", duration_sec}
+    };
+
+    Logger::info("Log streaming enabled for " + std::to_string(duration_sec) + " seconds");
+    return messages::createSuccessResponse(seq_id, "logging.enable_streaming", result);
+}
+
+json TCPServer::handleDisableLogStreaming(const json& payload, int seq_id) {
+    Logger::info("Executing logging.disable_streaming");
+
+    // Disable ground streaming via StructuredLogger
+    StructuredLogger::getInstance().disableGroundStreaming();
+
+    json result = {
+        {"status", "disabled"}
+    };
+
+    Logger::info("Log streaming disabled");
+    return messages::createSuccessResponse(seq_id, "logging.disable_streaming", result);
+}
+
+json TCPServer::handleGetHealth(const json& payload, int seq_id) {
+    Logger::info("Executing health.get_snapshot");
+
+    // Get current health snapshot
+    HealthSnapshot snapshot = HealthMonitor::getInstance().getCurrentSnapshot();
+
+    // Convert to JSON
+    json result = snapshot.toJson();
+
+    Logger::info("Health snapshot retrieved successfully");
+    return messages::createSuccessResponse(seq_id, "health.get_snapshot", result);
 }

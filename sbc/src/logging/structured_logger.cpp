@@ -1,5 +1,6 @@
 #include "logging/structured_logger.h"
 #include "logging/log_sink.h"
+#include "logging/sinks/network_sink.h"
 #include <chrono>
 #include <iomanip>
 #include <sstream>
@@ -117,4 +118,51 @@ std::string StructuredLogger::contextToString(LogContext context) {
         case LogContext::STORAGE: return "STORAGE";
         default:                  return "UNKNOWN";
     }
+}
+
+void StructuredLogger::enableGroundStreaming(int duration_sec) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and enable ground streaming
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->enableGroundStreaming(duration_sec);
+            }
+            break;
+        }
+    }
+}
+
+void StructuredLogger::disableGroundStreaming() {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and disable ground streaming
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->disableGroundStreaming();
+            }
+            break;
+        }
+    }
+}
+
+bool StructuredLogger::isGroundStreamingEnabled() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and check status
+    for (const auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                return network_sink->isGroundStreamingEnabled();
+            }
+            break;
+        }
+    }
+
+    return false;
 }
