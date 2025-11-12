@@ -1,0 +1,83 @@
+@startuml DPM-V2 Container Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' DPM-V2 Container Diagram (C4 Level 2)
+' Shows the high-level technology choices and communication between containers
+
+title DPM-V2 Container Diagram
+
+Person(operator, "Drone Operator", "Controls camera from ground station")
+Person(developer, "Developer", "Diagnoses and debugs system")
+
+System_Ext(camera, "Sony Alpha Camera", "Professional camera via USB")
+System_Ext(network, "Network", "WiFi/Ethernet")
+
+System_Boundary(dpm, "DPM-V2 System") {
+    Container(air_side, "Air-Side Service", "C++17, Docker", "Raspberry Pi 5 service controlling Sony camera, broadcasting status, processing commands")
+    Container(ground_side, "Ground-Side App", "Kotlin, Jetpack Compose", "Android H16 tablet app providing camera control UI and real-time status display")
+    Container(dev_tools, "SystemTools", "Python, Tkinter", "Diagnostic and development tools for system monitoring and protocol testing")
+
+    ContainerDb(protocol_tcp, "TCP Command Channel", "JSON over TCP:5000", "Bidirectional command/response communication")
+    ContainerDb(protocol_udp_status, "UDP Status Broadcast", "JSON over UDP:5001", "5Hz real-time telemetry stream")
+    ContainerDb(protocol_udp_heartbeat, "UDP Heartbeat", "JSON over UDP:5002", "1Hz connection health monitoring")
+}
+
+System_Ext(sdk, "Sony SDK v2.00.00", "Proprietary camera control library")
+
+' Operator interactions
+Rel(operator, ground_side, "Controls camera, views status", "Touch UI")
+
+' Developer interactions
+Rel(developer, dev_tools, "Monitors, diagnoses, tests", "Desktop GUI")
+Rel(developer, air_side, "SSH access, logs", "Terminal/SSH")
+
+' Air-Side relationships
+Rel(air_side, camera, "Controls, queries status", "USB bulk, Sony SDK")
+Rel(air_side, sdk, "Uses for camera control", "Native C++ calls")
+Rel(air_side, protocol_tcp, "Receives commands, sends responses", "TCP server")
+Rel(air_side, protocol_udp_status, "Broadcasts telemetry", "UDP sender")
+Rel(air_side, protocol_udp_heartbeat, "Sends/receives heartbeats", "UDP bidirectional")
+
+' Ground-Side relationships
+Rel(ground_side, protocol_tcp, "Sends commands, receives responses", "TCP client")
+Rel(ground_side, protocol_udp_status, "Receives telemetry", "UDP listener")
+Rel(ground_side, protocol_udp_heartbeat, "Sends/receives heartbeats", "UDP bidirectional")
+
+' Dev-Tools relationships
+Rel(dev_tools, protocol_tcp, "Tests commands", "TCP client")
+Rel(dev_tools, protocol_udp_status, "Monitors telemetry", "UDP listener")
+Rel(dev_tools, protocol_udp_heartbeat, "Monitors connection", "UDP listener")
+Rel(dev_tools, air_side, "SSH diagnostics", "SSH/SCP")
+
+' Network infrastructure
+Rel_Back(protocol_tcp, network, "Routed via")
+Rel_Back(protocol_udp_status, network, "Routed via")
+Rel_Back(protocol_udp_heartbeat, network, "Routed via")
+
+SHOW_LEGEND()
+
+note right of protocol_tcp
+  **TCP Command Protocol (Port 5000)**
+  - Bidirectional JSON messages
+  - Long-lived connection
+  - Command/response pairs
+  - Camera control, property set/get
+end note
+
+note right of protocol_udp_status
+  **UDP Status Broadcast (Port 5001)**
+  - 5Hz update rate (200ms interval)
+  - Camera status, system telemetry
+  - Fire-and-forget (no ACK)
+  - Real-time monitoring
+end note
+
+note right of protocol_udp_heartbeat
+  **UDP Heartbeat (Port 5002)**
+  - 1Hz bidirectional
+  - Connection health check
+  - 10 second timeout
+  - Automatic reconnection
+end note
+
+@enduml

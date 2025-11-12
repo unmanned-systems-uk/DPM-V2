@@ -118,6 +118,26 @@ class ProtocolMessage:
         """Create system.get_status command"""
         return self.create_command("system.get_status", {})
 
+    def create_camera_focus(self, action: str, speed: int = 3) -> str:
+        """Create camera.focus command
+
+        Args:
+            action: Focus action ('near', 'far', 'stop')
+            speed: Focus speed 1-3 (1=slow, 2=medium, 3=fast), default 3
+        """
+        params = {"action": action}
+        if action != "stop":
+            params["speed"] = speed
+        return self.create_command("camera.focus", params)
+
+    def create_camera_auto_focus_hold(self, state: str) -> str:
+        """Create camera.auto_focus_hold command
+
+        Args:
+            state: Button state ('press', 'release')
+        """
+        return self.create_command("camera.auto_focus_hold", {"state": state})
+
     # Parsing
     def parse_message(self, json_str: str) -> Optional[Dict[str, Any]]:
         """Parse JSON message string"""

@@ -7,9 +7,9 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.13.0"
-VERSION_NAME = "Git Helper - Simplified Git Operations"
-BUILD_DATE = "2025-11-08"
+VERSION = "1.15.1"
+VERSION_NAME = "Fix Window Scaling - Scrollable Camera Dashboard"
+BUILD_DATE = "2025-11-10"
 
 # Build metadata
 BUILD_INFO = {

@@ -1,7 +1,7 @@
 # DPM-V2 Lessons Learned Registry
 *Maintained by: CC-Project-Manager*
-*Last Updated: 2025-11-08*
-*Version: 1.1*
+*Last Updated: 2025-11-10*
+*Version: 1.4*
 
 ## 🎯 Purpose
 
@@ -57,6 +57,15 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 ## Quick Reference Index
 
 ### By Topic
+- **🔴 Three-State Labeling ([FIX]→[FIXING]→[FIXED]):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Branch Workflow (MANDATORY):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Issue Closure Rules:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 AI as Quality Gate:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Explicit Instructions Not Followed:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
+- **🔴 Session Continuity & Verification:** → [Workflow & Process](#session-continuity-and-verification)
+- **🔴 "Discussed = Done" Anti-Pattern:** → [Anti-Patterns](#discussed--done-anti-pattern)
+- **Proof of Work Standards:** → [Workflow & Process](#session-continuity-and-verification)
+- **Incremental Progress Reporting:** → [Workflow & Process](#session-continuity-and-verification)
 - **Focus Distance Issues:** → [Focus & Camera Control](#focus-distance)
 - **Manual Focus Problems:** → [Focus & Camera Control](#manual-focus)
 - **AF Hold in MF Mode:** → [Focus & Camera Control](#resolved---af-hold-not-supported-in-manual-focus)
@@ -79,6 +88,9 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 - Issue #22: Manual Focus Commands Not Reaching Air-Side → [Manual Focus](#manual-focus)
 - Issue #24: WHO Tag Enhancement → [Workflow & Process](#who-tag-system)
 - Issue #33: NVMe Migration → [Build & Deployment](#critical-sony-sdk-camera-enumeration-failure-error-0x34563)
+- Issue #46: Pre-SSD Migration Preparation → [Workflow & Process](#session-continuity-and-verification)
+- Issue #50: Issue #46 Communication Breakdown → [Workflow & Process](#session-continuity-and-verification)
+- Issue #51: Issue #46 Process Failure Investigation → [Workflow & Process](#session-continuity-and-verification)
 
 ---
 
@@ -639,6 +651,282 @@ ls -l /dev/bus/usb/004/019
 
 ## Workflow & Process
 
+### 🔴 CRITICAL: Branch Workflow (NEW MANDATORY RULE)
+
+**Date Established:** 2025-11-10
+**Severity:** 🔴 **CRITICAL** - Protects main branch integrity
+**Source:** Manual Focus debugging experience (Issues #2, #22, #40, #48)
+
+#### ❌ What Was Happening (Anti-Pattern)
+
+**Problem: Working directly on main branch**
+- **What:** All fixes and features committed directly to `main`
+- **Why it failed:**
+  - Untested code merged to production immediately
+  - No easy rollback when bugs discovered
+  - Main branch unstable during active development
+  - User testing happened AFTER code was in production
+- **Impact:** Many hours lost debugging, unstable production code
+
+**Problem: Closing issues prematurely**
+- **What:** Issues closed before complete testing by both AI and User
+- **Result:** Bugs not caught, issues reopened, rework required
+- **Example:** Manual Focus issue - closed multiple times, still broken
+
+**Problem: Explicit instructions not followed**
+- **What:** User: "Roll back Air-Side code to pre-1st November"
+- **What happened:** Air-Side did NOT roll back code
+- **Result:** Many hours wasted debugging current code when known-good version existed
+- **Impact:** HIGH - significant time loss, user frustration
+
+#### ✅ NEW MANDATORY RULES
+
+**Rule 1: Universal Three-State Issue Labeling System**
+
+**Implementation: Option B - Universal Labels + Title Prefixes**
+
+**Applies to ALL issue types:** Bugs, Enhancements, Features, Documentation, Workflow, Investigation
+
+```markdown
+UNIVERSAL PATTERN: [TYPE] → [TYPE-ING] → [TYPE-ED]
+
+State 1: Not Started
+  - Title: [FIX], [ENHANCE], [FEATURE], [DOC], [WORKFLOW], [INVESTIGATE]
+  - Label: status:todo (gray #d4c5f9)
+  - Work not yet begun
+
+State 2: In Progress
+  - Title: [FIXING], [ENHANCING], [IMPLEMENTING], [DOCUMENTING], [WORKING], [INVESTIGATING]
+  - Label: status:in-progress (yellow #fbca04)
+  - Change IMMEDIATELY when starting work (not at EOD)
+
+State 3: Complete
+  - Title: [FIXED], [ENHANCED], [IMPLEMENTED], [DOCUMENTED], [COMPLETE], [RESOLVED]
+  - Label: status:complete (green #0e8a16)
+  - AI testing complete ✅
+  - User testing/review complete ✅
+  - Both AI and User agree it's done
+  - AI suggests change, user confirms
+```
+
+**Examples by Type:**
+
+```markdown
+Bug: [FIX] → [FIXING] → [FIXED] + status:complete
+Enhancement: [ENHANCE] → [ENHANCING] → [ENHANCED] + status:complete
+Feature: [FEATURE] → [IMPLEMENTING] → [IMPLEMENTED] + status:complete
+Documentation: [DOC] → [DOCUMENTING] → [DOCUMENTED] + status:complete
+Workflow: [WORKFLOW] → [WORKING] → [COMPLETE] + status:complete
+Investigation: [INVESTIGATE] → [INVESTIGATING] → [RESOLVED] + status:complete
+```
+
+**Universal Search:**
+
+```bash
+# Find ALL works-in-progress (any type)
+gh issue list --label status:in-progress --state open
+
+# Find ALL completed but not closed (any type)
+gh issue list --label status:complete --state open
+
+# Find ALL not started (any type)
+gh issue list --label status:todo --state open
+```
+
+**Transition Rules:**
+
+**[FIX] → [FIXING]:**
+```markdown
+Trigger: IMMEDIATELY when AI starts work
+Action:
+  1. Update title: [FIX] → [FIXING]
+  2. Add label: status:fixing
+  3. Comment: "**WHO:** CC-[Domain]\n\nStarting work now"
+
+❌ DON'T wait for EOD
+❌ DON'T wait for work complete
+✅ DO change immediately
+```
+
+**[FIXING] → [FIXED]:**
+```markdown
+Trigger: All testing complete (AI + User)
+
+AI Responsibility:
+  1. Complete thorough own testing
+  2. Verify user tested comprehensively
+  3. If user testing seems incomplete → QUERY USER
+  4. Suggest specific test scenarios if needed
+  5. Confirm both AI and User agree
+  6. SUGGEST changing to [FIXED] (don't assume)
+  7. Wait for user confirmation
+
+User Can:
+  - Request AI to change to [FIXED]
+  - Confirm AI's suggestion
+  - Reject if more testing needed
+
+AI Should Query If:
+  - User testing seems incomplete
+  - User didn't test all scenarios
+  - User might have misunderstood the fix
+  - Edge cases not covered
+
+Action When Both Agree:
+  1. Update title: [FIXING] → [FIXED]
+  2. Update label: status:fixing → status:fixed
+  3. Comment with full test results
+```
+
+**AI as Quality Gate:**
+- ✅ Support user in understanding what needs testing
+- ✅ Protect user from incomplete fixes
+- ✅ Ask clarifying questions if uncertain
+- ✅ Users make mistakes - AI should verify
+- ❌ NEVER auto-change to [FIXED] without discussion
+- ❌ NEVER accept vague "it works" without details
+
+**Rule 2: Branch Workflow for ALL Fixes/Features (MANDATORY)**
+```markdown
+✅ ALWAYS create branch for fixes/features:
+  1. Create branch: git checkout -b fix/issue-XX-description
+  2. Implement and test on branch
+  3. AI agent testing complete
+  4. User testing complete
+  5. User approval received
+  6. THEN merge to main: git merge fix/issue-XX-description
+  7. Push to origin
+
+❌ NEVER commit directly to main for:
+  - Bug fixes
+  - New features
+  - Protocol changes
+  - Refactoring
+
+✅ OK to commit directly to main:
+  - Documentation updates (non-code)
+  - README changes
+  - Comments/clarifications
+```
+
+**Branch Naming Convention:**
+- Fixes: `fix/issue-XX-short-description`
+- Features: `feature/issue-XX-short-description`
+- Refactoring: `refactor/issue-XX-short-description`
+
+**Example Workflow:**
+```bash
+# Start work on Issue #40
+git checkout -b fix/issue-40-manual-focus-regression
+
+# Work, test, iterate
+git add .
+git commit -m "[AIR-SIDE][FIX] Issue #40: Fix manual focus regression"
+
+# AI testing complete, User testing complete, User approves
+git checkout main
+git merge fix/issue-40-manual-focus-regression
+git push origin main
+
+# Keep branch for reference
+# Don't delete branches until issue closed for 30 days
+```
+
+**Rule 3: Issue Closure Policy**
+```markdown
+❌ NEVER close issues until:
+  1. Issue label changed to [FIXED] (both AI + User confirmed)
+  2. User explicit approval to close
+
+✅ Issue lifecycle:
+  [FIX] → [FIXING] → [FIXED] → User Approves → CLOSED
+
+❌ AI NEVER closes issues
+✅ Only User closes issues
+```
+- **Why:** Prevents premature closure, ensures quality
+- **Enforcement:** PM checks label is [FIXED] before suggesting closure
+
+**Rule 4: Follow Explicit User Instructions**
+```markdown
+✅ When user provides explicit instruction:
+  1. Acknowledge instruction verbatim
+  2. Confirm understanding
+  3. Execute EXACTLY as instructed
+  4. Verify execution completed
+  5. Report results
+
+❌ NEVER:
+  - Assume user meant something else
+  - Skip steps thinking they're unnecessary
+  - Implement partial solution
+  - Report completion without verification
+```
+
+**Example of Failure:**
+```markdown
+User: "Roll back Air-Side code to pre-1st November"
+❌ Wrong: Continue debugging current code
+✅ Right:
+  1. "Acknowledged: Rolling back to pre-1st November"
+  2. git log --since="2025-11-01" --until="2025-11-02"
+  3. Find commit hash from Oct 31st or earlier
+  4. git checkout <commit-hash>
+  5. Test that Manual Focus works
+  6. Report: "Rolled back to commit <hash> from <date>. Manual Focus working."
+```
+
+#### 🏗️ Benefits of Branch Workflow
+
+**Protects Main Branch:**
+- Main always in known-good state
+- Easy rollback: just don't merge
+- User can test on branch before production merge
+
+**Enables Parallel Work:**
+- Multiple issues can be worked on different branches
+- Air-Side and Ground-Side can work independently
+- No conflicts in main
+
+**Facilitates Testing:**
+- Branch exists until testing complete
+- Easy to test, revert, retry
+- Known-good state preserved in main
+
+**Clear History:**
+- Git history shows when features merged
+- Can see what changed together
+- Easier to bisect bugs
+
+#### 📊 Implementation Checklist
+
+**For All Future Work:**
+- [ ] Create issue first (always)
+- [ ] Create branch from main
+- [ ] Work and test on branch
+- [ ] AI agent testing complete
+- [ ] User testing complete
+- [ ] User approval received
+- [ ] Merge to main
+- [ ] Push to origin
+- [ ] Keep branch for 30 days post-closure
+
+**For PM Role:**
+- [ ] Enforce branch workflow in all domains
+- [ ] Check branch exists before reviewing PRs
+- [ ] Verify testing complete before merge approval
+- [ ] Update workflow documentation
+- [ ] Add branch workflow to session checklists
+
+#### 🔗 Related
+
+- Manual Focus Issues: #2, #22, #40, #48
+- Known-Good State: Pre-1st November 2025 (Manual Focus working)
+- Who: All domains must follow this workflow
+- Enforcement: CC-Project-Manager oversees compliance
+
+---
+
 ### Historical Learning
 
 **Related Issue:** #21
@@ -671,6 +959,313 @@ gh issue view 10 --comments
 - Search by domain: `gh issue list --search "WHO: CC-Air-Side"`
 
 **Lesson:** Standardized WHO tags transform GitHub issues into searchable knowledge base
+
+---
+
+### Session Continuity and Verification
+
+**Related Issues:** #46, #50, #51
+**Date Discovered:** 2025-11-09
+**Severity:** 🔴 **CRITICAL** - Process integrity
+
+#### Problem Statement
+
+**Incident:** Issue #46 (Pre-SSD Migration Preparation) exposed critical gap in session continuity verification:
+- Previous Air-Side session reportedly claimed all 10 tasks complete
+- New Air-Side session verification discovered **0 of 10 tasks actually executed**
+- Investigation revealed tasks were discussed/planned but never executed
+- Recovery session successfully completed all tasks with proper verification
+
+**Impact:**
+- User believed system ready for hardware migration (it wasn't initially)
+- Required full re-execution of all tasks in new session
+- Wasted ~90 minutes + investigation time
+- Risk to production system from inadequate preparation
+
+#### Root Causes
+
+1. **"Discussed = Done" Gap** - Planning vs execution not distinguished
+2. **No Verification Loop** - Tasks marked complete without artifact checks
+3. **Reboot Cleared Context** - /tmp files lost, ephemeral evidence gone
+4. **No Persistent Proof of Work** - Work not in git/filesystem invisible to future sessions
+5. **Cross-Session Trust Without Verification** - Accepting completion claims without checking
+
+#### ✅ What Worked (Recovery Session)
+
+**Systematic Verification Approach:**
+```bash
+# Git verification
+git status                    # Check for uncommitted work
+git log --oneline -10         # Look for expected commits
+git diff origin/main          # Check for unpushed changes
+
+# Filesystem verification
+ls -la ~/expected-directory   # Check files exist
+cat ~/expected-file | head    # Verify content
+
+# GitHub verification
+gh issue view 46 --comments   # Check for completion comments
+
+# Build verification
+docker ps                     # Container status
+docker images                 # Image exists
+ls -lh ~/backups/             # Backup files exist
+```
+
+**Result:** Discovered truth, executed properly, created verifiable artifacts
+
+#### 🔴 Critical Lessons Learned
+
+**LESSON 1: Verification is Mandatory - Trust But Verify**
+
+**Problem:** Accepting completion claims from previous sessions without verification
+
+**Solution:** **NEVER trust that work was done unless you can verify persistent artifacts exist**
+
+**Verification Standards:**
+- **Git commits** = proof of code/doc changes (check `git log`)
+- **GitHub comments** = proof of communication (check issue comments)
+- **Filesystem files in ~/** = proof of creation (NOT /tmp - ephemeral)
+- **Docker images/containers** = proof of builds (check `docker images`)
+- **Logs with timestamps** = proof of execution
+
+**Apply in future by:**
+- Start EVERY session with verification checks for claimed work
+- Create verification checklist: "Does X file exist? Is Y commit in git? Is Z comment on GitHub?"
+- Never mark task complete without verifiable proof
+- Use git commits as proof-of-work for documentation/code tasks
+
+**Example Verification Protocol:**
+```markdown
+Session Start: Continuing Issue #X from previous session
+
+Verification checklist:
+- [ ] Expected git commits present? (`git log | grep "#X"`)
+- [ ] Expected files exist? (`ls expected-file`)
+- [ ] Expected GitHub comments? (`gh issue view X --comments`)
+- [ ] Expected builds? (`docker images | grep expected`)
+
+If ANY check fails → Investigation required, do NOT assume work complete
+```
+
+---
+
+**LESSON 2: Execution Immediately Follows Planning**
+
+**Problem:** Planning all tasks, then attempting to execute all tasks - risk of discussion without execution
+
+**Solution:** **Plan → Execute → Verify in tight loops. Don't plan 10 tasks then execute. Plan task 1 → Execute task 1 → Verify task 1 → Move to task 2.**
+
+**Anti-Pattern Example (AVOID):**
+```
+1. Read all 10 tasks
+2. Discuss approach for all 10
+3. Tell user "will do all 10"
+4. Session ends OR execution fails
+5. Next session: no artifacts, no proof
+```
+
+**Best Practice Example (FOLLOW):**
+```
+1. Read task 1 → Execute (write file) → Verify (file exists) → Mark complete ✅
+2. Read task 2 → Execute (commit) → Verify (git log) → Mark complete ✅
+3. Repeat for each task
+4. Each task has independent proof of completion
+```
+
+**Implementation:**
+- Use TodoWrite to track task-by-task progress
+- Execute each task BEFORE moving to next
+- Verify execution with filesystem/git check
+- Show user incremental progress (comment updates)
+- Never report "complete" until verification passes
+
+---
+
+**LESSON 3: Git Commits Are Proof of Work**
+
+**Problem:** Work not committed to git is invisible to future sessions after reboots
+
+**Solution:** **If it's not in git history, it never happened (from future session's perspective). Commit early, commit often, push to remote.**
+
+**Example:**
+- Previous session: 0 commits for Issue #46 work = no proof
+- Recovery session: Committed immediately (d0cc940) = verifiable proof
+- Future sessions can verify with `git log | grep "d0cc940"`
+
+**Apply in future by:**
+- Commit after EACH significant task (not batched at end)
+- Use descriptive commit messages mentioning issue numbers
+- Push to remote DURING session, not just at end
+- If work isn't committed by session end, it's at risk of loss
+
+---
+
+**LESSON 4: Reboots Erase /tmp - Use Persistent Storage**
+
+**Problem:** /tmp is ephemeral - files disappear on reboot, breaking verification
+
+**Solution:** **Critical artifacts MUST go in persistent locations**
+
+**Persistent Locations:**
+- `~/backups/` for backups, snapshots
+- `~/DPM-V2/` (git repo) for documentation
+- `~/artifacts/` for generated files
+- NOT `/tmp` (only for truly temporary within-session work)
+
+**Example:**
+- Issue #46 Task 3: System state snapshot
+- Specified: `/tmp/sbc_pre_migration_state.txt`
+- Problem: Reboot erases it
+- Better: `~/backups/sbc_pre_migration_state.txt` (persistent)
+
+**Apply in future by:**
+- Review task specs that use /tmp
+- Suggest persistent locations instead
+- Document why: "Note: Using ~/backups/ instead of /tmp to survive reboots"
+
+---
+
+**LESSON 5: Incremental Progress Reporting**
+
+**Problem:** All work done silently, then reported at end (or not at all) - no visibility, no audit trail
+
+**Solution:** **Post progress comments to GitHub as tasks complete (every 2-3 tasks)**
+
+**Example:**
+```markdown
+**WHO:** CC-Air-Side
+
+**Progress Update - Issue #46**
+
+✅ Tasks 1-3 Complete:
+- Task 1: Session context posted (comment #3507239669)
+- Task 2: FRESH_INSTALL_GUIDE.md created (commit d0cc940, 1,070 lines)
+- Task 3: System state documented (~/backups/state.txt, 212KB)
+
+🔄 In Progress:
+- Task 4: Git verification
+
+⏳ Remaining: Tasks 5-10
+```
+
+**Benefits:**
+- User visibility into progress
+- Creates audit trail
+- Proof work is actually happening
+- Recovery point if session interrupts
+- Future sessions can verify incremental completion
+
+**Implementation:**
+- Post progress comment every 2-3 tasks on long checklists
+- Include verification proof (file paths, commit hashes, comment URLs)
+- Don't wait until end to report
+
+---
+
+#### 📋 Session Start Verification Protocol (NEW)
+
+**When to Use:** Any session continuing work from previous session
+
+**Mandatory Verification Checklist:**
+
+```bash
+# 1. Git Verification
+git status                               # Should be clean if previous work committed
+git log --oneline -10                    # Check for expected commits
+git log | grep "#<issue-number>"         # Find issue-related commits
+git diff origin/main                     # Check for unpushed changes
+
+# 2. Filesystem Verification
+ls -la ~/expected-directory              # Files exist?
+cat ~/expected-file | head -20           # File has content?
+du -sh ~/expected-directory              # Check size (not empty?)
+
+# 3. GitHub Verification
+gh issue view <number> --comments        # Expected comments present?
+gh issue view <number> --json labels     # Check status labels
+
+# 4. Build Verification
+docker ps                                # Container running?
+docker images | grep <expected>          # Image exists?
+ls -lh ~/backups/                        # Backups created?
+
+# 5. System State
+uptime                                   # Detect if reboot occurred
+df -h                                    # Disk space check
+```
+
+**Action Based on Findings:**
+- ✅ All checks pass → Proceed with confidence
+- ⚠️ Some checks fail → Investigate before accepting claimed status
+- ❌ Most checks fail → Likely work not done, re-execute required
+
+**Document Findings:**
+```markdown
+**WHO:** CC-[Domain]
+
+**Session Start Verification - Issue #X**
+
+Verification Results:
+- Git commits: ✅ Found commit abc1234 from 2025-11-09
+- Expected files: ✅ FRESH_INSTALL_GUIDE.md exists (1,070 lines)
+- GitHub comments: ✅ Completion comment present
+- Backups: ✅ 2.8GB Docker backups in ~/backups/
+
+Conclusion: Previous session work verified. Proceeding with next phase.
+```
+
+---
+
+#### ⚠️ Anti-Pattern: "Discussed = Done"
+
+**(See full details in [Anti-Patterns](#discussed--done-anti-pattern) section)**
+
+**Warning Signs:**
+- TodoWrite items marked "completed" but no git commits
+- Detailed plans written but no files created
+- User told "tasks complete" but no GitHub comments posted
+- Long discussions but short git log
+
+**Prevention:**
+- Execute immediately after discussing
+- Verify before marking complete
+- Create persistent artifacts
+- Commit early and often
+
+---
+
+#### 📊 Success Metrics
+
+**Recovery Session (Issue #46) Demonstrated:**
+- ✅ Systematic verification caught failure
+- ✅ All 10 tasks completed properly with proof
+- ✅ 1,711 lines of documentation created (verifiable)
+- ✅ 2.8GB of Docker backups created (verifiable)
+- ✅ Git commit d0cc940 contains all work (verifiable)
+- ✅ GitHub comments document completion (verifiable)
+
+**Time Investment:**
+- Investigation: 15 min (discovered truth)
+- Proper execution: 90 min (all tasks with verification)
+- Total: ~105 min
+
+**Value Created:**
+- System ready for SSD migration (verified)
+- Complete rebuild documentation (1,711 lines)
+- Docker backups (2.8GB)
+- Repeatable process established
+- Lessons captured for future sessions
+
+---
+
+#### 🔗 Related
+
+- **Issue #46:** Pre-SSD Migration Preparation (source incident)
+- **Issue #50:** PM perspective on communication breakdown
+- **Issue #51:** Air-Side detailed investigation and lessons (forwarded to CCPM)
+- **CCPM Issue #69:** Session continuity questions raised
+- **Recovery Commit:** d0cc940 (2025-11-09)
 
 ---
 
@@ -788,17 +1383,78 @@ GitHub Actions (Monitor) → Data Layer → Claude (Analyze) → User (Act)
 
 ### Workflow Anti-Patterns
 
-1. **❌ Implementing without historical search**
+1. **❌ "Discussed = Done" Anti-Pattern** 🔴 **CRITICAL**
+   - **Related Issues:** #46, #50, #51
+   - **Date Identified:** 2025-11-09
+
+   **What it looks like:**
+   - Reading task list aloud and explaining approach
+   - Planning what will be done in detail
+   - Telling user "I will now do X, Y, Z"
+   - Session ends without actually executing tasks
+   - TodoWrite shows tasks "completed" but no git commits
+   - Long discussions about work but no artifacts created
+
+   **Why it fails:**
+   - Intent is not execution
+   - Plans are not results
+   - Words are not commits
+   - Reboots erase context - previous session's discussion is lost
+   - Future sessions have no proof of work
+
+   **Warning Signs:**
+   - TodoWrite items marked "completed" but no git commits
+   - Detailed plans written but no files created
+   - User told "tasks complete" but no GitHub comments posted
+   - Long discussions but short `git log`
+   - No persistent artifacts (files in git, filesystem)
+
+   **Example Incident (Issue #46):**
+   - Previous session reportedly claimed 10 tasks complete
+   - New session verification: 0 tasks actually executed
+   - Tasks were discussed/planned but never executed
+   - User believed work done, proceeded with hardware migration
+   - Recovery required ~90 min to actually execute tasks
+
+   **Fix:**
+   - **Read task → IMMEDIATELY execute (write file, run command)**
+   - **Verify execution (check file exists, git log, command output)**
+   - **Mark complete in TodoWrite ONLY after verification**
+   - **Move to next task**
+   - **No discussion without immediate execution**
+
+   **Prevention Checklist:**
+   ```markdown
+   Before marking any task "complete":
+   - [ ] Did I actually execute the task? (not just plan it)
+   - [ ] Can I verify the result? (file exists, git commit, GitHub comment)
+   - [ ] Will this survive a reboot? (not in /tmp, in git)
+   - [ ] Can future sessions verify this? (persistent artifact)
+
+   If ANY answer is NO → Task is NOT complete
+   ```
+
+   **See Also:** [Session Continuity and Verification](#session-continuity-and-verification)
+
+2. **❌ Implementing without historical search**
    - Repeats failed attempts from previous issues
    - **Fix:** ALWAYS search first (Rule #1)
 
-2. **❌ Not updating GitHub issues**
+3. **❌ Not updating GitHub issues**
    - User has no visibility, work gets duplicated
    - **Fix:** Update issue immediately when starting work
 
-3. **❌ Closing issues without user confirmation**
+4. **❌ Closing issues without user confirmation**
    - Premature closure, feature might not work
    - **Fix:** Wait for user testing confirmation
+
+5. **❌ Batch Verification at End**
+   - **Related Issues:** #46, #51
+   - Execute all 10 tasks, then try to verify all 10
+   - Discover task 2 failed, but tasks 3-10 depended on it
+   - Have to redo tasks 2-10
+   - **Why it fails:** Cascading failures, wasted work, harder to debug
+   - **Fix:** Execute → Verify → Commit → Push (for EACH task individually)
 
 ---
 
@@ -929,6 +1585,10 @@ ping 192.168.144.11  # H16 Ground-Side
 |---------|------|---------|-----|
 | 1.0 | 2025-11-07 | Initial creation | CC-Project-Manager |
 | 1.1 | 2025-11-08 | Merged Air-Side deployment lessons (CrAdapter, USB, Static IP, AF Hold) | CC-Project-Manager |
+| 1.2 | 2025-11-10 | **CRITICAL:** Added Branch Workflow mandatory rules, Issue closure policy, Explicit instruction following | CC-Project-Manager |
+| 1.3 | 2025-11-10 | **CRITICAL:** Added Three-State Labeling System ([FIX]→[FIXING]→[FIXED]), AI as Quality Gate | CC-Project-Manager |
+| 1.4 | 2025-11-10 | **CRITICAL:** Expanded to Universal Status System for ALL issue types (Option B implementation) | CC-Project-Manager |
+| 1.5 | 2025-11-11 | **CRITICAL:** Added Session Continuity & Verification lessons from Issues #46/#50/#51 - "Discussed = Done" anti-pattern, verification protocols, proof of work standards | CC-Project-Manager |
 
 ---
 

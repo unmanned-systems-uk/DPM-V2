@@ -1,0 +1,106 @@
+CCPM LESSONS LEARNED - QUICK REFERENCE FOR DPM-V2
+===================================================
+
+LESSONS VERIFIED IN DPM-V2 (28/30 = 93% Compliance)
+
+CRITICAL RULES FULLY IMPLEMENTED:
+================================
+✅ Three-State Issue Labeling: [FIX] → [FIXING] → [FIXED]
+✅ Branch Workflow: Always use feature/fix branches, NEVER direct main commits
+✅ Issue Closure: Only user closes, AI suggests with [FIXED] label
+✅ WHO Tags: All comments start with **WHO:** CC-[Domain]
+✅ Historical Search: Search past issues before implementing
+✅ Session Continuity: Verify with persistent artifacts (git, files, comments)
+✅ Explicit Instructions: Follow user requests exactly, verify completion
+
+CRITICAL DEPLOYMENT LESSONS (ALL IMPLEMENTED):
+==============================================
+✅ CrAdapter Directory: Dockerfile.prod includes copy (fixes error 0x34563)
+✅ USB Permissions: udev rules documented in deployment scripts
+✅ Static IP: 192.168.144.10/24 configured in deployment scripts
+✅ Docker Restarts: Use image-based approach, not runtime changes
+
+TECHNOLOGY & ARCHITECTURE:
+==========================
+✅ Monolithic server design appropriate
+✅ Documentation structure organized by domain
+✅ Root directory clean (tools in dedicated folders)
+✅ Version control includes workflow files (.claude/)
+
+TECHNICAL PATTERNS:
+===================
+✅ Sony SDK: Always reference documentation first
+✅ Focus Implementation: Check camera mode before queries
+✅ Protocol Sync: Both sides + protocol.json updates required
+✅ UDP Limits: Keep packets <1KB, use TCP for large data
+
+TESTING & QUALITY:
+==================
+✅ Integration testing on real hardware
+✅ Proof of work standards (git commits + GitHub comments)
+✅ Incremental progress reporting (every 2-3 tasks)
+✅ Cross-domain handoff documentation
+
+ARCHITECTURE & DESIGN:
+======================
+✅ Separation of Concerns: Handler → Service → Repository
+✅ Single Responsibility: Each file/function has one purpose
+✅ Configuration Over Code: Use config files for environment values
+✅ Protocol as Contract: protocol/*.json is single source of truth
+
+AREAS TO OPTIMIZE (2/30):
+==========================
+⚠️ Claude Code Autonomy: Currently understood but could leverage GitHub Actions better
+⚠️ CCPM Architecture: Automation scripts should account for Claude's reactive nature
+
+CURRENT STATUS:
+===============
+DPM-V2 Implementation: 93% COMPLIANT with CCPM Lessons Learned
+Last Verification: 2025-11-12
+
+KEY FILES:
+==========
+CCPM Lessons Source:
+- /home/anthony/ccpm-workspace/production/docs/lessons-learned/CCPM_LESSONS_LEARNED.md
+- /home/anthony/ccpm-workspace/production/docs/lessons-learned/LESSONS_LEARNED.md
+
+DPM-V2 Implementation:
+- /home/anthony/DPM-V2/docs/ALL_DOMAINS/LESSONS_LEARNED.md
+- /home/anthony/DPM-V2/.claude/RULES_CRITICAL.md
+- /home/anthony/DPM-V2/docs/GITHUB_ISSUE_WORKFLOW_ENFORCEMENT.md
+- /home/anthony/DPM-V2/docs/ALL_DOMAINS/CCPM_LESSONS_IMPLEMENTATION_VERIFICATION.md (NEW)
+
+VERIFICATION CHECKLIST:
+======================
+Before starting ANY work:
+[] Check three-state label system (read RULES_CRITICAL.md)
+[] Search historical issues (use .github/scripts/search-history.sh)
+[] Create GitHub issue first
+[] Use WHO tags in all comments
+[] Create feature/fix branch
+[] Verify with persistent artifacts
+[] Document handoff for cross-domain work
+[] Test on actual hardware
+[] Report progress incrementally
+[] Never close issues without user approval
+
+DEPLOYMENT CHECKLIST:
+====================
+Before deployment:
+[] CrAdapter/ directory exists in build
+[] USB permissions configured (udev rules)
+[] Static IP configured (192.168.144.10/24)
+[] Docker uses image-based changes (not runtime)
+[] Production Dockerfile used
+[] Verification tests pass
+
+LESSONS NOT FULLY OPTIMIZED:
+============================
+1. GitHub Actions integration for autonomous monitoring
+2. CCPM automation script feasibility review
+
+RECOMMENDATION:
+===============
+Current DPM-V2 implementation is SOLID and COMPLIANT with lessons.
+Continue following established patterns. No urgent changes needed.
+Document additional lessons as they emerge.

@@ -216,6 +216,9 @@ class DiagnosticApp:
         # Give command sender tab reference to TCP client
         self.command_tab.set_tcp_client(self.tcp_client)
 
+        # Give camera dashboard tab reference to TCP client (Issue #55)
+        self.camera_tab.set_tcp_client(self.tcp_client)
+
         # Save the command tab's callback so we can chain it
         command_tab_on_message = self.tcp_client.on_message_received
 
@@ -235,6 +238,12 @@ class DiagnosticApp:
                     command_tab_on_message(message)
                 except Exception as e:
                     logger.error(f"Error in command tab callback: {e}")
+
+            # Call camera tab's response handler (Issue #55 - show responses in debug panel)
+            try:
+                self.camera_tab.handle_response(message)
+            except Exception as e:
+                logger.error(f"Error in camera tab response handler: {e}")
 
             # Add to protocol inspector
             self.protocol_tab.add_message(message, "received")

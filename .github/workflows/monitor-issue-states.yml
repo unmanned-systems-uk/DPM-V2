@@ -1,0 +1,211 @@
+name: Monitor Issue States
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-stale-fixing:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+    - name: Check for stale FIXING issues
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+
+          // Get all open issues with FIXING in title
+          const issues = await github.rest.issues.listForRepo({
+            owner,
+            repo,
+            state: 'open',
+            per_page: 100
+          });
+
+          const now = new Date();
+          const staleDays = 3; // Consider stale after 3 days
+          const staleThreshold = new Date(now - staleDays * 24 * 60 * 60 * 1000);
+
+          for (const issue of issues.data) {
+            // Check if title contains [FIXING]
+            if (issue.title.includes('[FIXING]')) {
+              const lastUpdated = new Date(issue.updated_at);
+
+              if (lastUpdated < staleThreshold) {
+                // Add comment to stale issue
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body: `**WHO:** GitHub Actions Bot\n\n⚠️ **Stale Issue Alert**\n\nThis issue has been in [FIXING] state for ${staleDays}+ days without updates.\n\nPlease either:\n1. Provide an update on progress\n2. Move to [FIXED] if complete\n3. Remove [FIXING] if work is paused\n\ncc @${issue.assignee?.login || 'team'}`
+                });
+
+                // Add stale label
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  labels: ['status:stale']
+                });
+
+                console.log(`Marked issue #${issue.number} as stale`);
+              }
+            }
+          }
+
+  check-missing-who-tags:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+
+    steps:
+    - name: Check for missing WHO tags
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+
+          // Get recent issue comments (last 24 hours)
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+          const issues = await github.rest.issues.listForRepo({
+            owner,
+            repo,
+            state: 'open',
+            since: since,
+            per_page: 100
+          });
+
+          let violationCount = 0;
+          const violations = [];
+
+          for (const issue of issues.data) {
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: issue.number,
+              since: since
+            });
+
+            for (const comment of comments.data) {
+              // Check if comment starts with WHO tag
+              if (!comment.body.startsWith('**WHO:**')) {
+                violationCount++;
+                violations.push({
+                  issue: issue.number,
+                  comment: comment.id,
+                  author: comment.user.login,
+                  url: comment.html_url
+                });
+              }
+            }
+          }
+
+          if (violationCount > 0) {
+            console.log(`Found ${violationCount} comments without WHO tags:`);
+            violations.forEach(v => {
+              console.log(`- Issue #${v.issue} by @${v.author}: ${v.url}`);
+            });
+
+            // Create summary issue if many violations
+            if (violationCount > 5) {
+              core.setFailed(`${violationCount} comments missing WHO tags - workflow compliance issue`);
+            }
+          } else {
+            console.log('All recent comments have proper WHO tags ✅');
+          }
+
+  check-cross-domain-handoffs:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+    - name: Monitor cross-domain handoffs
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+
+          // Look for issues with cross-domain labels
+          const groundNeedsWork = await github.rest.issues.listForRepo({
+            owner,
+            repo,
+            labels: 'status:needs-ground-impl',
+            state: 'open'
+          });
+
+          const airNeedsWork = await github.rest.issues.listForRepo({
+            owner,
+            repo,
+            labels: 'status:needs-air-impl',
+            state: 'open'
+          });
+
+          const pendingHandoffs = [
+            ...groundNeedsWork.data.map(i => ({...i, needs: 'Ground-Side'})),
+            ...airNeedsWork.data.map(i => ({...i, needs: 'Air-Side'}))
+          ];
+
+          if (pendingHandoffs.length > 0) {
+            console.log(`Found ${pendingHandoffs.length} pending cross-domain handoffs:`);
+
+            const now = new Date();
+            const warnDays = 2; // Warn after 2 days
+            const warnThreshold = new Date(now - warnDays * 24 * 60 * 60 * 1000);
+
+            for (const issue of pendingHandoffs) {
+              const lastUpdated = new Date(issue.updated_at);
+
+              if (lastUpdated < warnThreshold) {
+                console.log(`- Issue #${issue.number} needs ${issue.needs} (${Math.floor((now - lastUpdated) / (24 * 60 * 60 * 1000))} days old)`);
+
+                // Add reminder comment
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body: `**WHO:** GitHub Actions Bot\n\n📋 **Cross-Domain Handoff Reminder**\n\nThis issue is waiting for ${issue.needs} implementation for ${warnDays}+ days.\n\n${issue.needs} team: Please review and update status.`
+                });
+              }
+            }
+          } else {
+            console.log('No pending cross-domain handoffs ✅');
+          }
+
+  create-summary-report:
+    runs-on: ubuntu-latest
+    needs: [check-stale-fixing, check-missing-who-tags, check-cross-domain-handoffs]
+    if: always()
+    permissions:
+      issues: write
+
+    steps:
+    - name: Create workflow health summary
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+          // Only create issue if there are problems
+          if (context.job.status !== 'success') {
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: `[WORKFLOW][ALERT] Monitoring detected compliance issues - ${new Date().toISOString().split('T')[0]}`,
+              body: `**WHO:** GitHub Actions Bot\n\n## Workflow Monitoring Alert\n\nThe automated monitoring workflow has detected potential compliance issues.\n\n**Run Details:** [View Workflow Run](${runUrl})\n\n**Checks Performed:**\n- ✅ Stale [FIXING] issues\n- ✅ Missing WHO tags\n- ✅ Cross-domain handoffs\n\n**Action Required:**\nPlease review the workflow run for details and address any identified issues.\n\n---\n*This is an automated message from the workflow monitoring system.*`,
+              labels: ['workflow', 'automated']
+            });
+          }
+
+          console.log('Monitoring complete. Workflow health checked.');
