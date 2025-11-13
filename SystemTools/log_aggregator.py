@@ -14,6 +14,7 @@ import threading
 import argparse
 import sys
 import os
+import platform
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from collections import deque
@@ -183,6 +184,9 @@ class LogAggregator:
         self.ground_listener = None
         self.console = Console()
         self.running = False
+
+        # Use ASCII on Windows to avoid encoding issues
+        self.indent_prefix = "  +- " if platform.system() == "Windows" else "  └─ "
 
         # Filters
         self.filter_level = None
@@ -373,7 +377,7 @@ class LogAggregator:
 
             for key, value in entry.items():
                 if key not in skip_fields:
-                    self.console.print(f"  └─ {key}: {value}", style="dim")
+                    self.console.print(f"{self.indent_prefix}{key}: {value}", style="dim")
 
     def export_logs(self, output_file: str, format: str = "json"):
         """Export logs to file"""
@@ -426,9 +430,10 @@ class LogAggregator:
 
                 # Structured fields
                 skip_fields = ['timestamp', 'level', 'context', 'message', 'domain', 'thread', 'function', 'line', 'source_addr']
+                indent_prefix = "  +- "  # Use ASCII for file export
                 for key, value in entry.items():
                     if key not in skip_fields:
-                        f.write(f"  └─ {key}: {value}\n")
+                        f.write(f"{indent_prefix}{key}: {value}\n")
                 f.write("\n")
 
     def replay_from_file(self, input_file: str):
