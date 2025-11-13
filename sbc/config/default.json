@@ -29,8 +29,8 @@
     "file_max_count": 3,
     "network_ground_enabled": false,
     "network_systemtools_enabled": true,
-    "network_systemtools_ip": "192.168.0.100",
-    "network_systemtools_port": 5005,
+    "network_systemtools_ip": "10.0.1.83",
+    "network_systemtools_port": 5007,
     "network_port": 5005
   },
 

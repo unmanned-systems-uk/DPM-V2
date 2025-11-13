@@ -57,6 +57,10 @@ This document serves as a **centralized knowledge base** capturing lessons learn
 ## Quick Reference Index
 
 ### By Topic
+- **🔴 Power-Cut Recovery & State Persistence:** → [Workflow & Process](#critical-power-cut-recovery-and-state-persistence)
+- **🔴 GitHub as Single Source of Truth:** → [Workflow & Process](#critical-power-cut-recovery-and-state-persistence)
+- **🔴 Runtime Status Files (RUNTIME_STATUS.json):** → [Workflow & Process](#critical-power-cut-recovery-and-state-persistence)
+- **🔴 PM Recovery Protocol:** → [Workflow & Process](#critical-power-cut-recovery-and-state-persistence)
 - **🔴 Three-State Labeling ([FIX]→[FIXING]→[FIXED]):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **🔴 Branch Workflow (MANDATORY):** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
 - **🔴 Issue Closure Rules:** → [Workflow & Process](#critical-branch-workflow-new-mandatory-rule)
@@ -1579,6 +1583,352 @@ ping 192.168.144.11  # H16 Ground-Side
 
 ---
 
+### 🔴 CRITICAL: Power-Cut Recovery and State Persistence
+
+**Date Discovered:** 2025-11-13
+**Severity:** 🔴 **CRITICAL** - System resilience and state recovery
+**Related:** Issue #82 (Multi-Domain Integration Testing)
+
+#### Problem Statement
+
+**Incident:** Power outage during multi-domain testing session:
+- All tmux sessions lost (Air-Side-PI, Ground-Side, SystemTools)
+- Session context completely gone
+- PM had no visibility into what was being worked on
+- PM had no way to determine what processes were running
+- PM had no way to assess system state without extensive investigation
+
+**Impact:**
+- 30+ minutes required for comprehensive system recovery assessment
+- Lost visibility into testing progress (Issue #82)
+- Unknown state of all running services
+- Risk of data loss or incomplete work
+- Manual reconstruction of session state required
+
+#### Root Causes
+
+1. **No Persistent State Tracking** - All session state in ephemeral tmux/memory
+2. **No GitHub Issue Sync** - Issue #82 not updated with real-time progress
+3. **No Service Status Documentation** - Running processes not documented
+4. **No Configuration State Record** - Network configs, service IPs not tracked in code
+5. **Reliance on Volatile Storage** - Critical state only in memory/tmux
+
+#### ✅ Solution: GitHub Issues as Single Source of Truth
+
+**Key Principle:** **GitHub issues MUST contain ALL information needed for recovery after power loss, reboot, or session termination.**
+
+**Implementation Strategy:**
+
+**1. Real-Time Progress Updates to GitHub (MANDATORY)**
+
+Every 30-60 minutes of active work, post progress update to issue:
+
+```markdown
+**WHO:** CC-[Domain]
+**Timestamp:** 2025-11-13 14:30 UTC
+**Location:** [Pi 5 / Development Machine / H16]
+
+**Current Activity:**
+- Working on: Test 1.5 - Network Sink UDP streaming
+- Status: In progress (started 14:15)
+- Next: Test 1.6 - Health monitoring
+
+**Services Running:**
+- Air-Side: Docker container `payload-manager` (uptime: 6h 15m)
+- Ground-Side: DPM Android app running
+- SystemTools: log_aggregator.py (PID: 12345, started 14:00)
+
+**Network Configuration:**
+- Air-Side IP: 10.0.1.53
+- Ground-Side IP: 10.0.1.92
+- SystemTools: localhost
+- UDP ports: 5004 (health), 5005 (logs), 5007 (logs-to-tools)
+
+**Progress:**
+- ✅ Tests 1.1-1.4 complete (4/33)
+- 🔄 Test 1.5 in progress
+- ⏳ Tests 1.6-1.13 pending
+- 🚫 Tests 2.2-2.5 blocked (Ground-Side not ready)
+
+**Issues/Blockers:**
+- None currently
+
+**Next Checkpoint:** 15:00 - Complete Tests 1.5-1.7
+```
+
+**2. Service State Documentation in Code (MANDATORY)**
+
+All long-running services MUST document their state in git-tracked files:
+
+**Air-Side (`sbc/RUNTIME_STATUS.json`):**
+```json
+{
+  "last_updated": "2025-11-13T14:30:00Z",
+  "container_name": "payload-manager",
+  "container_status": "running",
+  "uptime_seconds": 22500,
+  "network": {
+    "air_side_ip": "10.0.1.53",
+    "ground_side_ip": "10.0.1.92",
+    "health_broadcast_port": 5004,
+    "log_stream_port": 5005,
+    "systemtools_log_port": 5007
+  },
+  "camera": {
+    "connected": false,
+    "reason": "No camera attached - testing mode"
+  },
+  "config_loaded": "development.json"
+}
+```
+
+**Ground-Side (`android/RUNTIME_STATUS.json`):**
+```json
+{
+  "last_updated": "2025-11-13T14:30:00Z",
+  "app_running": true,
+  "device_ip": "10.0.1.92",
+  "adb_connected": true,
+  "phase1_components": {
+    "health_dashboard": "implemented",
+    "structured_logger": "implemented",
+    "log_viewer": "pending"
+  }
+}
+```
+
+**SystemTools (`SystemTools/RUNTIME_STATUS.json`):**
+```json
+{
+  "last_updated": "2025-11-13T14:30:00Z",
+  "log_aggregator": {
+    "running": true,
+    "pid": 12345,
+    "start_time": "2025-11-13T14:00:00Z",
+    "udp_port": 5007,
+    "tcp_port": 5008,
+    "logs_received": {
+      "air_side": 1234,
+      "ground_side": 0
+    }
+  }
+}
+```
+
+**Update Mechanism:**
+- Services update status file every 5 minutes (cron/systemd timer)
+- Status files committed to git every 30 minutes (automated)
+- PM can read status files to reconstruct state
+
+**3. PM Recovery Protocol (SESSION START)**
+
+When PM starts after power-cut/reboot, execute this protocol:
+
+```bash
+#!/bin/bash
+# PM Power-Cut Recovery Protocol
+
+echo "=== PM POWER-CUT RECOVERY PROTOCOL ==="
+
+# 1. Check system uptime (detect reboot)
+echo "1. System uptime check:"
+uptime
+
+# 2. Verify network connectivity
+echo "2. Network connectivity:"
+ping -c 1 10.0.1.53  # Air-Side
+ping -c 1 10.0.1.92  # Ground-Side
+ping -c 1 10.0.1.113 # Jetson
+
+# 3. Check git status
+echo "3. Git repository status:"
+cd ~/DPM-V2
+git status
+git log --oneline -5
+
+# 4. Read runtime status files
+echo "4. Runtime status files:"
+cat sbc/RUNTIME_STATUS.json 2>/dev/null || echo "Air-Side status: NOT FOUND"
+cat android/RUNTIME_STATUS.json 2>/dev/null || echo "Ground-Side status: NOT FOUND"
+cat SystemTools/RUNTIME_STATUS.json 2>/dev/null || echo "SystemTools status: NOT FOUND"
+
+# 5. Check running services
+echo "5. Running services:"
+ssh dpm@10.0.1.53 'docker ps'
+adb devices
+ps aux | grep log_aggregator.py
+
+# 6. Get last GitHub issue update
+echo "6. Last GitHub issue activity:"
+gh issue list --label status:in-progress --state open --json number,title,updatedAt
+
+# 7. Check for uncommitted work
+echo "7. Uncommitted changes:"
+git diff --stat
+
+# 8. Reconstruct PM state
+echo "8. PM STATE RECONSTRUCTION:"
+echo "  - Last known activity: [parse from GitHub issue comments]"
+echo "  - Services status: [parse from RUNTIME_STATUS files]"
+echo "  - Network status: [from ping tests]"
+echo "  - Work in progress: [from git status + GitHub issues]"
+
+echo "=== RECOVERY COMPLETE ==="
+```
+
+**4. Automated Status Persistence (NEW REQUIREMENT)**
+
+**Create systemd service for status updates:**
+
+`/etc/systemd/system/dpm-status-updater.service`
+```ini
+[Unit]
+Description=DPM Runtime Status Updater
+After=network.target
+
+[Service]
+Type=oneshot
+User=dpm
+WorkingDirectory=/home/dpm/DPM-V2
+ExecStart=/home/dpm/DPM-V2/tools/update_runtime_status.sh
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/systemd/system/dpm-status-updater.timer`
+```ini
+[Unit]
+Description=Update DPM runtime status every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=dpm-status-updater.service
+
+[Install]
+WantedBy=timers.target
+```
+
+**Update script (`tools/update_runtime_status.sh`):**
+```bash
+#!/bin/bash
+# Update runtime status files
+
+cd ~/DPM-V2
+
+# Update Air-Side status (if on Pi)
+if [ -f sbc/src/main.cpp ]; then
+  cat > sbc/RUNTIME_STATUS.json << EOF
+{
+  "last_updated": "$(date -Iseconds)",
+  "container_status": "$(docker inspect -f '{{.State.Status}}' payload-manager 2>/dev/null || echo 'not running')",
+  "uptime_seconds": $(cat /proc/uptime | cut -d' ' -f1 | cut -d'.' -f1)
+}
+EOF
+fi
+
+# Commit if changes exist
+git add */RUNTIME_STATUS.json
+git diff --staged --quiet || git commit -m "[AUTO] Update runtime status - $(date)"
+```
+
+#### Benefits of GitHub-Based Recovery
+
+**Before (Power-Cut Incident):**
+- ❌ PM blind to system state
+- ❌ 30+ minutes recovery assessment required
+- ❌ Manual reconstruction of service states
+- ❌ Unknown progress on Issue #82
+- ❌ Network configuration had to be verified manually
+
+**After (With GitHub Sync):**
+- ✅ PM reads last GitHub comment → knows exact state
+- ✅ PM reads RUNTIME_STATUS files → knows service states
+- ✅ PM reads git log → knows recent commits
+- ✅ PM reads GitHub issues → knows current priorities
+- ✅ Recovery in 5-10 minutes (not 30+)
+
+#### Implementation Checklist
+
+**For All Domains:**
+- [ ] Create RUNTIME_STATUS.json template
+- [ ] Implement status update script
+- [ ] Setup systemd timer (Pi 5, Jetson) or cron job
+- [ ] Test status file creation
+- [ ] Test PM recovery protocol
+- [ ] Document status file format
+
+**For PM:**
+- [ ] Create PM recovery protocol script
+- [ ] Add recovery protocol to PM_START.md
+- [ ] Test recovery after simulated power-cut
+- [ ] Document recovery steps
+
+**For Active Issues:**
+- [ ] Post progress updates every 30-60 minutes
+- [ ] Include service states in updates
+- [ ] Include network configuration in updates
+- [ ] Include next steps in updates
+
+#### Verification
+
+**Test Recovery Protocol:**
+```bash
+# 1. Start multi-domain work session
+# 2. Post progress update to GitHub issue
+# 3. Simulate power-cut: kill all tmux, reboot
+# 4. Start new PM session
+# 5. Run recovery protocol
+# 6. Verify PM can reconstruct:
+#    - What was being worked on
+#    - What services were running
+#    - What network configuration was active
+#    - What progress was made
+#    - What next steps are
+```
+
+**Success Criteria:**
+- ✅ PM can determine last activity within 5 minutes
+- ✅ PM can verify service states without extensive checks
+- ✅ PM can resume work without user explanation
+- ✅ No work lost (all progress in git + GitHub)
+
+#### Key Lessons
+
+1. **GitHub Issues Are Recovery Checkpoints**
+   - Post progress frequently (every 30-60 min)
+   - Include service states, network config, next steps
+   - Treat comments as "save points"
+
+2. **Runtime State Must Be Persistent**
+   - Services document their state in git-tracked files
+   - Status files auto-update every 5 minutes
+   - PM can reconstruct state from files alone
+
+3. **Network Configuration in Code**
+   - IP addresses, ports in config files (git-tracked)
+   - Not just in running containers or memory
+   - PM can verify config without SSH access
+
+4. **Automated Status Updates**
+   - Don't rely on manual updates (forgotten under pressure)
+   - Systemd timers / cron jobs ensure persistence
+   - Even if AI forgets, system remembers
+
+5. **PM Recovery Protocol**
+   - Standard script for post-power-cut recovery
+   - Checks all systems, reads all status files
+   - Reconstructs state in <10 minutes
+
+#### Related
+
+- Issue #82: Multi-Domain Integration Testing (power-cut occurred during this work)
+- PM_START.md: To be updated with recovery protocol
+- MULTI_DOMAIN_COORDINATION.md: To be updated with status sync requirements
+
+---
+
 ## Version History
 
 | Version | Date | Changes | WHO |
@@ -1589,6 +1939,7 @@ ping 192.168.144.11  # H16 Ground-Side
 | 1.3 | 2025-11-10 | **CRITICAL:** Added Three-State Labeling System ([FIX]→[FIXING]→[FIXED]), AI as Quality Gate | CC-Project-Manager |
 | 1.4 | 2025-11-10 | **CRITICAL:** Expanded to Universal Status System for ALL issue types (Option B implementation) | CC-Project-Manager |
 | 1.5 | 2025-11-11 | **CRITICAL:** Added Session Continuity & Verification lessons from Issues #46/#50/#51 - "Discussed = Done" anti-pattern, verification protocols, proof of work standards | CC-Project-Manager |
+| 1.6 | 2025-11-13 | **CRITICAL:** Added Power-Cut Recovery and State Persistence - GitHub as single source of truth, runtime status files, PM recovery protocol | CC-Project-Manager |
 
 ---
 
