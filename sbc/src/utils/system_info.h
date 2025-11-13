@@ -11,8 +11,7 @@ public:
     // Get current system status
     static messages::SystemStatus getStatus();
 
-private:
-    // Individual metric readers
+    // Individual metric readers (public for HealthMonitor)
     static int64_t getUptimeSeconds();
     static double getCPUPercent();
     static int64_t getMemoryUsedMB();
@@ -21,6 +20,8 @@ private:
     static double getDiskTotalGB();
     static double getNetworkRxMbps();
     static double getNetworkTxMbps();
+
+private:
 
     // Helper functions
     static std::string readFile(const std::string& path);

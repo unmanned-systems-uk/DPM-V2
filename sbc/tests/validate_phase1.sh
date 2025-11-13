@@ -42,7 +42,7 @@ echo -e "${YELLOW}Test Suite 1: JSON Validation${NC}"
 echo "---"
 
 # Test 1: Validate commands.json
-if python -m json.tool protocol/commands.json > /dev/null 2>&1; then
+if python3 -m json.tool protocol/commands.json > /dev/null 2>&1; then
     pass_test "protocol/commands.json is valid JSON"
 else
     fail_test "protocol/commands.json has syntax errors"
@@ -50,7 +50,7 @@ fi
 
 # Test 2: Validate config files
 for config_file in sbc/config/*.json; do
-    if python -m json.tool "$config_file" > /dev/null 2>&1; then
+    if python3 -m json.tool "$config_file" > /dev/null 2>&1; then
         pass_test "$(basename $config_file) is valid JSON"
     else
         fail_test "$(basename $config_file) has syntax errors"

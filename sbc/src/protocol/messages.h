@@ -17,7 +17,8 @@ enum class ErrorCode {
     COMMAND_NOT_IMPLEMENTED = 5002,
     UNKNOWN_COMMAND = 5003,
     INTERNAL_ERROR = 5004,
-    COMMAND_FAILED = 5005
+    COMMAND_FAILED = 5005,
+    INVALID_PARAMETERS = 5006
 };
 
 // Notification levels
@@ -49,6 +50,8 @@ inline std::string errorCodeToString(ErrorCode code) {
             return "Internal server error";
         case ErrorCode::COMMAND_FAILED:
             return "Command execution failed";
+        case ErrorCode::INVALID_PARAMETERS:
+            return "Invalid parameters";
         default:
             return "Unknown error";
     }
