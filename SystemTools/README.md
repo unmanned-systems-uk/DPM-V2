@@ -13,23 +13,158 @@ Comprehensive diagnostic and testing tool for DPM Payload Manager system.
 ### 1. Install Python Dependencies
 
 ```bash
-cd D:\DPM\DPM-V2\WindowsTools
+cd D:\DPM\DPM-V2\SystemTools
 pip install -r requirements.txt
 ```
 
-**Note:** For Phase 1, only the following are needed:
+**Dependencies:**
 - Python 3.8+ (with tkinter built-in)
-- No external packages required for basic functionality!
-
-For Phase 3 (Docker Logs) you'll need:
-- `paramiko` (SSH client)
-- `matplotlib` (graphs)
+- `rich>=13.7.0` (Terminal UI for log aggregator)
+- `paramiko>=3.4.0` (SSH client - Phase 3)
+- `matplotlib>=3.8.0` (Graphs - Phase 3)
 
 ### 2. Run the Application
 
 ```bash
 python main.py
 ```
+
+---
+
+## Tri-Domain Log Aggregator (NEW - Issue #74)
+
+### Overview
+
+The **Log Aggregator** is a critical diagnostic tool that merges logs from Air-Side (UDP) and Ground-Side (TCP) into a unified, chronological timeline. This provides a complete view of the entire DPM system behavior.
+
+**Key Features:**
+- 📡 **Dual Protocol Support:** UDP for Air-Side, TCP for Ground-Side
+- 🎨 **Color-Coded Display:** Blue for AIR, Purple for GROUND
+- 🔍 **Powerful Filtering:** By level, context, domain, text search, time range
+- 💾 **Export Options:** JSON, CSV, or human-readable text
+- 🔄 **Replay Mode:** Replay logs from saved files for analysis
+
+### Setup
+
+**Prerequisites:**
+```bash
+# Install required library
+pip install rich
+```
+
+**For Ground-Side (via ADB):**
+```bash
+# Forward Ground-Side logs from H16 to SystemTools
+adb forward tcp:5008 tcp:5008
+```
+
+### Usage
+
+**Start Log Aggregator (listen on both Air + Ground):**
+```bash
+cd SystemTools
+python log_aggregator.py
+```
+
+**Filter by log level:**
+```bash
+python log_aggregator.py --level=ERROR
+```
+
+**Filter by domain:**
+```bash
+python log_aggregator.py --domain=AIR
+```
+
+**Search for text:**
+```bash
+python log_aggregator.py --search="aperture"
+```
+
+**Time range filtering:**
+```bash
+python log_aggregator.py --since="2025-11-13T10:30:00" --until="2025-11-13T10:35:00"
+```
+
+**Export to file:**
+```bash
+# Export to JSON (default)
+python log_aggregator.py --export=logs_20251113.json
+
+# Export to CSV
+python log_aggregator.py --export=logs_20251113.csv --export-format=csv
+
+# Export to text
+python log_aggregator.py --export=logs_20251113.txt --export-format=text
+```
+
+**Replay from saved file:**
+```bash
+python log_aggregator.py --replay=logs_20251113.json
+```
+
+**Combine filters:**
+```bash
+# Only show Air-Side errors with "camera" in message
+python log_aggregator.py --domain=AIR --level=ERROR --search="camera"
+```
+
+### Example Output
+
+```
+10:30:45.100 [GROUND] [INFO] [UI] Button pressed
+  └─ button_id: set_aperture
+  └─ value: f/2.8
+10:30:45.112 [AIR] [INFO] [COMMAND] Command received
+  └─ latency: 12ms
+  └─ queue_depth: 2
+10:30:45.140 [AIR] [DEBUG] [CAMERA] SDK call started
+10:30:45.168 [AIR] [INFO] [CAMERA] SDK call complete
+  └─ latency: 28ms
+  └─ property: aperture
+10:30:45.182 [GROUND] [INFO] [VM] Update received
+  └─ total_latency: 82ms
+```
+
+### Network Ports
+
+- **Air-Side (UDP):** Port 5007
+- **Ground-Side (TCP):** Port 5008 (via ADB forward)
+
+### Configuration
+
+Configuration file: `SystemTools/config/log_aggregator.json`
+
+Customize:
+- Network ports
+- Display colors
+- Buffer size (default: 10,000 entries)
+- Default filters
+- Export settings
+
+### Troubleshooting
+
+**Ground-Side not connecting:**
+```bash
+# Verify ADB connection
+adb devices
+
+# Verify port forward
+adb forward --list
+
+# Re-establish forward
+adb forward tcp:5008 tcp:5008
+```
+
+**Air-Side not receiving logs:**
+- Check Air-Side is running and StructuredLogger is enabled (Issue #72)
+- Verify firewall isn't blocking UDP port 5007
+- Check Air-Side is configured to send logs to SystemTools IP
+
+**High volume logging:**
+- Aggregator buffers last 10,000 entries (configurable)
+- Consider filtering by level/context to reduce noise
+- Export to file for long-term storage
 
 ---
 
@@ -93,27 +228,32 @@ python main.py
 ## Project Structure
 
 ```
-WindowsTools/
-├── main.py                 # Application entry point
-├── requirements.txt        # Python dependencies
-├── config.json            # User settings (auto-generated)
+SystemTools/
+├── main.py                    # GUI application entry point
+├── log_aggregator.py          # Tri-domain log aggregator (NEW)
+├── requirements.txt           # Python dependencies
+├── config.json               # User settings (auto-generated)
 │
-├── gui/                   # GUI components
-│   ├── main_window.py     # Main window framework
-│   ├── tab_connection.py  # Connection Monitor tab
-│   ├── tab_config.py      # Configuration tab
-│   └── widgets.py         # Reusable widgets
+├── config/                   # Configuration files
+│   └── log_aggregator.json   # Log aggregator config (NEW)
 │
-├── network/               # Network layer
-│   ├── tcp_client.py      # TCP command client
-│   └── protocol.py        # Protocol message formatting
+├── gui/                      # GUI components
+│   ├── main_window.py        # Main window framework
+│   ├── tab_connection.py     # Connection Monitor tab
+│   ├── tab_config.py         # Configuration tab
+│   └── widgets.py            # Reusable widgets
 │
-├── utils/                 # Utilities
-│   ├── config.py          # Configuration management
-│   ├── logger.py          # Application logging
-│   └── protocol_loader.py # Load protocol JSON files
+├── network/                  # Network layer
+│   ├── tcp_client.py         # TCP command client
+│   └── protocol.py           # Protocol message formatting
 │
-└── logs/                  # Application logs (auto-generated)
+├── utils/                    # Utilities
+│   ├── config.py             # Configuration management
+│   ├── logger.py             # Application logging
+│   └── protocol_loader.py    # Load protocol JSON files
+│
+└── logs/                     # Application logs (auto-generated)
+    └── exports/              # Exported log files (NEW)
 ```
 
 ---

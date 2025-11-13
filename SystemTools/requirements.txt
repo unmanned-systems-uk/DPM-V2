@@ -8,6 +8,9 @@ paramiko>=3.4.0
 # Data visualization
 matplotlib>=3.8.0
 
+# Terminal UI for log aggregator
+rich>=13.7.0
+
 # No additional packages needed for:
 # - tkinter (built-in)
 # - socket (built-in)

@@ -1,0 +1,39 @@
+{
+  "network": {
+    "air_side": {
+      "protocol": "udp",
+      "host": "0.0.0.0",
+      "port": 5007,
+      "buffer_size": 4096
+    },
+    "ground_side": {
+      "protocol": "tcp",
+      "host": "localhost",
+      "port": 5008,
+      "buffer_size": 4096
+    }
+  },
+  "display": {
+    "colors": {
+      "AIR": "blue",
+      "GROUND": "magenta"
+    },
+    "show_timestamp": true,
+    "show_thread": false,
+    "show_function": false,
+    "show_line": false,
+    "indent_fields": true
+  },
+  "buffer": {
+    "max_entries": 10000
+  },
+  "filtering": {
+    "default_level": null,
+    "default_context": null,
+    "default_domain": null
+  },
+  "export": {
+    "default_format": "json",
+    "output_dir": "logs/exports"
+  }
+}
