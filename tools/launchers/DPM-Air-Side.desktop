@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=DPM Air-Side
+Comment=Start DPM Air-Side session on Pi 5 with Claude Code
+Exec=/home/anthony/DPM-V2/tools/launchers/start-air-side.sh
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;
+Keywords=dpm;drone;air-side;claude;pi5;
+StartupNotify=true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=DPM Project Manager
+Comment=Start DPM Project Manager session with Claude Code
+Exec=/home/anthony/DPM-V2/tools/launchers/start-pm.sh
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;
+Keywords=dpm;drone;pm;project-manager;claude;
+StartupNotify=true
