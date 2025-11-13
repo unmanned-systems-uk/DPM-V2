@@ -74,6 +74,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
 
+    // Logging
+    implementation(libs.timber)
+
     // Video streaming - ExoPlayer (Media3) for RTSP
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

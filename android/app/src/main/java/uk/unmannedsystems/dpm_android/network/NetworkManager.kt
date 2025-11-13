@@ -119,6 +119,18 @@ object NetworkManager {
     }
 
     /**
+     * Send a generic command to Air-Side
+     */
+    suspend fun sendCommand(command: String, parameters: Map<String, Any> = emptyMap()): Result<ResponsePayload> {
+        val client = networkClient
+        return if (client != null) {
+            client.sendCommand(command, parameters)
+        } else {
+            Result.failure(Exception("NetworkClient not initialized"))
+        }
+    }
+
+    /**
      * Get the current network client instance
      */
     fun getClient(): NetworkClient? = networkClient
