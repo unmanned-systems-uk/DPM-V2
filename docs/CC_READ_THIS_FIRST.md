@@ -229,6 +229,29 @@ cat docs/ALL_DOMAINS/LESSONS_LEARNED.md
 pwd                          # Confirm location
 gh issue list --state open   # Check work
 git pull origin main         # Get latest
+
+# PLATFORM VERIFICATION (Issue #83)
+# Detect platform and report
+cat /proc/device-tree/model 2>/dev/null || uname -m  # Air-Side: Pi 5 | Others: architecture
+```
+
+**Report Status Template:**
+```markdown
+Current Status:
+- Location: [pwd output]
+- Latest changes pulled: [git pull output]
+- Open issues: [count]
+- WHO: CC-[Domain]
+- System: [Platform detected]
+- Platform Match: ✅ CORRECT or ❌ MISMATCH
+```
+
+**WHO Command Response:**
+```markdown
+WHO: CC-[Domain]
+System: [Platform detected]
+Working on: [Current issue/task]
+Platform Status: ✅ CORRECT or ❌ MISMATCH
 ```
 
 **During Work:**
@@ -254,6 +277,7 @@ git push origin main
 - [ ] What starts every comment? (WHO tag)
 - [ ] When to change to [FIXING]? (IMMEDIATELY when starting)
 - [ ] Who can modify other domain's code? (No one without approval)
+- [ ] What to verify during session start? (Platform matches expected system)
 
 **All yes? You're ready to work!**
 
