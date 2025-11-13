@@ -173,6 +173,107 @@
         "ground_side": true,
         "version": "1.0.0"
       }
+    },
+
+    "logging.enable_streaming": {
+      "description": "Enable Ground-Side log streaming for debugging (on-demand, auto-disables after duration)",
+      "parameters": {
+        "duration_sec": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300,
+          "required": false,
+          "description": "Duration in seconds to stream logs (default: 300 sec = 5 min)"
+        }
+      },
+      "response": {
+        "success": {
+          "status": "enabled",
+          "duration_sec": "integer"
+        },
+        "errors": [5001, 5004]
+      },
+      "notes": [
+        "Enables UDP log streaming to Ground-Side on port 5005",
+        "Auto-disables after specified duration to save bandwidth",
+        "SystemTools always-on streaming (if configured) is unaffected",
+        "Part of Phase 1: Structured Logging (Gap 1)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.3.0"
+      }
+    },
+
+    "logging.disable_streaming": {
+      "description": "Disable Ground-Side log streaming immediately",
+      "parameters": {},
+      "response": {
+        "success": {
+          "status": "disabled"
+        },
+        "errors": [5004]
+      },
+      "notes": [
+        "Immediately stops UDP log streaming to Ground-Side",
+        "SystemTools always-on streaming (if configured) is unaffected",
+        "Part of Phase 1: Structured Logging (Gap 1)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.3.0"
+      }
+    },
+
+    "health.get_snapshot": {
+      "description": "Retrieve current health metrics snapshot (system, camera, network, sync)",
+      "parameters": {},
+      "response": {
+        "success": {
+          "timestamp": "ISO8601 string",
+          "system": {
+            "cpu_percent": "float",
+            "memory_used_mb": "integer",
+            "memory_total_mb": "integer",
+            "disk_used_mb": "integer",
+            "disk_total_mb": "integer",
+            "network_rx_mbps": "float",
+            "network_tx_mbps": "float"
+          },
+          "camera": {
+            "connected": "boolean",
+            "sdk_latency_ms": "float",
+            "usb_traffic_mbps": "integer",
+            "error_count": "integer"
+          },
+          "network": {
+            "tcp_connected": "boolean",
+            "tcp_latency_ms": "float",
+            "udp_loss_percent": "float",
+            "command_queue_depth": "integer"
+          },
+          "sync": {
+            "exposure_rate_hz": "float",
+            "health_rate_hz": "float",
+            "property_reads_sec": "integer"
+          }
+        },
+        "errors": [5004]
+      },
+      "notes": [
+        "Returns current health metrics from RAM (Tier 1 ring buffer)",
+        "Health data is also broadcast via UDP to Ground-Side every 5 seconds on port 5004",
+        "Part of Phase 1: Health Monitoring (Gap 2)",
+        "Supports 3-tier data retention: RAM (30 min), Disk (7 days), Summary (1 year)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": false,
+        "version": "1.3.0"
+      }
     }
   }
 }
