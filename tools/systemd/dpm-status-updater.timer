@@ -1,0 +1,20 @@
+[Unit]
+Description=Update DPM runtime status every 5 minutes
+Documentation=https://github.com/unmanned-systems-uk/DPM-V2
+Requires=dpm-status-updater.service
+
+[Timer]
+# Run 1 minute after boot
+OnBootSec=1min
+
+# Run every 5 minutes after that
+OnUnitActiveSec=5min
+
+# Ensure accurate timing
+AccuracySec=1s
+
+# The service to activate
+Unit=dpm-status-updater.service
+
+[Install]
+WantedBy=timers.target

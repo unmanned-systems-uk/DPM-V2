@@ -1,0 +1,23 @@
+[Unit]
+Description=DPM Runtime Status Updater
+Documentation=https://github.com/unmanned-systems-uk/DPM-V2
+After=network.target docker.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+User=%USER%
+Group=%GROUP%
+WorkingDirectory=%PROJECT_ROOT%
+ExecStart=%PROJECT_ROOT%/tools/update_runtime_status.sh all
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=%PROJECT_ROOT%
+
+[Install]
+WantedBy=multi-user.target
