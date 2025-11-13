@@ -75,6 +75,117 @@ sudo adduser dpm
 sudo usermod -aG sudo dpm
 ```
 
+### 1.4 RTC (Real-Time Clock) Configuration
+
+**Purpose:** Enable accurate timestamps in logs during flight operations without network connectivity
+
+**Hardware:** CR1220 battery for Pi 5 RTC slot (optional but highly recommended for flight operations)
+
+**Why needed:** During flight operations, the Pi may not have internet access. Without RTC battery, system time resets on every boot. RTC maintains accurate time even when powered off.
+
+#### 1.4.1 Verify RTC Detection
+
+```bash
+# Check if RTC device exists
+ls -l /dev/rtc*
+# Expected: /dev/rtc -> rtc0
+
+# Check RTC name
+cat /sys/class/rtc/rtc0/name
+# Expected: rpi-rtc soc@107c000000:rpi_rtc
+
+# Check RTC time
+cat /sys/class/rtc/rtc0/date && cat /sys/class/rtc/rtc0/time
+```
+
+#### 1.4.2 RTC Configuration
+
+**Note:** Pi 5 with Ubuntu 24.04+ handles RTC automatically. No manual configuration needed in `/boot/firmware/config.txt`.
+
+**Verify RTC is working:**
+```bash
+# Check RTC kernel module
+lsmod | grep rtc
+# Expected: rtc_rpi module loaded
+
+# Check time synchronization status
+timedatectl status
+# Expected: "RTC time" should show current time
+```
+
+#### 1.4.3 Set Initial Time (One-Time, When Internet Available)
+
+```bash
+# System should auto-sync from NTP when internet available
+timedatectl status
+# Verify "System clock synchronized: yes"
+```
+
+#### 1.4.4 Create RTC Boot Verification Service (Optional)
+
+**This service logs RTC time at boot for debugging:**
+
+```bash
+# Create service file
+sudo tee /etc/systemd/system/rtc-read-on-boot.service > /dev/null <<'EOF'
+[Unit]
+Description=Read RTC time on boot for flight logging
+Documentation=https://github.com/unmanned-systems-uk/DPM-V2/issues/47
+DefaultDependencies=no
+Before=sysinit.target
+After=systemd-modules-load.service
+Conflicts=shutdown.target
+ConditionPathExists=/dev/rtc0
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo "RTC Boot Check: $(date)" && echo "RTC Hardware: $(cat /sys/class/rtc/rtc0/date) $(cat /sys/class/rtc/rtc0/time)"'
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+# Enable service
+sudo systemctl daemon-reload
+sudo systemctl enable rtc-read-on-boot.service
+sudo systemctl start rtc-read-on-boot.service
+
+# Verify service status
+sudo systemctl status rtc-read-on-boot.service
+
+# View RTC boot logs
+journalctl -u rtc-read-on-boot.service
+```
+
+#### 1.4.5 Test RTC Persistence
+
+**During initial setup (with network):**
+```bash
+# Check time sync
+timedatectl status
+# Verify: "System clock synchronized: yes"
+
+# Check RTC time matches system time
+date && cat /sys/class/rtc/rtc0/date && cat /sys/class/rtc/rtc0/time
+# Times should match within a few seconds
+```
+
+**During flight operations (without network):**
+- System will maintain accurate time from RTC
+- Logs will have correct timestamps
+- No internet required
+
+**Benefits:**
+- ✅ Accurate timestamps in flight logs
+- ✅ Correlate events with flight timeline
+- ✅ Debug offline issues with proper time references
+- ✅ Professional logging (no "Jan 1 1970" timestamps)
+
+**Reference:** Issue #47 - RTC Integration Testing
+
 ---
 
 ## Section 2: Install System Dependencies
