@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Info
@@ -63,6 +64,9 @@ import uk.unmannedsystems.dpm_android.diagnostics.DiagnosticsScreen
 import uk.unmannedsystems.dpm_android.eventlog.EventLogScreen
 import uk.unmannedsystems.dpm_android.settings.SettingsScreen
 import uk.unmannedsystems.dpm_android.system.SystemStatusScreen
+import uk.unmannedsystems.dpm_android.ui.debug.LogViewerScreen
+import uk.unmannedsystems.dpm_android.ui.health.HealthDashboardScreen
+import uk.unmannedsystems.dpm_android.ui.settings.AdvancedSettingsScreen
 import uk.unmannedsystems.dpm_android.ui.theme.DPMAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -191,6 +195,21 @@ fun DPMAndroidApp() {
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
+                AppDestinations.HEALTH_DASHBOARD -> {
+                    HealthDashboardScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+                AppDestinations.ADVANCED_SETTINGS -> {
+                    AdvancedSettingsScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+                AppDestinations.LOG_VIEWER -> {
+                    LogViewerScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
 
                 // Elegant left-side menu button
@@ -252,6 +271,9 @@ enum class AppDestinations(
     SYSTEM_STATUS("System Status", Icons.Default.Info),
     EVENT_LOG("Event Log", Icons.Default.List),
     SETTINGS("Settings", Icons.Default.Settings),
+    HEALTH_DASHBOARD("Health Dashboard", Icons.Default.HealthAndSafety),
+    ADVANCED_SETTINGS("Advanced Settings", Icons.Default.Settings),
+    LOG_VIEWER("Log Viewer", Icons.Default.BugReport),
 }
 
 @Composable

@@ -36,6 +36,7 @@
 ## 📋 PM Responsibilities
 
 ### Pre-Flight (Setup Phase)
+- ✅ **Verify tmux sessions active** (Air-Side-PI, Ground-Side, SystemTools)
 - ✅ Create/update domain issues with clear requirements
 - ✅ Define success criteria for each domain
 - ✅ Identify dependencies between domains
@@ -44,6 +45,7 @@
 - ✅ Prepare integration test plan
 
 ### In-Flight (Execution Phase)
+- 🔄 **Monitor tmux sessions for real-time progress** (every 15-30 min)
 - 🔄 Monitor issue updates from all domains
 - 🔄 Check for merge conflicts
 - 🔄 Coordinate dependency handoffs
@@ -349,7 +351,34 @@ These files contain:
 
 ## 📊 Monitoring Dashboards
 
-### PM Checks Every 30 Minutes:
+### PM Real-Time tmux Monitoring (Every 15-30 Minutes):
+
+```bash
+# Verify all sessions active
+tmux list-sessions
+# Expected: Air-Side-PI, Ground-Side, SystemTools
+
+# Monitor Ground-Side progress (Android)
+tmux capture-pane -t Ground-Side -p | tail -30
+
+# Monitor Air-Side progress (Pi 5)
+tmux capture-pane -t Air-Side-PI -p | tail -30
+
+# Monitor SystemTools progress (Python)
+tmux capture-pane -t SystemTools -p | tail -30
+
+# Check for errors across all domains
+tmux capture-pane -t Ground-Side -p | grep -E "(ERROR|FAIL|✗)"
+tmux capture-pane -t Air-Side-PI -p | grep -E "(ERROR|FAIL|✗)"
+tmux capture-pane -t SystemTools -p | grep -E "(ERROR|FAIL|✗)"
+
+# Check for completions
+tmux capture-pane -t Ground-Side -p | grep -E "(✓|✅|Complete)"
+tmux capture-pane -t Air-Side-PI -p | grep -E "(✓|✅|Complete)"
+tmux capture-pane -t SystemTools -p | grep -E "(✓|✅|Complete)"
+```
+
+### PM GitHub Monitoring (Every 30 Minutes):
 
 ```bash
 # Quick status check

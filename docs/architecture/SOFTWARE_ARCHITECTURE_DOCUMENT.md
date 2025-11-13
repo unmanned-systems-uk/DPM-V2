@@ -2,10 +2,15 @@
 # DPM-V2: Drone Payload Manager Version 2
 
 **Document Standard:** ISO/IEC/IEEE 42010:2011
+**Conforms To:** Organization Architecture Documentation Standard v1.0
+**Template:** `docs/standards/SOFTWARE_ARCHITECTURE_DOCUMENT_TEMPLATE.md`
 **Version:** 1.0
 **Date:** 2025-11-11
+**Updated:** 2025-11-12 (Added reference to standards)
 **Status:** Draft
 **Classification:** Internal Use
+
+**Note:** This document serves as the **reference implementation** of the organization's architecture documentation standard. Other projects should use this as a model when creating their architecture documentation.
 
 ---
 
@@ -14,6 +19,7 @@
 | Version | Date | Author | Description |
 |---------|------|--------|-------------|
 | 1.0 | 2025-11-11 | DPM-V2 Team | Initial consolidated SAD |
+| 1.1 | 2025-11-12 | DPM-V2 Team | Added reference to organization architecture standards |
 
 **Approval:**
 - [ ] Development Team Lead
