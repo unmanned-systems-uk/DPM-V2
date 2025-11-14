@@ -3,7 +3,7 @@
 
   "logging": {
     "level": "INFO",
-    "network_systemtools_enabled": false
+    "network_systemtools_enabled": true
   },
 
   "health": {
