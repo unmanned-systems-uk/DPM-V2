@@ -269,6 +269,165 @@ If PM context exhausted:
 
 ---
 
+## 🎯 RULE 8: Use Extended Thinking for Complex Coordination
+
+### **What is Extended Thinking?**
+
+Extended thinking enables Claude to show step-by-step reasoning before delivering answers. Perfect for PM coordination tasks!
+
+**Best for:**
+- ✅ Planning complex multi-domain coordination
+- ✅ Debugging intricate integration issues
+- ✅ Creating implementation plans for new features
+- ✅ Analyzing cross-domain dependencies
+- ✅ Resolving conflicts and blockers
+
+### **How to Enable Extended Thinking:**
+
+**Method 1: Toggle During Session**
+```
+Press Tab to enable/disable extended thinking
+```
+
+**Method 2: Request in Prompt**
+```
+"Think deeply about how to coordinate Air-Side and Ground-Side for Issue #82"
+"Think hard about potential integration conflicts"
+```
+
+**Method 3: Environment Variable (Permanent)**
+```bash
+export MAX_THINKING_TOKENS=10000
+# Then restart Claude Code
+```
+
+**Intensifying Phrases:**
+- "think" - Basic reasoning
+- "think deeply" - More thorough analysis
+- "think hard" - Even deeper reasoning
+- "think more" - Extended reasoning
+- "think longer" - Maximum depth
+
+### **When to Use Extended Thinking in PM:**
+
+**✅ USE for:**
+1. **Integration Planning**
+   - "Think deeply about merging Air-Side, Ground-Side, SystemTools"
+   - Complex dependency analysis
+   - Conflict prediction
+
+2. **Debugging Multi-Domain Issues**
+   - "Think hard about why logs aren't flowing between domains"
+   - Cross-domain error analysis
+   - Root cause investigation
+
+3. **Architecture Decisions**
+   - "Think deeply about the best approach for dynamic IP discovery"
+   - Evaluating multiple solutions
+   - Trade-off analysis
+
+4. **Blocker Resolution**
+   - "Think hard about how to resolve the ADB multiple device issue"
+   - Alternative approaches
+   - Workaround evaluation
+
+**❌ DON'T USE for:**
+- Simple status checks
+- Routine monitoring
+- Basic issue updates
+- Straightforward git commands
+
+### **Example - PM Using Extended Thinking:**
+
+```markdown
+User: "How should we coordinate Air-Side and Ground-Side for Issue #82?"
+
+PM: "Let me think deeply about this coordination strategy..."
+
+[Extended thinking enabled - Claude shows reasoning]
+
+Thinking:
+1. Analyze dependencies between domains
+2. Identify potential conflicts
+3. Determine optimal merge order
+4. Plan integration test sequence
+5. Consider rollback strategies
+
+Response:
+Based on deep analysis, here's the coordination plan:
+[Detailed, well-reasoned response]
+```
+
+### **Extended Thinking + Plan Mode:**
+
+**Powerful Combination for PM:**
+```bash
+# Start in Plan Mode with extended thinking
+claude --permission-mode plan
+
+# Then use thinking prompts
+> "Think deeply about the multi-domain integration approach"
+```
+
+**Benefits:**
+- Safe analysis (no changes made)
+- Deep reasoning enabled
+- Comprehensive planning
+- Risk-free exploration
+
+### **Token Usage Consideration:**
+
+**Extended thinking uses additional tokens:**
+- Basic thinking: ~1k-2k tokens
+- Deep thinking: ~5k-10k tokens
+- Maximum thinking: ~10k-32k tokens
+
+**PM Context Budget:**
+- Total: 200k tokens
+- Reserve ~20k for extended thinking on complex tasks
+- Still leaves 180k for coordination work
+
+**Best Practice:**
+Use extended thinking **selectively** for complex decisions, not routine tasks.
+
+---
+
+## 🎯 RULE 9: Use opusplan Model for Complex PM Tasks
+
+### **What is opusplan?**
+
+Hybrid model that automatically:
+1. Uses **Opus** for planning and architecture decisions (superior reasoning)
+2. Switches to **Sonnet** for code generation (efficiency)
+
+### **When PM Should Consider opusplan:**
+
+**✅ USE for:**
+- Complex multi-domain architecture decisions
+- Integration strategy planning
+- Conflict resolution requiring deep analysis
+- Long-term roadmap planning
+
+**❌ DON'T USE for:**
+- Routine monitoring (Sonnet is fine)
+- Simple coordination tasks
+- Quick status updates
+- Standard git operations
+
+### **How to Use opusplan:**
+
+**Not available as environment variable in Claude Code**
+- Check Claude Code version for opusplan support
+- May require specific Claude Code version/config
+
+**Alternative:**
+Request deep thinking with Sonnet (current model):
+```
+"Think deeply about..." (triggers extended reasoning)
+```
+
+---
+
 ## 📋 PM Session Checklist
 
 **Before Starting Work:**
