@@ -1,6 +1,6 @@
 # Cross-Domain Integration Points
 *Critical interfaces between Air-Side, Ground-Side, and Dev-Side*
-*Last Updated: 2025-11-04*
+*Last Updated: 2025-11-13*
 
 ## 🔌 Network Topology
 
@@ -98,6 +98,65 @@
 }
 ```
 
+### UDP Log Streaming (Port 5005)
+**Direction**: Air → Ground/Dev (unidirectional, on-demand)
+**Protocol**: JSON over UDP
+**Activation**: Via `logging.enable_streaming` command
+**Duration**: Configurable (default 300 seconds)
+
+#### Purpose
+Real-time log streaming from Air-Side to Ground-Side and SystemTools for debugging and diagnostics.
+
+#### Features
+- **Dynamic Client Registration**: Air-Side discovers client IP from TCP connection
+- **On-Demand Activation**: Clients enable streaming via command
+- **Auto-Disable**: Streaming automatically stops after duration expires
+- **Multi-Client Support**: Multiple clients can receive logs simultaneously
+
+#### Log Entry Format
+```json
+{
+  "timestamp": "2025-11-13T20:43:33.058Z",
+  "level": "INFO",
+  "context": "SYSTEM",
+  "domain": "AIR",
+  "thread": "thread-name",
+  "message": "Log message here",
+  "fields": {
+    "key": "value"
+  }
+}
+```
+
+#### Log Levels
+- `DEBUG`: Detailed diagnostic information
+- `INFO`: General informational messages
+- `WARN`: Warning messages
+- `ERROR`: Error messages
+- `CRITICAL`: Critical system failures
+
+#### Log Contexts
+- `SYSTEM`: System-level operations
+- `NETWORK`: Network communication
+- `CAMERA`: Camera operations
+- `GIMBAL`: Gimbal control (future)
+
+#### Activation Flow
+```
+1. Ground-Side sends TCP command:
+   {"command": "logging.enable_streaming", "parameters": {"duration_sec": 300}}
+   ↓
+2. Air-Side extracts client IP from TCP connection
+   ↓
+3. Air-Side creates NetworkSink for client <ip>:5005
+   ↓
+4. Air-Side streams log entries via UDP
+   ↓
+5. Ground-Side UdpLogReceiver parses and displays logs
+   ↓
+6. Auto-disable after duration expires
+```
+
 ## 🔄 Command Implementations
 
 ### Implemented Commands (All Domains)
@@ -111,6 +170,8 @@
 | `camera.get_properties` | ✅ | ✅ | ✅ | Working |
 | `camera.focus` | ⚠️ | ⚠️ | ✅ | Issues |
 | `camera.auto_focus_hold` | ⚠️ | ⚠️ | ✅ | Issues |
+| `logging.enable_streaming` | ⚠️ | ✅ | 🔄 | Issue #92 |
+| `logging.disable_streaming` | ⚠️ | ✅ | 🔄 | Issue #92 |
 
 ### Pending Commands (Phase 2)
 

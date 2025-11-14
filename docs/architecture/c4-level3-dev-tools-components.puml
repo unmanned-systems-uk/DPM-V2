@@ -6,59 +6,93 @@
 
 title Dev-Tools (SystemTools) Component Diagram
 
-Container_Boundary(dev_tools, "SystemTools (Python, Tkinter Desktop Application)") {
-    Component(main_window, "MainWindow", "Tkinter", "Application main window with tabbed interface")
+Container_Boundary(dev_tools, "SystemTools (Python, Cross-platform Diagnostic Suite)") {
+    Component(main_window, "MainWindow", "Tkinter", "Application main window with tabbed interface (GUI mode)")
+    Component(cli_interface, "CLIInterface", "Python CLI", "Headless command-line interface (CLI mode)")
+    Component(log_aggregator, "LogAggregator", "Python Standalone", "Tri-domain log aggregation (UDP+TCP)")
 
-    ' Tab Components
-    Component(connection_tab, "ConnectionTab", "Tkinter Frame", "Network connection management and status")
+    ' Tab Components (12 tabs)
+    Component(connection_tab, "ConnectionTab", "Tkinter Frame", "Multi-domain connection management (Air, Ground, SSH, ADB)")
+    Component(config_tab, "ConfigTab", "Tkinter Frame", "System configuration and settings")
+    Component(protocol_tab, "ProtocolTab", "Tkinter Frame", "Protocol message inspection and validation")
+    Component(command_tab, "CommandTab", "Tkinter Frame", "Interactive command sending and testing")
     Component(camera_tab, "CameraTab", "Tkinter Frame", "Camera control testing panel with debug mode")
-    Component(network_tab, "NetworkTab", "Tkinter Frame", "Network diagnostics and packet monitoring")
+    Component(system_tab, "SystemTab", "Tkinter Frame", "System health and resource monitoring")
     Component(logs_tab, "LogsTab", "Tkinter Frame", "Real-time log viewer and analysis")
+    Component(activity_tab, "ActivityTab", "Tkinter Frame", "Activity timeline and event tracking")
+    Component(remote_tab, "RemoteTab", "Tkinter Frame", "Remote system control features")
+    Component(h16_tab, "H16DiagnosticsTab", "Tkinter Frame", "Android H16 ADB diagnostics and troubleshooting")
+    Component(github_tab, "GitHubTab", "Tkinter Frame", "GitHub issue management integration")
+    Component(git_tab, "GitTab", "Tkinter Frame", "Git workflow assistance")
 
     ' Network Layer
-    Component(tcp_client, "TcpClient", "Python sockets", "TCP command client for Air-Side communication")
-    Component(udp_listener, "UdpListener", "Python sockets", "UDP status and heartbeat listener")
+    Component(tcp_client, "TcpClient", "Python sockets", "TCP command client for Air-Side communication (port 5000)")
+    Component(udp_listener, "UdpListener", "Python sockets", "UDP status and heartbeat listener (ports 5001, 5002)")
+    Component(ssh_client, "SSHClient", "Paramiko", "SSH client for Air-Side Docker logs and system access")
+    Component(adb_client, "ADBClient", "ADB wrapper", "Android Debug Bridge for H16 diagnostics and app management")
     Component(protocol_handler, "ProtocolHandler", "Python", "Message serialization and protocol validation")
+
+    ' Log Aggregation Layer (Issue #74)
+    Component(air_listener, "AirSideListener", "UDP Socket", "Air-Side structured log receiver (UDP port 5007)")
+    Component(ground_listener, "GroundSideListener", "TCP Socket", "Ground-Side log receiver (TCP port 5008)")
+    Component(log_merger, "LogMerger", "Python", "Unified chronological timeline with filtering and export")
 
     ' Diagnostic Components
     Component(packet_analyzer, "PacketAnalyzer", "Python", "Network packet analysis and statistics")
-    Component(connection_monitor, "ConnectionMonitor", "Python", "Connection health monitoring and auto-reconnect")
+    Component(connection_monitor, "ConnectionMonitor", "Python", "Multi-domain connection health monitoring and auto-reconnect")
     Component(command_builder, "CommandBuilder", "Python", "Interactive command construction and testing")
     Component(response_validator, "ResponseValidator", "Python", "Protocol response validation and error detection")
 
     ' Data Components
     Component(property_loader, "PropertyLoader", "Python", "Loads camera property specifications")
-    Component(log_parser, "LogParser", "Python", "Parses and analyzes Air-Side logs")
+    Component(log_parser, "LogParser", "Python", "Parses and analyzes multi-format logs (JSON, text)")
 
     ComponentDb(property_specs, "Property Specs", "JSON files", "Camera property definitions")
     ComponentDb(diagnostics_log, "Diagnostics Log", "Text files", "Saved diagnostic sessions")
 }
 
-Person(developer, "Developer", "Diagnoses system issues")
-Container_Ext(air_side, "Air-Side Service", "Raspberry Pi 5")
-Container_Ext(tcp_channel, "TCP Command", "Port 5000")
+Person(developer, "Developer", "Diagnoses system issues and monitors logs")
+Person(maintainer, "System Maintainer", "Deploys and troubleshoots system")
+Container_Ext(air_side, "Air-Side Service", "Raspberry Pi 5, Docker")
+Container_Ext(ground_side, "Ground-Side App", "Android H16")
+Container_Ext(tcp_command, "TCP Command", "Port 5000")
 Container_Ext(udp_status, "UDP Status", "Port 5001")
 Container_Ext(udp_heartbeat, "UDP Heartbeat", "Port 5002")
+Container_Ext(udp_air_logs, "UDP Air Logs", "Port 5007")
+Container_Ext(tcp_ground_logs, "TCP Ground Logs", "Port 5008")
 
-' Developer interaction
-Rel(developer, connection_tab, "Manages connections")
+' User interactions
+Rel(developer, main_window, "Uses GUI mode")
+Rel(developer, log_aggregator, "Monitors tri-domain logs")
+Rel(maintainer, cli_interface, "Uses CLI for deployment")
+Rel(developer, connection_tab, "Manages multi-domain connections")
 Rel(developer, camera_tab, "Tests camera commands")
-Rel(developer, network_tab, "Monitors packets")
+Rel(developer, h16_tab, "Diagnoses H16 issues")
+Rel(developer, github_tab, "Manages GitHub issues")
 Rel(developer, logs_tab, "Views diagnostics")
 
 ' Tab → Network Layer
-Rel(connection_tab, connection_monitor, "Controls connection")
+Rel(connection_tab, connection_monitor, "Controls multi-domain connections")
+Rel(connection_tab, ssh_client, "SSH to Air-Side")
+Rel(connection_tab, adb_client, "ADB to Ground-Side")
 Rel(camera_tab, tcp_client, "Sends test commands")
 Rel(camera_tab, command_builder, "Builds commands")
-Rel(network_tab, packet_analyzer, "Displays packet stats")
+Rel(command_tab, tcp_client, "Sends commands")
+Rel(h16_tab, adb_client, "H16 diagnostics")
 Rel(logs_tab, log_parser, "Parses logs")
+Rel(logs_tab, ssh_client, "Retrieves Air-Side logs")
+Rel(system_tab, ssh_client, "Monitors Air-Side system")
 
 ' Network Layer interactions
-Rel(tcp_client, tcp_channel, "Sends/receives")
-Rel(udp_listener, udp_status, "Monitors")
-Rel(udp_listener, udp_heartbeat, "Monitors")
-Rel(connection_monitor, tcp_client, "Manages")
-Rel(connection_monitor, udp_listener, "Monitors")
+Rel(tcp_client, tcp_command, "Sends/receives commands")
+Rel(udp_listener, udp_status, "Monitors status")
+Rel(udp_listener, udp_heartbeat, "Monitors heartbeat")
+Rel(connection_monitor, tcp_client, "Manages TCP")
+Rel(connection_monitor, udp_listener, "Monitors UDP")
+Rel(connection_monitor, ssh_client, "Manages SSH")
+Rel(connection_monitor, adb_client, "Manages ADB")
+Rel(ssh_client, air_side, "SSH connection", "Port 22")
+Rel(adb_client, ground_side, "ADB connection", "Port 5555")
 
 ' Protocol handling
 Rel(tcp_client, protocol_handler, "Serializes/deserializes")
@@ -66,20 +100,48 @@ Rel(udp_listener, protocol_handler, "Deserializes")
 Rel(command_builder, protocol_handler, "Validates command format")
 Rel(tcp_client, response_validator, "Validates responses")
 
+' Log Aggregation (Issue #74)
+Rel(log_aggregator, air_listener, "Uses")
+Rel(log_aggregator, ground_listener, "Uses")
+Rel(air_listener, udp_air_logs, "Receives", "UDP 5007")
+Rel(ground_listener, tcp_ground_logs, "Receives", "TCP 5008 via ADB")
+Rel(air_listener, log_merger, "Sends Air logs")
+Rel(ground_listener, log_merger, "Sends Ground logs")
+Rel(log_merger, developer, "Displays unified timeline")
+
 ' Data access
 Rel(command_builder, property_loader, "Queries valid values")
 Rel(property_loader, property_specs, "Loads")
 Rel(packet_analyzer, diagnostics_log, "Saves sessions")
+Rel(log_merger, diagnostics_log, "Exports logs")
 
 ' Diagnostics
 Rel(response_validator, camera_tab, "Displays validation results")
-Rel(packet_analyzer, network_tab, "Updates statistics")
-
-' SSH access to Air-Side
-Rel(logs_tab, air_side, "Fetches logs", "SSH/SCP")
-Rel(log_parser, air_side, "Retrieves system info", "SSH")
+Rel(packet_analyzer, system_tab, "Updates statistics")
 
 SHOW_LEGEND()
+
+note right of log_aggregator
+  **Tri-Domain Log Aggregator (Issue #74):**
+  - Unified Air+Ground timeline
+  - UDP 5007: Air-Side structured logs
+  - TCP 5008: Ground-Side logs (ADB forward)
+  - Real-time filtering (level, domain, context, text)
+  - Export: JSON, CSV, text
+  - Replay mode for saved logs
+  - Buffer: 10,000 entries (configurable)
+end note
+
+note right of h16_tab
+  **H16 Diagnostics Features:**
+  - ADB connection diagnostics
+  - Ping and port testing
+  - ADB server management
+  - Full reset & reconnect
+  - H16 app running status
+  - Complete diagnostic suite
+  - Firewall troubleshooting
+end note
 
 note right of camera_tab
   **Debug Mode Features:**
@@ -92,23 +154,34 @@ note right of camera_tab
   - Error analysis
 end note
 
-note right of packet_analyzer
-  **Diagnostics Capabilities:**
-  - Packet rate monitoring
-  - Message type statistics
-  - Latency measurement
-  - Error detection
-  - Protocol compliance checking
-  - Connection quality metrics
-end note
-
 note right of connection_monitor
-  **Connection Management:**
-  - Multi-domain connection tracking
-  - Auto-reconnect logic
+  **Multi-Domain Connection Management:**
+  - Air-Side: TCP (5000), UDP (5001, 5002)
+  - Ground-Side: ADB (10.0.1.92:5555)
+  - SSH: Air-Side Docker access (port 22)
+  - Auto-reconnect with exponential backoff
   - Health check monitoring
   - Connection state visualization
-  - Timeout detection
+end note
+
+note right of main_window
+  **SystemTools Version 1.9.0+**
+  **Platform:** Cross-platform (Linux/Windows/macOS)
+  **Phase 2 Complete** - Full monitoring operational
+
+  **12 Tabs:**
+  1. Connection - Multi-domain management
+  2. Config - Settings
+  3. Protocol - Message inspection
+  4. Command - Interactive sending
+  5. Camera - Debug testing
+  6. System - Resource monitoring
+  7. Logs - Log viewing
+  8. Activity - Event timeline
+  9. Remote Control - Remote features
+  10. H16 Diagnostics - ADB troubleshooting
+  11. GitHub Integration - Issue management
+  12. Git Helper - Workflow assistance
 end note
 
 @enduml
