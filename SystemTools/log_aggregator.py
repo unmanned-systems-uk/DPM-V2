@@ -6,20 +6,23 @@ DPM SystemTools - Tri-Domain Log Aggregator
 Aggregates logs from Air-Side (UDP) and Ground-Side (TCP) into a unified timeline.
 
 Part of Issue #74 - Phase 1: Foundation Infrastructure
+Updated for Issue #105 - Refactored to use network/log_listeners.py
 """
 
-import socket
-import json
-import threading
 import argparse
 import sys
 import os
 import platform
+import json
+import csv
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from collections import deque
 from pathlib import Path
-import csv
+
+# Import listeners from shared module (Issue #105)
+from network.log_listeners import AirSideListener, GroundSideListener
 
 try:
     from rich.console import Console
@@ -29,149 +32,6 @@ try:
 except ImportError:
     print("ERROR: 'rich' library not installed. Run: pip install rich")
     sys.exit(1)
-
-
-class AirSideListener:
-    """UDP listener for Air-Side logs (port 5007)"""
-
-    def __init__(self, host: str = "0.0.0.0", port: int = 5007, buffer_size: int = 4096):
-        self.host = host
-        self.port = port
-        self.buffer_size = buffer_size
-        self.sock = None
-        self.running = False
-        self.thread = None
-
-    def start(self, log_queue: deque):
-        """Start the UDP listener in a separate thread"""
-        self.running = True
-        self.thread = threading.Thread(target=self._listen, args=(log_queue,), daemon=True)
-        self.thread.start()
-
-    def _listen(self, log_queue: deque):
-        """Listen for UDP packets and add to queue"""
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind((self.host, self.port))
-            self.sock.settimeout(1.0)  # 1 second timeout for graceful shutdown
-
-            print(f"[AirSideListener] Listening on UDP {self.host}:{self.port}")
-
-            while self.running:
-                try:
-                    data, addr = self.sock.recvfrom(self.buffer_size)
-                    try:
-                        log_entry = json.loads(data.decode('utf-8'))
-                        log_entry['domain'] = 'AIR'
-                        log_entry['source_addr'] = f"{addr[0]}:{addr[1]}"
-                        log_queue.append(log_entry)
-                    except json.JSONDecodeError as e:
-                        print(f"[AirSideListener] JSON decode error: {e}")
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if self.running:
-                        print(f"[AirSideListener] Error: {e}")
-
-        except Exception as e:
-            print(f"[AirSideListener] Failed to start: {e}")
-        finally:
-            if self.sock:
-                self.sock.close()
-
-    def stop(self):
-        """Stop the listener"""
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=2.0)
-
-
-class GroundSideListener:
-    """TCP listener for Ground-Side logs (port 5008, via ADB forward)"""
-
-    def __init__(self, host: str = "localhost", port: int = 5008, buffer_size: int = 4096):
-        self.host = host
-        self.port = port
-        self.buffer_size = buffer_size
-        self.sock = None
-        self.running = False
-        self.thread = None
-
-    def start(self, log_queue: deque):
-        """Start the TCP listener in a separate thread"""
-        self.running = True
-        self.thread = threading.Thread(target=self._listen, args=(log_queue,), daemon=True)
-        self.thread.start()
-
-    def _listen(self, log_queue: deque):
-        """Listen for TCP connections and add logs to queue"""
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind((self.host, self.port))
-            self.sock.listen(5)
-            self.sock.settimeout(1.0)  # 1 second timeout for graceful shutdown
-
-            print(f"[GroundSideListener] Listening on TCP {self.host}:{self.port}")
-            print("[GroundSideListener] Ensure ADB forward is active: adb forward tcp:5008 tcp:5008")
-
-            while self.running:
-                try:
-                    conn, addr = self.sock.accept()
-                    print(f"[GroundSideListener] Connection from {addr}")
-                    self._handle_connection(conn, addr, log_queue)
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if self.running:
-                        print(f"[GroundSideListener] Error accepting connection: {e}")
-
-        except Exception as e:
-            print(f"[GroundSideListener] Failed to start: {e}")
-        finally:
-            if self.sock:
-                self.sock.close()
-
-    def _handle_connection(self, conn: socket.socket, addr: tuple, log_queue: deque):
-        """Handle a single TCP connection"""
-        buffer = ""
-        try:
-            conn.settimeout(1.0)
-            while self.running:
-                try:
-                    data = conn.recv(self.buffer_size)
-                    if not data:
-                        break
-
-                    buffer += data.decode('utf-8')
-
-                    # Process complete JSON objects (newline-delimited)
-                    while '\n' in buffer:
-                        line, buffer = buffer.split('\n', 1)
-                        if line.strip():
-                            try:
-                                log_entry = json.loads(line)
-                                log_entry['domain'] = 'GROUND'
-                                log_entry['source_addr'] = f"{addr[0]}:{addr[1]}"
-                                log_queue.append(log_entry)
-                            except json.JSONDecodeError as e:
-                                print(f"[GroundSideListener] JSON decode error: {e}")
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if self.running:
-                        print(f"[GroundSideListener] Error receiving data: {e}")
-                    break
-        finally:
-            conn.close()
-            print(f"[GroundSideListener] Connection closed: {addr}")
-
-    def stop(self):
-        """Stop the listener"""
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=2.0)
 
 
 class LogAggregator:

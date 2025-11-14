@@ -1,10 +1,10 @@
-# DPM Windows Diagnostic Tool
+# DPM SystemTools - Diagnostic Suite
 
-**Version:** 1.0.0 (Phase 1 - Foundation)
-**Platform:** Windows 11
+**Version:** 1.9.0+ (Phase 2 Complete)
+**Platform:** Cross-platform (Linux/Windows/macOS)
 **Python:** 3.8+
 
-Comprehensive diagnostic and testing tool for DPM Payload Manager system.
+Comprehensive multi-mode diagnostic and testing suite for DPM Payload Manager system.
 
 ---
 
@@ -13,20 +13,31 @@ Comprehensive diagnostic and testing tool for DPM Payload Manager system.
 ### 1. Install Python Dependencies
 
 ```bash
-cd D:\DPM\DPM-V2\SystemTools
+cd /path/to/DPM-V2/SystemTools
 pip install -r requirements.txt
 ```
 
 **Dependencies:**
 - Python 3.8+ (with tkinter built-in)
 - `rich>=13.7.0` (Terminal UI for log aggregator)
-- `paramiko>=3.4.0` (SSH client - Phase 3)
-- `matplotlib>=3.8.0` (Graphs - Phase 3)
+- `paramiko>=3.4.0` (SSH client for Air-Side access)
+- Additional dependencies listed in requirements.txt
 
 ### 2. Run the Application
 
+**GUI Mode (default):**
 ```bash
 python main.py
+```
+
+**CLI Mode (headless):**
+```bash
+python cli_interface.py
+```
+
+**Log Aggregator (standalone):**
+```bash
+python log_aggregator.py
 ```
 
 ---
@@ -168,25 +179,77 @@ adb forward tcp:5008 tcp:5008
 
 ---
 
-## Phase 1 Features (Current)
+## Current Features (Version 1.9.0+, Phase 2 Complete)
 
-### Connection Monitor Tab
-- Connect/disconnect to Air-Side Pi
-- TCP connection status
-- Send handshake
-- Connection event log with color-coding
-- Real-time status indicator
-- **Save log to file** (with customizable location)
-- **Copy log to clipboard**
-- Clear log
+### GUI Tabs (12 Total)
 
-### Configuration Tab
-- Network settings (Air-Side IP, ports)
-- SSH settings (for future Docker logs)
-- UI preferences (auto-connect, font size, audio alerts)
-- **Log save location** (specify where to save exported logs)
-- Save/load settings
-- Reset to defaults
+1. **Connection Monitor Tab**
+   - Multi-domain connection management (Air-Side, Ground-Side, SSH, ADB)
+   - TCP/UDP status indicators
+   - Smart connection with auto-detection
+   - Connection event log with color-coding
+   - Real-time status indicators
+   - Save log to file, copy to clipboard
+
+2. **Configuration Tab**
+   - Network settings (Air-Side IP, ports)
+   - SSH settings (Air-Side Docker access)
+   - ADB settings (H16 diagnostics)
+   - UI preferences (auto-connect, font size, audio alerts)
+   - Log save location
+   - Save/load settings, reset to defaults
+
+3. **Protocol Inspector Tab**
+   - Protocol message inspection and validation
+   - Real-time message monitoring
+   - Message format verification
+
+4. **Command Sender Tab**
+   - Interactive command construction
+   - Command testing and validation
+   - Response monitoring
+
+5. **Camera Dashboard Tab**
+   - Camera control testing panel
+   - Debug mode features (Focus controls, AF Hold, property setter)
+   - Real-time diagnostics output
+   - Response validation and error analysis
+
+6. **System Monitor Tab**
+   - System health and resource monitoring
+   - CPU, memory, disk usage tracking
+   - Network statistics
+
+7. **Log Inspector Tab**
+   - Real-time log viewing and analysis
+   - Multi-format log parsing (JSON, text)
+   - SSH log retrieval from Air-Side
+
+8. **Activity Log Tab**
+   - Activity timeline and event tracking
+   - Chronological event visualization
+
+9. **Remote Control Tab**
+   - Remote system control features
+   - Advanced operational controls
+
+10. **H16 Diagnostics Tab**
+    - Android H16 ADB connection diagnostics
+    - Ping and port testing (PowerShell Test-NetConnection)
+    - ADB server management (reconnect, kill, start)
+    - Full reset & reconnect sequence
+    - H16 app running status detection
+    - Complete diagnostic suite with recommendations
+    - Windows Firewall troubleshooting guidance
+
+11. **GitHub Integration Tab**
+    - GitHub issue management from SystemTools
+    - Issue creation, viewing, and tracking
+    - Direct GitHub API integration
+
+12. **Git Helper Tab**
+    - Git workflow assistance
+    - Commit and branch management helpers
 
 ---
 
@@ -229,31 +292,54 @@ adb forward tcp:5008 tcp:5008
 
 ```
 SystemTools/
-├── main.py                    # GUI application entry point
-├── log_aggregator.py          # Tri-domain log aggregator (NEW)
-├── requirements.txt           # Python dependencies
-├── config.json               # User settings (auto-generated)
+├── main.py                        # GUI application entry point
+├── cli_interface.py               # CLI mode (headless)
+├── log_aggregator.py              # Tri-domain log aggregator (standalone)
+├── requirements.txt               # Python dependencies
+├── config.json                    # User settings (auto-generated)
+├── devtools_config.py             # DevTools configuration
+├── version.py                     # Version management
 │
-├── config/                   # Configuration files
-│   └── log_aggregator.json   # Log aggregator config (NEW)
+├── config/                        # Configuration files
+│   └── log_aggregator.json        # Log aggregator config
 │
-├── gui/                      # GUI components
-│   ├── main_window.py        # Main window framework
-│   ├── tab_connection.py     # Connection Monitor tab
-│   ├── tab_config.py         # Configuration tab
-│   └── widgets.py            # Reusable widgets
+├── gui/                           # GUI components (12 tabs)
+│   ├── main_window.py             # Main window framework
+│   ├── tab_connection.py          # Connection Monitor tab
+│   ├── tab_config.py              # Configuration tab
+│   ├── tab_protocol.py            # Protocol Inspector tab
+│   ├── tab_command.py             # Command Sender tab
+│   ├── tab_camera.py              # Camera Dashboard tab
+│   ├── tab_system.py              # System Monitor tab
+│   ├── tab_logs.py                # Log Inspector tab
+│   ├── tab_activity.py            # Activity Log tab
+│   ├── tab_remote_control.py     # Remote Control tab
+│   ├── tab_h16_diagnostics.py    # H16 Diagnostics tab
+│   ├── tab_github_integration.py # GitHub Integration tab
+│   ├── tab_git_helper.py          # Git Helper tab
+│   └── widgets.py                 # Reusable widgets
 │
-├── network/                  # Network layer
-│   ├── tcp_client.py         # TCP command client
-│   └── protocol.py           # Protocol message formatting
+├── network/                       # Network layer
+│   ├── tcp_client.py              # TCP command client
+│   ├── udp_listener.py            # UDP status/heartbeat listener
+│   ├── ssh_client.py              # SSH client for Air-Side
+│   ├── adb_client.py              # ADB client for H16
+│   ├── protocol.py                # Protocol message formatting
+│   ├── heartbeat.py               # Heartbeat sender
+│   └── diagnostic_client.py      # Diagnostic protocols
 │
-├── utils/                    # Utilities
-│   ├── config.py             # Configuration management
-│   ├── logger.py             # Application logging
-│   └── protocol_loader.py    # Load protocol JSON files
+├── utils/                         # Utilities
+│   ├── config.py                  # Configuration management
+│   ├── logger.py                  # Application logging
+│   ├── protocol_loader.py         # Load protocol JSON files
+│   └── log_parser.py              # Multi-format log parsing
 │
-└── logs/                     # Application logs (auto-generated)
-    └── exports/              # Exported log files (NEW)
+├── docs/                          # Documentation
+│   ├── Cheat_Sheet_ADB_H16.md     # H16 ADB troubleshooting guide
+│   └── SESSION_*.md               # Development session notes
+│
+└── logs/                          # Application logs (auto-generated)
+    └── exports/                   # Exported log files
 ```
 
 ---
