@@ -434,6 +434,7 @@ Request deep thinking with Sonnet (current model):
 - [ ] Read /home/anthony/.claude/CLAUDE.md (connection details)
 - [ ] Read .claude/PM_START.md (startup protocol)
 - [ ] Read .claude/MULTI_DOMAIN_COORDINATION.md (coordination framework)
+- [ ] **Review Issue #101** if task requires extended thinking or complex coordination
 - [ ] Verify all tmux sessions active
 - [ ] Check current branch and git status
 - [ ] Review open critical issues
@@ -486,6 +487,18 @@ Request deep thinking with Sonnet (current model):
 4. ✅ **Comprehensive documentation**
 5. ✅ **Proactive issue updates**
 6. ✅ **Always use C-m in tmux commands**
+
+---
+
+---
+
+## 🔗 Related Issues
+
+**Issue #101:** [WORKFLOW][RESEARCH] PM Session Optimization
+- Extended thinking usage guide
+- Context management strategies
+- Best practices and findings
+- **Review before complex coordination tasks**
 
 ---
 
