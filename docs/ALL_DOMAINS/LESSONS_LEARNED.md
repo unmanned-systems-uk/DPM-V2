@@ -328,6 +328,57 @@ Users must switch to AF-S, AF-C, or AF-A mode to use AF Hold functionality. This
 
 ---
 
+### ADB Port Forwarding
+
+#### ⚠️ LESSON: ADB Multiple Device/Emulator Error
+
+**Related Issues:** #74, #99
+**Date:** 2025-11-14
+**Context:** Phase 1 Ground-Side → SystemTools log streaming
+
+**Problem:**
+```bash
+adb reverse tcp:5008 tcp:5008
+# Error: adb: error: more than one device/emulator
+```
+
+**Root Cause:**
+- Java/Gradle daemon had multiple ADB connections active
+- `adb devices` showed only one device
+- `lsof -i :5037` showed 6+ Java connections to ADB server
+- ADB confused about which device to target
+
+**Attempted Solutions:**
+1. ❌ `adb -s 10.0.1.92:5555 reverse` - Still failed with same error
+2. ❌ `ANDROID_SERIAL=10.0.1.92:5555 adb reverse` - Still failed
+3. ❌ Kill Gradle daemon - Didn't resolve issue immediately
+
+**Workaround Implemented (Phase 1 Only):**
+- **Hardcoded dev machine IP** in Ground-Side: `host = "10.0.1.83"`
+- **SystemTools listens on all interfaces**: `host = "0.0.0.0"`
+- Direct TCP connection over network (bypasses ADB entirely)
+
+**Limitations:**
+- ❌ Not dynamic - breaks if IP changes
+- ❌ Network-dependent - won't work over USB-only
+- ❌ Not portable - hardcoded for specific dev machine
+- ❌ NOT PRODUCTION READY
+
+**Proper Solutions (Issue #99):**
+1. **Debug ADB issue** - Find why multiple devices detected
+2. **Service Discovery (mDNS)** - Dynamic IP discovery
+3. **User Configuration** - Manual IP entry in settings
+4. **Hybrid approach** - All three with fallback chain
+
+**Action Items:**
+- ✅ Issue #74 documented with workaround details
+- ✅ Issue #99 created for production fix
+- 🔴 Must resolve before Phase 2/Production deployment
+
+**Lesson:** ADB port forwarding can be unreliable with multiple IDE/build tool connections. Always have fallback options for critical functionality.
+
+---
+
 ### Network Configuration
 
 #### 🔴 CRITICAL: Static IP Requirement for VXLAN Bridge

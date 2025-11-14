@@ -8,7 +8,7 @@
     },
     "ground_side": {
       "protocol": "tcp",
-      "host": "localhost",
+      "host": "0.0.0.0",
       "port": 5008,
       "buffer_size": 4096
     }

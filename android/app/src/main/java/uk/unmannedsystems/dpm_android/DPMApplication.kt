@@ -11,6 +11,7 @@ import timber.log.Timber
 import uk.unmannedsystems.dpm_android.camera.PropertyLoader
 import uk.unmannedsystems.dpm_android.logging.LogLevel
 import uk.unmannedsystems.dpm_android.logging.StructuredLogger
+import uk.unmannedsystems.dpm_android.logging.UdpLogReceiver
 import uk.unmannedsystems.dpm_android.logging.sinks.FileSink
 import uk.unmannedsystems.dpm_android.logging.sinks.MemorySink
 import uk.unmannedsystems.dpm_android.logging.sinks.NetworkSink
@@ -32,6 +33,9 @@ class DPMApplication : Application() {
         // MemorySink for Log Viewer UI access
         lateinit var memorySink: MemorySink
             private set
+
+        // UDP log receiver for Air-Side logs
+        private var udpLogReceiver: UdpLogReceiver? = null
     }
 
     override fun onCreate() {
@@ -122,7 +126,7 @@ class DPMApplication : Application() {
             // NetworkSink for SystemTools (disabled by default, enable in debug builds if needed)
             val networkSinkEnabled = BuildConfig.DEBUG  // Only in debug builds
             val networkSink = NetworkSink(
-                host = "localhost",
+                host = "10.0.1.83",  // Dev machine IP for SystemTools
                 port = 5008,
                 enabled = networkSinkEnabled
             )
@@ -142,6 +146,12 @@ class DPMApplication : Application() {
             )
 
             Log.i(TAG, "StructuredLogger initialized with ${sinks.size} sinks (log dir: ${logDir.absolutePath})")
+
+            // Start UDP log receiver for Air-Side logs
+            udpLogReceiver = UdpLogReceiver(port = 5005)
+            udpLogReceiver?.start()
+            Log.i(TAG, "UDP log receiver started on port 5005")
+
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize StructuredLogger", e)
         }
