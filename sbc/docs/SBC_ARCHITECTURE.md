@@ -850,6 +850,269 @@ Logger::error("Failed to send shutter DOWN command. Status: 0x" + std::to_string
 
 **File Rotation**: Not implemented (future enhancement for production deployments).
 
+### 4.3.1 StructuredLogger System (Phase 1 Gap 1: Issue #92)
+
+**Purpose**: Modern JSON-based structured logging system with multiple sink support for Ground-Side log streaming and SystemTools monitoring integration.
+
+**Design Philosophy**:
+- **Structured Logging**: All logs are JSON objects with consistent schema for machine parsing
+- **Multiple Sinks**: ConsoleSink, FileSink, and NetworkSink for different destinations
+- **Domain Tagging**: All log entries tagged with `"domain": "AIR"` for cross-system log aggregation
+- **On-Demand Streaming**: Ground-Side can dynamically enable/disable log streaming via TCP commands
+- **Dynamic Client Discovery**: Automatic client IP registration when Ground-Side connects (like UDP broadcaster pattern)
+- **Thread Safety**: Full mutex protection for multi-threaded logging from all contexts
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────────────┐
+│                  StructuredLogger                        │
+│                    (Singleton)                           │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  buildLogEntry(level, context, msg, fields)     │   │
+│  │  - Timestamp (ISO 8601 with milliseconds)       │   │
+│  │  - Level (DEBUG/INFO/WARNING/ERROR)             │   │
+│  │  - Context (CAMERA/NETWORK/SYNC/COMMAND/etc)    │   │
+│  │  - Domain: "AIR"                                │   │
+│  │  - Thread ID                                     │   │
+│  │  - Custom fields (merged from caller)           │   │
+│  └─────────────────────────────────────────────────┘   │
+│                          │                               │
+│           ┌──────────────┼──────────────┐               │
+│           ▼              ▼              ▼               │
+│    ┌───────────┐  ┌──────────┐  ┌──────────────┐      │
+│    │ Console   │  │  File    │  │   Network    │      │
+│    │   Sink    │  │  Sink    │  │    Sink      │      │
+│    └───────────┘  └──────────┘  └──────────────┘      │
+│         │              │              │                 │
+│         ▼              ▼              ▼                 │
+│      stdout      payload.log    UDP:5005 (Ground)      │
+│                                  UDP:5006 (SystemTools) │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Components**:
+
+1. **StructuredLogger** (logging/structured_logger.cpp)
+   - Singleton logger instance managing all log sinks
+   - Thread-safe log entry building and distribution
+   - Ground-Side streaming control (enable/disable with timeout)
+   - Dynamic client IP management (add/remove Ground-Side clients)
+
+2. **ConsoleSink** (logging/sinks/console_sink.cpp)
+   - Human-readable console output with ANSI color coding
+   - Parses JSON and formats as: `[timestamp] [LEVEL] [CONTEXT] message`
+   - Color codes: ERROR=red, WARNING=yellow, INFO=default, DEBUG=dim
+
+3. **FileSink** (logging/sinks/file_sink.cpp)
+   - Writes raw JSON log entries to `/home/dpm/DPM-V2/sbc/logs/payload.log`
+   - One JSON object per line for easy parsing with `jq` or log viewers
+   - File rotation: Not implemented (future enhancement)
+
+4. **NetworkSink** (logging/sinks/network_sink.cpp)
+   - UDP log streaming to Ground-Side and SystemTools
+   - **Ground-Side**: On-demand streaming (enable/disable via TCP command)
+   - **SystemTools**: Always-on monitoring stream (port 5006)
+   - **Dynamic Client Registration**: TCP server registers client IP on connection
+   - **Timeout Management**: Auto-disable streaming after configured duration (default 300s)
+
+**JSON Log Format**:
+```json
+{
+  "timestamp": "2025-11-14T01:15:42.837Z",
+  "level": "INFO",
+  "context": "CAMERA",
+  "domain": "AIR",
+  "thread": "281473615321120",
+  "message": "Camera properties queried successfully",
+  "property_count": 12,
+  "camera_model": "ILCE-7RM5"
+}
+```
+
+**API**:
+```cpp
+class StructuredLogger {
+public:
+    static StructuredLogger& getInstance();
+
+    void init();
+    void shutdown();
+    void setLevel(LogLevel level);
+
+    // Sink management
+    void addSink(std::shared_ptr<LogSink> sink);
+    void removeSink(std::shared_ptr<LogSink> sink);
+
+    // Ground-Side streaming control
+    void enableGroundStreaming(int duration_sec = 300);
+    void disableGroundStreaming();
+    bool isGroundStreamingEnabled() const;
+
+    // Dynamic client IP management
+    void addGroundClient(const std::string& client_ip);
+    void removeGroundClient(const std::string& client_ip);
+
+    // Core logging with structured fields
+    void log(LogLevel level, LogContext context,
+             const std::string& message, const json& fields = json::object());
+};
+```
+
+**Log Levels**:
+- `DEBUG`: Verbose diagnostics (camera SDK calls, protocol details)
+- `INFO`: Operational events (camera connected, streaming enabled)
+- `WARNING`: Recoverable issues (camera timeout, reconnection attempts)
+- `ERROR`: Failures requiring attention (SDK errors, network failures)
+
+**Log Contexts**:
+- `CAMERA`: Camera SDK operations, property queries, capture commands
+- `NETWORK`: TCP/UDP communication, client connections, heartbeat
+- `SYNC`: Time synchronization (RTC, NTP, camera clock)
+- `COMMAND`: Command processing, request/response handling
+- `SYSTEM`: System health, resource monitoring, lifecycle events
+- `STORAGE`: SD card operations, file management (future)
+
+**Usage Patterns**:
+
+1. **Basic Logging**:
+```cpp
+LOG_INFO(LogContext::CAMERA, "Camera initialized successfully");
+LOG_ERROR(LogContext::NETWORK, "Failed to bind TCP socket", {
+    {"port", 9001},
+    {"error_code", errno}
+});
+```
+
+2. **Structured Fields**:
+```cpp
+json fields;
+fields["camera_model"] = "ILCE-7RM5";
+fields["property_count"] = 12;
+fields["firmware_version"] = "1.20";
+LOG_INFO(LogContext::CAMERA, "Camera properties queried", fields);
+```
+
+3. **Ground-Side Log Streaming Control** (via TCP command):
+```cpp
+// TCP server receives: logging.enable_streaming {"duration_sec": 300}
+StructuredLogger::getInstance().enableGroundStreaming(300);
+
+// NetworkSink sends UDP packets to all registered Ground-Side clients
+// Automatically disables after 300 seconds
+```
+
+4. **Dynamic Client Registration**:
+```cpp
+// TCP server on client connection
+std::string client_ip = inet_ntoa(client_addr.sin_addr);
+StructuredLogger::getInstance().addGroundClient(client_ip);
+
+// TCP server on client disconnect
+StructuredLogger::getInstance().removeGroundClient(client_ip);
+```
+
+**Initialization** (main.cpp):
+```cpp
+// Initialize logger
+StructuredLogger::getInstance().init();
+StructuredLogger::getInstance().setLevel(LogLevel::DEBUG);
+
+// Add ConsoleSink (human-readable stdout)
+auto console_sink = std::make_shared<ConsoleSink>();
+StructuredLogger::getInstance().addSink(console_sink);
+
+// Add FileSink (JSON log file)
+auto file_sink = std::make_shared<FileSink>("/home/dpm/DPM-V2/sbc/logs/payload.log");
+StructuredLogger::getInstance().addSink(file_sink);
+
+// Add NetworkSink (Ground-Side + SystemTools UDP streaming)
+auto network_sink = std::make_shared<NetworkSink>(
+    "0.0.0.0",                    // Ground IP (dynamic via client registration)
+    5005,                          // Ground port
+    "192.168.192.1",              // SystemTools IP (Ground H16)
+    5006,                          // SystemTools port
+    true                           // SystemTools enabled
+);
+StructuredLogger::getInstance().addSink(network_sink);
+```
+
+**Ground-Side Log Streaming Protocol**:
+
+1. **Enable Streaming**:
+   - Ground-Side sends TCP command: `logging.enable_streaming {"duration_sec": 300}`
+   - Air-Side responds: `logging.enable_streaming.ack {"status": "enabled", "duration_sec": 300}`
+   - NetworkSink starts sending UDP packets to registered client IPs on port 5005
+   - Streaming auto-disables after timeout (default 300s)
+
+2. **Disable Streaming**:
+   - Ground-Side sends TCP command: `logging.disable_streaming {}`
+   - Air-Side responds: `logging.disable_streaming.ack {"status": "disabled"}`
+   - NetworkSink stops sending UDP packets to Ground-Side clients
+
+3. **Client IP Registration**:
+   - TCP server automatically registers client IP when connection established
+   - NetworkSink maintains `std::set<std::string> client_ips_` for dynamic discovery
+   - Unregisters client IP when connection closes
+
+4. **UDP Log Packets**:
+   - Each log entry sent as single UDP datagram (JSON string)
+   - Ground-Side receives on UDP port 5005
+   - No ACK required (best-effort delivery)
+
+**Thread Safety Considerations**:
+
+**CRITICAL**: Camera SDK timeout threads use detached threads that may outlive SDK calls by 300+ seconds. These threads MUST NOT call StructuredLogger methods from detached contexts due to potential singleton lifecycle issues.
+
+**Issue #92 Fix**: Camera timeout handlers in `camera_sony.cpp` were causing SIGSEGV crashes when calling `Logger::debug()` from detached threads ~300 seconds after SDK timeouts. Fixed by replacing Logger calls with thread-safe `std::cout`:
+
+```cpp
+// BEFORE (crashed at 310 seconds with exitCode 139):
+std::thread([future_ptr]() {
+    try {
+        future_ptr->wait();
+        Logger::debug("[DETACHED] SDK operation finally completed");  // UNSAFE
+    } catch (...) {
+        Logger::warning("[DETACHED] SDK operation threw exception");  // UNSAFE
+    }
+}).detach();
+
+// AFTER (stable 10+ minutes):
+std::thread([future_ptr]() {
+    try {
+        future_ptr->wait();
+        std::cout << "[DETACHED] SDK operation finally completed" << std::endl;  // SAFE
+    } catch (...) {
+        std::cout << "[DETACHED] SDK operation threw exception" << std::endl;  // SAFE
+    }
+}).detach();
+```
+
+**Best Practice**: Only use StructuredLogger from main threads or joinable threads with controlled lifetimes. For detached threads or threads that may outlive logger initialization, use `std::cout` directly.
+
+**SystemTools Integration**:
+
+NetworkSink always-on streaming to SystemTools (Ground H16) enables centralized log aggregation and monitoring:
+- **Port**: UDP 5006 on 192.168.192.1 (Ground-Side H16)
+- **Purpose**: Real-time monitoring, debugging, log correlation with Ground-Side
+- **Protocol**: Same JSON format as Ground-Side streaming
+- **Enable/Disable**: Controlled via constructor parameter (currently enabled)
+
+**Testing**:
+
+1. **Basic Logging**: Verify all sinks receive log entries
+2. **Ground-Side Streaming**: Enable streaming via TCP, verify UDP packets received on port 5005
+3. **Timeout Management**: Verify streaming auto-disables after configured duration
+4. **Dynamic Client Registration**: Connect multiple Ground-Side clients, verify all receive logs
+5. **Thread Safety**: Long-running stress tests with camera connected (10+ minutes)
+6. **Camera SDK Interaction**: Verify no crashes from detached timeout threads (Issue #92)
+
+**Future Enhancements**:
+- File rotation with size/time-based policies
+- Compression for archived logs
+- Log level filtering per sink
+- Performance metrics (logs/sec, dropped packets)
+- Graceful degradation if UDP send fails
+
 ### 4.4 System Monitor (utils/system_info.cpp)
 
 **Purpose**: Query system resource utilization for telemetry reporting.

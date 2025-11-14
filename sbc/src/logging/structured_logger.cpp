@@ -85,6 +85,7 @@ json StructuredLogger::buildLogEntry(LogLevel level, LogContext context,
     entry["timestamp"] = timestamp_ss.str();
     entry["level"] = levelToString(level);
     entry["context"] = contextToString(context);
+    entry["domain"] = "AIR";
     entry["thread"] = thread_ss.str();
     entry["message"] = message;
 
@@ -165,4 +166,34 @@ bool StructuredLogger::isGroundStreamingEnabled() const {
     }
 
     return false;
+}
+
+void StructuredLogger::addGroundClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and add client
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->addClient(client_ip);
+            }
+            break;
+        }
+    }
+}
+
+void StructuredLogger::removeGroundClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and remove client
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->removeClient(client_ip);
+            }
+            break;
+        }
+    }
 }

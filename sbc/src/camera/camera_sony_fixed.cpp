@@ -4,14 +4,14 @@
 bool focus(const std::string& action, int speed = 3) override {
     // Check connection using atomic flag first (fast, never blocks)
     if (!isConnected()) {
-        Logger::error("Cannot focus: camera not connected");
+        LOG_ERROR(LogContext::CAMERA, "Cannot focus: camera not connected");
         return false;
     }
 
     // Acquire lock for entire operation to prevent concurrent SDK access
     std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
     if (!lock.owns_lock()) {
-        Logger::warning("Cannot focus: camera busy with another operation");
+        LOG_WARNING(LogContext::CAMERA, "Cannot focus: camera busy with another operation");
         return false;
     }
 
@@ -42,13 +42,13 @@ bool focus(const std::string& action, int speed = 3) override {
             if (range_values && speed_range_list[0].GetCurrentValuesSize() >= 2) {
                 min_speed = static_cast<CrInt8>(range_values[0]);
                 max_speed = static_cast<CrInt8>(range_values[1]);
-                Logger::debug("Camera focus speed range: " + std::to_string(min_speed) +
+                LOG_DEBUG(LogContext::CAMERA, "Camera focus speed range: " + std::to_string(min_speed) +
                             " to " + std::to_string(max_speed));
             }
         }
         SDK::ReleaseDeviceProperties(device_handle_, speed_range_list);
     } else {
-        Logger::warning("Could not query Focus_Speed_Range, using defaults (-7 to 7)");
+        LOG_WARNING(LogContext::CAMERA, "Could not query Focus_Speed_Range, using defaults (-7 to 7)");
     }
 
     // CRITICAL FIX #2: Check FocalDistanceInMeter property's enable status
@@ -74,15 +74,15 @@ bool focus(const std::string& action, int speed = 3) override {
         focal_distance_enabled = focal_distance_list[0].IsGetEnableCurrentValue();
 
         if (focal_distance_enabled) {
-            Logger::debug("FocalDistanceInMeter property is enabled and readable");
+            LOG_DEBUG(LogContext::CAMERA, "FocalDistanceInMeter property is enabled and readable");
 
             // Log current focal distance for debugging
             if (focal_distance_list[0].GetCurrentValuesSize() > 0) {
                 auto current_value = focal_distance_list[0].GetCurrentValue();
-                Logger::debug("Current focal distance: " + std::to_string(current_value) + " mm");
+                LOG_DEBUG(LogContext::CAMERA, "Current focal distance: " + std::to_string(current_value) + " mm");
             }
         } else {
-            Logger::warning("FocalDistanceInMeter property is NOT enabled - focus may fail");
+            LOG_WARNING(LogContext::CAMERA, "FocalDistanceInMeter property is NOT enabled - focus may fail");
 
             // CRITICAL FIX #3: Try to enable the property by setting focus mode to Manual
             // Some cameras require manual focus mode for Focus_Operation to work
@@ -102,11 +102,11 @@ bool focus(const std::string& action, int speed = 3) override {
 
             if (CR_SUCCEEDED(mode_result) && focus_mode_list) {
                 auto current_mode = focus_mode_list[0].GetCurrentValue();
-                Logger::debug("Current focus mode: 0x" + toHexString(current_mode));
+                LOG_DEBUG(LogContext::CAMERA, "Current focus mode: 0x" + toHexString(current_mode));
 
                 // Check if we're NOT in manual focus mode (MF = 0x0001 typically)
                 if (current_mode != SDK::CrFocusMode::CrFocus_MF) {
-                    Logger::warning("Camera is not in manual focus mode, Focus_Operation may fail");
+                    LOG_WARNING(LogContext::CAMERA, "Camera is not in manual focus mode, Focus_Operation may fail");
                 }
                 SDK::ReleaseDeviceProperties(device_handle_, focus_mode_list);
             }
@@ -114,7 +114,7 @@ bool focus(const std::string& action, int speed = 3) override {
 
         SDK::ReleaseDeviceProperties(device_handle_, focal_distance_list);
     } else {
-        Logger::error("Failed to query FocalDistanceInMeter property - focus will likely fail");
+        LOG_ERROR(LogContext::CAMERA, "Failed to query FocalDistanceInMeter property - focus will likely fail");
     }
 
     // CRITICAL FIX #4: Validate and clamp speed to camera's supported range
@@ -122,7 +122,7 @@ bool focus(const std::string& action, int speed = 3) override {
     int clipped_speed = speed;
     if (speed > std::abs(max_speed)) {
         clipped_speed = std::abs(max_speed);
-        Logger::warning("Speed " + std::to_string(speed) + " exceeds max, using " +
+        LOG_WARNING(LogContext::CAMERA, "Speed " + std::to_string(speed) + " exceeds max, using " +
                        std::to_string(clipped_speed));
     }
 
@@ -134,7 +134,7 @@ bool focus(const std::string& action, int speed = 3) override {
         if (focus_operation < min_speed) {
             focus_operation = min_speed;
         }
-        Logger::info("Executing focus action: NEAR (closer objects), speed=" +
+        LOG_INFO(LogContext::CAMERA, "Executing focus action: NEAR (closer objects), speed=" +
                     std::to_string(std::abs(focus_operation)));
     } else if (action == "far") {
         // Ensure positive speed is within range
@@ -142,13 +142,13 @@ bool focus(const std::string& action, int speed = 3) override {
         if (focus_operation > max_speed) {
             focus_operation = max_speed;
         }
-        Logger::info("Executing focus action: FAR (distant objects), speed=" +
+        LOG_INFO(LogContext::CAMERA, "Executing focus action: FAR (distant objects), speed=" +
                     std::to_string(focus_operation));
     } else if (action == "stop") {
         focus_operation = 0;
-        Logger::info("Executing focus action: STOP");
+        LOG_INFO(LogContext::CAMERA, "Executing focus action: STOP");
     } else {
-        Logger::error("Invalid focus action: " + action + " (valid: near, far, stop)");
+        LOG_ERROR(LogContext::CAMERA, "Invalid focus action: " + action + " (valid: near, far, stop)");
         return false;
     }
 
@@ -167,25 +167,25 @@ bool focus(const std::string& action, int speed = 3) override {
 
     if (CR_FAILED(result)) {
         // Enhanced error logging with specific error codes
-        Logger::error("Failed to set focus operation. SDK error: 0x" + toHexString(result));
+        LOG_ERROR(LogContext::CAMERA, "Failed to set focus operation. SDK error: 0x" + toHexString(result));
 
         if (result == 0x8402) {
-            Logger::error("Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
-            Logger::error("Possible causes:");
-            Logger::error("  1. Camera not in manual focus mode");
-            Logger::error("  2. FocalDistanceInMeter property not enabled");
-            Logger::error("  3. Camera in an incompatible shooting mode");
-            Logger::error("  4. Live view may need to be started first");
+            LOG_ERROR(LogContext::CAMERA, "Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
+            LOG_ERROR(LogContext::CAMERA, "Possible causes:");
+            LOG_ERROR(LogContext::CAMERA, "  1. Camera not in manual focus mode");
+            LOG_ERROR(LogContext::CAMERA, "  2. FocalDistanceInMeter property not enabled");
+            LOG_ERROR(LogContext::CAMERA, "  3. Camera in an incompatible shooting mode");
+            LOG_ERROR(LogContext::CAMERA, "  4. Live view may need to be started first");
 
             if (!focal_distance_enabled) {
-                Logger::error("  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
+                LOG_ERROR(LogContext::CAMERA, "  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
             }
         }
 
         return false;
     }
 
-    Logger::info("Focus action '" + action + "' executed successfully");
+    LOG_INFO(LogContext::CAMERA, "Focus action '" + action + "' executed successfully");
 
     // CRITICAL FIX #6: Add a small delay after focus command
     // This prevents the next property query from interfering with focus operation

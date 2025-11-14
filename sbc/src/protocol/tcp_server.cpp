@@ -33,26 +33,26 @@ TCPServer::~TCPServer() {
 
 void TCPServer::start() {
     if (running_) {
-        Logger::warning("TCP server already running");
+        LOG_WARNING(LogContext::NETWORK, "TCP server already running");
         return;
     }
 
     // Create socket
     server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_ < 0) {
-        Logger::error("Failed to create TCP socket: " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to create TCP socket: " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to create socket");
     }
 
     // Set socket options
     int opt = 1;
     if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        Logger::warning("Failed to set SO_REUSEADDR: " + std::string(strerror(errno)));
+        LOG_WARNING(LogContext::NETWORK, "Failed to set SO_REUSEADDR: " + std::string(strerror(errno)));
     }
 
     // Also set SO_REUSEPORT for better reconnection handling
     if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-        Logger::warning("Failed to set SO_REUSEPORT: " + std::string(strerror(errno)));
+        LOG_WARNING(LogContext::NETWORK, "Failed to set SO_REUSEPORT: " + std::string(strerror(errno)));
     }
 
     // Bind to address
@@ -63,19 +63,19 @@ void TCPServer::start() {
 
     if (bind(server_socket_, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         close(server_socket_);
-        Logger::error("Failed to bind to port " + std::to_string(port_) + ": " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to bind to port " + std::to_string(port_) + ": " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to bind socket");
     }
 
     // Listen for connections
     if (listen(server_socket_, config::MAX_TCP_CLIENTS) < 0) {
         close(server_socket_);
-        Logger::error("Failed to listen on socket: " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to listen on socket: " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to listen on socket");
     }
 
     running_ = true;
-    Logger::info("TCP server listening on port " + std::to_string(port_));
+    LOG_INFO(LogContext::NETWORK, "TCP server listening on port " + std::to_string(port_));
 
     // Start accept thread
     accept_thread_ = std::thread(&TCPServer::acceptLoop, this);
@@ -86,7 +86,7 @@ void TCPServer::stop() {
         return;
     }
 
-    Logger::info("Stopping TCP server...");
+    LOG_INFO(LogContext::NETWORK, "Stopping TCP server...");
     running_ = false;
 
     // Close server socket to unblock accept()
@@ -108,11 +108,11 @@ void TCPServer::stop() {
     }
     client_threads_.clear();
 
-    Logger::info("TCP server stopped");
+    LOG_INFO(LogContext::NETWORK, "TCP server stopped");
 }
 
 void TCPServer::acceptLoop() {
-    Logger::debug("TCP accept loop started");
+    LOG_DEBUG(LogContext::NETWORK, "TCP accept loop started");
 
     while (running_) {
         struct sockaddr_in client_addr{};
@@ -122,13 +122,13 @@ void TCPServer::acceptLoop() {
 
         if (client_socket < 0) {
             if (running_) {
-                Logger::error("Failed to accept connection: " + std::string(strerror(errno)));
+                LOG_ERROR(LogContext::NETWORK, "Failed to accept connection: " + std::string(strerror(errno)));
             }
             break;
         }
 
         std::string client_ip = inet_ntoa(client_addr.sin_addr);
-        Logger::info("Accepted connection from " + client_ip);
+        LOG_INFO(LogContext::NETWORK, "Accepted connection from " + client_ip);
 
         // Update UDP broadcasters with client IP (dynamic discovery)
         if (udp_broadcaster_) {
@@ -138,16 +138,19 @@ void TCPServer::acceptLoop() {
             heartbeat_->setTargetIP(client_ip);
         }
 
+        // Register client with NetworkSink for log streaming (dynamic discovery)
+        StructuredLogger::getInstance().addGroundClient(client_ip);
+
         // Set client socket options for better handling
         int opt = 1;
         // Disable Nagle's algorithm for lower latency
         if (setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
-            Logger::warning("Failed to set TCP_NODELAY: " + std::string(strerror(errno)));
+            LOG_WARNING(LogContext::NETWORK, "Failed to set TCP_NODELAY: " + std::string(strerror(errno)));
         }
 
         // Enable keepalive to detect dead connections
         if (setsockopt(client_socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) < 0) {
-            Logger::warning("Failed to set SO_KEEPALIVE: " + std::string(strerror(errno)));
+            LOG_WARNING(LogContext::NETWORK, "Failed to set SO_KEEPALIVE: " + std::string(strerror(errno)));
         }
 
         // Spawn thread to handle client
@@ -155,11 +158,11 @@ void TCPServer::acceptLoop() {
         client_threads_.back().detach();  // Detach so it cleans up automatically
     }
 
-    Logger::debug("TCP accept loop ended");
+    LOG_DEBUG(LogContext::NETWORK, "TCP accept loop ended");
 }
 
 void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
-    Logger::debug("Handling client " + client_ip);
+    LOG_DEBUG(LogContext::NETWORK, "Handling client " + client_ip);
 
     // Add client to active clients list
     {
@@ -174,12 +177,12 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
         ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes_received < 0) {
-            Logger::error("Failed to receive from " + client_ip + ": " + std::string(strerror(errno)));
+            LOG_ERROR(LogContext::NETWORK, "Failed to receive from " + client_ip + ": " + std::string(strerror(errno)));
             break;
         }
 
         if (bytes_received == 0) {
-            Logger::info("Client " + client_ip + " disconnected");
+            LOG_INFO(LogContext::NETWORK, "Client " + client_ip + " disconnected");
             break;
         }
 
@@ -196,7 +199,7 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
                 continue;
             }
 
-            Logger::debug("Received from " + client_ip + ": " + message);
+            LOG_DEBUG(LogContext::NETWORK, "Received from " + client_ip + ": " + message);
 
             try {
                 json command = json::parse(message);
@@ -206,13 +209,13 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
                 ssize_t bytes_sent = send(client_socket, response_str.c_str(), response_str.size(), 0);
 
                 if (bytes_sent < 0) {
-                    Logger::error("Failed to send to " + client_ip + ": " + std::string(strerror(errno)));
+                    LOG_ERROR(LogContext::NETWORK, "Failed to send to " + client_ip + ": " + std::string(strerror(errno)));
                     break;
                 }
 
-                Logger::debug("Sent to " + client_ip + ": " + response_str);
+                LOG_DEBUG(LogContext::NETWORK, "Sent to " + client_ip + ": " + response_str);
             } catch (const json::exception& e) {
-                Logger::warning("JSON parse error from " + client_ip + ": " + std::string(e.what()));
+                LOG_WARNING(LogContext::NETWORK, "JSON parse error from " + client_ip + ": " + std::string(e.what()));
 
                 // Send error response
                 json error_response = messages::createErrorResponse(
@@ -223,7 +226,7 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
                 std::string response_str = error_response.dump() + "\n";
                 send(client_socket, response_str.c_str(), response_str.size(), 0);
             } catch (const std::exception& e) {
-                Logger::error("Error processing command from " + client_ip + ": " + std::string(e.what()));
+                LOG_ERROR(LogContext::NETWORK, "Error processing command from " + client_ip + ": " + std::string(e.what()));
             }
         }
     }
@@ -245,6 +248,9 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
         heartbeat_->removeClient(client_ip);
     }
 
+    // Unregister client from NetworkSink for log streaming
+    StructuredLogger::getInstance().removeGroundClient(client_ip);
+
     // Graceful shutdown: stop sending, allow receiving for a moment
     shutdown(client_socket, SHUT_WR);
 
@@ -253,7 +259,7 @@ void TCPServer::handleClient(int client_socket, const std::string& client_ip) {
     recv(client_socket, discard_buffer, sizeof(discard_buffer), MSG_DONTWAIT);
 
     close(client_socket);
-    Logger::info("Disconnected client: " + client_ip);
+    LOG_INFO(LogContext::NETWORK, "Disconnected client: " + client_ip);
 }
 
 json TCPServer::processCommand(const json& command) {
@@ -274,13 +280,13 @@ json TCPServer::processCommand(const json& command) {
 
         // Handle handshake separately (doesn't use "command" field)
         if (message_type == "handshake") {
-            Logger::info("Processing handshake");
+            LOG_INFO(LogContext::NETWORK, "Processing handshake");
             return handleHandshake(command["payload"], seq_id);
         }
 
         // For other messages, get command from payload
         std::string cmd = command["payload"]["command"];
-        Logger::info("Processing command: " + cmd);
+        LOG_INFO(LogContext::NETWORK, "Processing command: " + cmd);
 
         // Route to appropriate handler
         if (cmd == "handshake") {
@@ -320,7 +326,7 @@ json TCPServer::processCommand(const json& command) {
             }
         }
     } catch (const std::exception& e) {
-        Logger::error("Exception in processCommand: " + std::string(e.what()));
+        LOG_ERROR(LogContext::NETWORK, "Exception in processCommand: " + std::string(e.what()));
         return messages::createErrorResponse(
             0, "unknown",
             messages::ErrorCode::INTERNAL_ERROR,
@@ -336,7 +342,7 @@ json TCPServer::handleHandshake(const json& payload, int seq_id) {
     std::string client_version = payload.value("client_version",
                                  payload.value("parameters", json::object()).value("client_version", "unknown"));
 
-    Logger::info("Handshake from client: " + client_id + " v" + client_version);
+    LOG_INFO(LogContext::NETWORK, "Handshake from client: " + client_id + " v" + client_version);
 
     // Build capabilities list
     json capabilities = json::array();
@@ -375,7 +381,7 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
     // Note: We don't attempt immediate reconnection here to avoid blocking the TCP handler thread
     // The health check thread handles reconnection every 30 seconds
     if (!camera_->isConnected()) {
-        Logger::warning("Camera not connected - cannot capture");
+        LOG_WARNING(LogContext::NETWORK, "Camera not connected - cannot capture");
         return messages::createErrorResponse(
             seq_id, "camera.capture",
             messages::ErrorCode::COMMAND_FAILED,
@@ -384,7 +390,7 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
     }
 
     // Trigger capture
-    Logger::info("Executing camera.capture command");
+    LOG_INFO(LogContext::NETWORK, "Executing camera.capture command");
     bool success = camera_->capture();
 
     if (!success) {
@@ -416,7 +422,7 @@ json TCPServer::handleCameraFocus(const json& payload, int seq_id) {
 
     // Check if camera is connected
     if (!camera_->isConnected()) {
-        Logger::warning("Camera not connected - cannot focus");
+        LOG_WARNING(LogContext::NETWORK, "Camera not connected - cannot focus");
         return messages::createErrorResponse(
             seq_id, "camera.focus",
             messages::ErrorCode::COMMAND_FAILED,
@@ -470,7 +476,7 @@ json TCPServer::handleCameraFocus(const json& payload, int seq_id) {
     }
 
     // Execute focus operation
-    Logger::info("Executing camera.focus command: action=" + action + ", speed=" + std::to_string(speed));
+    LOG_INFO(LogContext::NETWORK, "Executing camera.focus command: action=" + action + ", speed=" + std::to_string(speed));
     bool success = camera_->focus(action, speed);
 
     if (!success) {
@@ -513,7 +519,7 @@ json TCPServer::handleCameraAutoFocusHold(const json& payload, int seq_id) {
 
     // Check if camera is connected
     if (!camera_->isConnected()) {
-        Logger::warning("Camera not connected - cannot trigger auto-focus hold");
+        LOG_WARNING(LogContext::NETWORK, "Camera not connected - cannot trigger auto-focus hold");
         return messages::createErrorResponse(
             seq_id, "camera.auto_focus_hold",
             messages::ErrorCode::COMMAND_FAILED,
@@ -553,7 +559,7 @@ json TCPServer::handleCameraAutoFocusHold(const json& payload, int seq_id) {
     }
 
     // Execute auto-focus hold operation
-    Logger::info("Executing camera.auto_focus_hold command: state=" + state);
+    LOG_INFO(LogContext::NETWORK, "Executing camera.auto_focus_hold command: state=" + state);
     bool success = camera_->autoFocusHold(state);
 
     if (!success) {
@@ -586,7 +592,7 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
     // Note: We don't attempt immediate reconnection here to avoid blocking the TCP handler thread
     // The health check thread handles reconnection every 30 seconds
     if (!camera_->isConnected()) {
-        Logger::warning("Camera not connected - cannot set property");
+        LOG_WARNING(LogContext::NETWORK, "Camera not connected - cannot set property");
         return messages::createErrorResponse(
             seq_id, "camera.set_property",
             messages::ErrorCode::COMMAND_FAILED,
@@ -617,7 +623,7 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
                         params["value"].get<std::string>() :
                         std::to_string(params["value"].get<int>());
 
-    Logger::info("Executing camera.set_property: " + property + " = " + value);
+    LOG_INFO(LogContext::NETWORK, "Executing camera.set_property: " + property + " = " + value);
 
     // Set the property
     bool success = camera_->setProperty(property, value);
@@ -633,9 +639,9 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
     // Read back actual value from camera for verification
     std::string actual_value = camera_->getProperty(property);
     if (!actual_value.empty()) {
-        Logger::info("Property comparison - Requested: '" + value + "' → Camera has: '" + actual_value + "'");
+        LOG_INFO(LogContext::NETWORK, "Property comparison - Requested: '" + value + "' → Camera has: '" + actual_value + "'");
     } else {
-        Logger::warning("Could not read back property value from camera");
+        LOG_WARNING(LogContext::NETWORK, "Could not read back property value from camera");
     }
 
     // Return success response
@@ -660,11 +666,11 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
 
     // Check if camera is connected, attempt immediate reconnection if needed
     if (!camera_->isConnected()) {
-        Logger::info("Camera not connected - attempting immediate reconnection for get_properties command");
+        LOG_INFO(LogContext::NETWORK, "Camera not connected - attempting immediate reconnection for get_properties command");
 
         bool reconnected = camera_->connect();
         if (reconnected) {
-            Logger::info("Camera reconnected successfully!");
+            LOG_INFO(LogContext::NETWORK, "Camera reconnected successfully!");
 
             // Send notification about reconnection
             sendNotification(
@@ -676,7 +682,7 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
                 true
             );
         } else {
-            Logger::warning("Camera reconnection failed");
+            LOG_WARNING(LogContext::NETWORK, "Camera reconnection failed");
             return messages::createErrorResponse(
                 seq_id, "camera.get_properties",
                 messages::ErrorCode::COMMAND_FAILED,
@@ -712,7 +718,7 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
         );
     }
 
-    Logger::info("Executing camera.get_properties for " +
+    LOG_INFO(LogContext::NETWORK, "Executing camera.get_properties for " +
                  std::to_string(properties_array.size()) + " properties");
 
     // Get each property
@@ -740,7 +746,7 @@ void TCPServer::sendNotification(messages::NotificationLevel level,
 
     std::string notification_str = notification.dump() + "\n";
 
-    Logger::info("Broadcasting notification: " + title);
+    LOG_INFO(LogContext::NETWORK, "Broadcasting notification: " + title);
 
     // Send to all connected clients
     std::lock_guard<std::mutex> lock(clients_mutex_);
@@ -748,7 +754,7 @@ void TCPServer::sendNotification(messages::NotificationLevel level,
         ssize_t bytes_sent = send(client_socket, notification_str.c_str(),
                                  notification_str.size(), MSG_DONTWAIT);
         if (bytes_sent < 0) {
-            Logger::warning("Failed to send notification to client socket " +
+            LOG_WARNING(LogContext::NETWORK, "Failed to send notification to client socket " +
                           std::to_string(client_socket) + ": " +
                           std::string(strerror(errno)));
         }
@@ -792,7 +798,7 @@ bool TCPServer::validateMessage(const json& msg, std::string& error) {
 }
 
 json TCPServer::handleEnableLogStreaming(const json& payload, int seq_id) {
-    Logger::info("Executing logging.enable_streaming");
+    LOG_INFO(LogContext::NETWORK, "Executing logging.enable_streaming");
 
     // Get optional duration parameter (default: 300 seconds)
     int duration_sec = 300;
@@ -815,17 +821,23 @@ json TCPServer::handleEnableLogStreaming(const json& payload, int seq_id) {
     // Enable ground streaming via StructuredLogger
     StructuredLogger::getInstance().enableGroundStreaming(duration_sec);
 
+    // Generate test logs via StructuredLogger to verify streaming works
+    LOG_INFO(LogContext::NETWORK, "Ground-Side log streaming enabled for " + std::to_string(duration_sec) + " seconds");
+    LOG_INFO(LogContext::SYSTEM, "Test log message 1: Streaming is active");
+    LOG_WARNING(LogContext::SYSTEM, "Test log message 2: This is a warning level log");
+    LOG_ERROR(LogContext::SYSTEM, "Test log message 3: This is an error level log");
+
     json result = {
         {"status", "enabled"},
         {"duration_sec", duration_sec}
     };
 
-    Logger::info("Log streaming enabled for " + std::to_string(duration_sec) + " seconds");
+    LOG_INFO(LogContext::NETWORK, "Log streaming enabled for " + std::to_string(duration_sec) + " seconds");
     return messages::createSuccessResponse(seq_id, "logging.enable_streaming", result);
 }
 
 json TCPServer::handleDisableLogStreaming(const json& payload, int seq_id) {
-    Logger::info("Executing logging.disable_streaming");
+    LOG_INFO(LogContext::NETWORK, "Executing logging.disable_streaming");
 
     // Disable ground streaming via StructuredLogger
     StructuredLogger::getInstance().disableGroundStreaming();
@@ -834,12 +846,12 @@ json TCPServer::handleDisableLogStreaming(const json& payload, int seq_id) {
         {"status", "disabled"}
     };
 
-    Logger::info("Log streaming disabled");
+    LOG_INFO(LogContext::NETWORK, "Log streaming disabled");
     return messages::createSuccessResponse(seq_id, "logging.disable_streaming", result);
 }
 
 json TCPServer::handleGetHealth(const json& payload, int seq_id) {
-    Logger::info("Executing health.get_snapshot");
+    LOG_INFO(LogContext::NETWORK, "Executing health.get_snapshot");
 
     // Get current health snapshot
     HealthSnapshot snapshot = HealthMonitor::getInstance().getCurrentSnapshot();
@@ -847,6 +859,6 @@ json TCPServer::handleGetHealth(const json& payload, int seq_id) {
     // Convert to JSON
     json result = snapshot.toJson();
 
-    Logger::info("Health snapshot retrieved successfully");
+    LOG_INFO(LogContext::NETWORK, "Health snapshot retrieved successfully");
     return messages::createSuccessResponse(seq_id, "health.get_snapshot", result);
 }

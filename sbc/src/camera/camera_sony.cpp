@@ -4,6 +4,7 @@
 #include "camera/camera_interface.h"
 #include "camera/property_loader.h"
 #include "utils/logger.h"
+#include "logging/structured_logger.h"
 #include <memory>
 #include <atomic>
 #include <mutex>
@@ -13,6 +14,7 @@
 #include <future>
 #include <sstream>
 #include <iomanip>
+#include <iostream>
 
 // Sony SDK headers
 #include "CRSDK/CameraRemote_SDK.h"
@@ -37,7 +39,7 @@ public:
 
     void OnConnected(SDK::DeviceConnectionVersioin version) override {
         connected_ = true;
-        Logger::info("Camera connected (SDK connection version)");
+        LOG_INFO(LogContext::CAMERA, "Camera connected (SDK connection version)");
         (void)version; // Suppress unused parameter warning
     }
 
@@ -45,10 +47,10 @@ public:
         connected_ = false;
         error_code_ = error;
         if (error != 0) {
-            Logger::warning("Camera disconnected with error: 0x" +
+            LOG_WARNING(LogContext::CAMERA, "Camera disconnected with error: 0x" +
                           std::to_string(error));
         } else {
-            Logger::info("Camera disconnected normally");
+            LOG_INFO(LogContext::CAMERA, "Camera disconnected normally");
         }
     }
 
@@ -56,12 +58,12 @@ public:
     void OnLvPropertyChanged() override {}
 
     void OnWarning(CrInt32u warning) override {
-        Logger::debug("Camera warning: 0x" + std::to_string(warning));
+        LOG_DEBUG(LogContext::CAMERA, "Camera warning: 0x" + std::to_string(warning));
     }
 
     void OnError(CrInt32u error) override {
         error_code_ = error;
-        Logger::error("Camera error: 0x" + std::to_string(error));
+        LOG_ERROR(LogContext::CAMERA, "Camera error: 0x" + std::to_string(error));
     }
 
     bool isConnected() const {
@@ -86,7 +88,7 @@ public:
         , callback_(nullptr)
         , camera_list_(nullptr)
     {
-        Logger::info("CameraSony created - initializing Sony SDK...");
+        LOG_INFO(LogContext::CAMERA, "CameraSony created - initializing Sony SDK...");
         initializeSDK();
     }
 
@@ -100,32 +102,32 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!sdk_initialized_) {
-            Logger::error("Cannot connect: SDK not initialized");
+            LOG_ERROR(LogContext::CAMERA, "Cannot connect: SDK not initialized");
             return false;
         }
 
         if (isConnectedLocked()) {
-            Logger::warning("Already connected to camera");
+            LOG_WARNING(LogContext::CAMERA, "Already connected to camera");
             return true;
         }
 
-        Logger::info("Enumerating cameras...");
+        LOG_INFO(LogContext::CAMERA, "Enumerating cameras...");
 
         // Enumerate cameras
         auto enum_status = SDK::EnumCameraObjects(&camera_list_, 5);
 
         if (CR_FAILED(enum_status) || camera_list_ == nullptr) {
-            Logger::error("Failed to enumerate cameras. Status: 0x" +
+            LOG_ERROR(LogContext::CAMERA, "Failed to enumerate cameras. Status: 0x" +
                          std::to_string(enum_status));
-            Logger::error("Make sure camera is: 1) Powered ON, 2) Connected via USB, 3) In PC Remote mode");
+            LOG_ERROR(LogContext::CAMERA, "Make sure camera is: 1) Powered ON, 2) Connected via USB, 3) In PC Remote mode");
             return false;
         }
 
         auto ncams = camera_list_->GetCount();
-        Logger::info("Found " + std::to_string(ncams) + " camera(s)");
+        LOG_INFO(LogContext::CAMERA, "Found " + std::to_string(ncams) + " camera(s)");
 
         if (ncams == 0) {
-            Logger::error("No cameras found");
+            LOG_ERROR(LogContext::CAMERA, "No cameras found");
             camera_list_->Release();
             camera_list_ = nullptr;
             return false;
@@ -135,8 +137,8 @@ public:
         auto camera_info = camera_list_->GetCameraObjectInfo(0);
         camera_model_ = camera_info->GetModel();
 
-        Logger::info("Connecting to camera: " + camera_model_);
-        Logger::info("Connection type: " +
+        LOG_INFO(LogContext::CAMERA, "Connecting to camera: " + camera_model_);
+        LOG_INFO(LogContext::CAMERA, "Connection type: " +
                     std::string(camera_info->GetConnectionTypeName()));
 
         // Create callback
@@ -147,7 +149,7 @@ public:
         auto callback_ptr = callback_.get();
 
         // Connect to camera with timeout protection (10 second timeout)
-        Logger::info("Attempting SDK Connect with 10s timeout...");
+        LOG_INFO(LogContext::CAMERA, "Attempting SDK Connect with 10s timeout...");
 
         SDK::CrDeviceHandle temp_handle = 0;
         bool connect_success = runWithTimeout([non_const_camera_info, callback_ptr, &temp_handle]() -> bool {
@@ -160,18 +162,18 @@ public:
             );
 
             if (CR_FAILED(connect_status)) {
-                Logger::error("Failed to connect to camera. Status: 0x" +
+                LOG_ERROR(LogContext::CAMERA, "Failed to connect to camera. Status: 0x" +
                              std::to_string(connect_status));
                 return false;
             }
 
-            Logger::info("SDK Connect succeeded. Device handle: " +
+            LOG_INFO(LogContext::CAMERA, "SDK Connect succeeded. Device handle: " +
                         std::to_string(temp_handle));
             return true;
         }, 10000, "camera.connect");
 
         if (!connect_success) {
-            Logger::error("Camera connection timed out or failed");
+            LOG_ERROR(LogContext::CAMERA, "Camera connection timed out or failed");
             callback_.reset();
             camera_list_->Release();
             camera_list_ = nullptr;
@@ -182,7 +184,7 @@ public:
         device_handle_ = temp_handle;
 
         // Wait for OnConnected callback (critical - camera won't accept commands until this fires)
-        Logger::info("Waiting for OnConnected callback...");
+        LOG_INFO(LogContext::CAMERA, "Waiting for OnConnected callback...");
         int wait_count = 0;
         while (!callback_->isConnected() && wait_count < 20) {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -190,11 +192,11 @@ public:
         }
 
         if (!callback_->isConnected()) {
-            Logger::error("OnConnected callback did not fire within 10 seconds");
+            LOG_ERROR(LogContext::CAMERA, "OnConnected callback did not fire within 10 seconds");
             // Don't disconnect here - keep the connection attempt active
             // The callback might still fire, and the connection might still work
         } else {
-            Logger::info("Camera fully connected and ready!");
+            LOG_INFO(LogContext::CAMERA, "Camera fully connected and ready!");
 
             // CRITICAL: Set priority to PC Remote mode
             // This ensures SDK commands override physical camera controls
@@ -207,9 +209,9 @@ public:
             // NOTE: We do NOT call updateCachedProperties() here because calling
             // GetDeviceProperties() immediately after connection can block indefinitely.
             // The background refresh thread handles property queries safely.
-            Logger::info("Starting property refresh thread...");
+            LOG_INFO(LogContext::CAMERA, "Starting property refresh thread...");
             startPropertyRefresh();
-            Logger::info("Property refresh thread started successfully");
+            LOG_INFO(LogContext::CAMERA, "Property refresh thread started successfully");
         }
 
         return callback_->isConnected();
@@ -225,12 +227,12 @@ public:
             return;
         }
 
-        Logger::info("Disconnecting from camera...");
+        LOG_INFO(LogContext::CAMERA, "Disconnecting from camera...");
 
         if (device_handle_ != 0) {
             auto status = SDK::Disconnect(device_handle_);
             if (CR_FAILED(status)) {
-                Logger::warning("Disconnect returned error: 0x" +
+                LOG_WARNING(LogContext::CAMERA, "Disconnect returned error: 0x" +
                               std::to_string(status));
             }
             device_handle_ = 0;
@@ -245,7 +247,7 @@ public:
         callback_.reset();
         camera_model_.clear();
 
-        Logger::info("Camera disconnected");
+        LOG_INFO(LogContext::CAMERA, "Camera disconnected");
     }
 
     bool isConnected() const override {
@@ -306,7 +308,7 @@ public:
     bool capture() override {
         // Check connection using atomic flag first (fast, never blocks)
         if (!isConnected()) {
-            Logger::error("Cannot capture: camera not connected");
+            LOG_ERROR(LogContext::CAMERA, "Cannot capture: camera not connected");
             return false;
         }
 
@@ -314,11 +316,11 @@ public:
         // CRITICAL FIX: Keep lock held during SDK calls to avoid race condition
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
-            Logger::warning("Cannot capture: camera busy with another operation");
+            LOG_WARNING(LogContext::CAMERA, "Cannot capture: camera busy with another operation");
             return false;
         }
 
-        Logger::info("Triggering shutter release...");
+        LOG_INFO(LogContext::CAMERA, "Triggering shutter release...");
 
         // Send shutter button DOWN (press) - synchronous call while holding mutex
         auto status_down = SDK::SendCommand(
@@ -328,12 +330,12 @@ public:
         );
 
         if (CR_FAILED(status_down)) {
-            Logger::error("Failed to send shutter DOWN command. Status: 0x" +
+            LOG_ERROR(LogContext::CAMERA, "Failed to send shutter DOWN command. Status: 0x" +
                          std::to_string(status_down));
             return false;
         }
 
-        Logger::debug("Shutter DOWN command sent");
+        LOG_DEBUG(LogContext::CAMERA, "Shutter DOWN command sent");
 
         // Small delay to allow shutter press to register
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -346,29 +348,29 @@ public:
         );
 
         if (CR_FAILED(status_up)) {
-            Logger::error("Failed to send shutter UP command. Status: 0x" +
+            LOG_ERROR(LogContext::CAMERA, "Failed to send shutter UP command. Status: 0x" +
                          std::to_string(status_up));
             // Try to recover by sending UP again
             SDK::SendCommand(device_handle_, SDK::CrCommandId_Release, SDK::CrCommandParam_Up);
             return false;
         }
 
-        Logger::debug("Shutter UP command sent");
-        Logger::info("Shutter release sequence completed successfully");
+        LOG_DEBUG(LogContext::CAMERA, "Shutter UP command sent");
+        LOG_INFO(LogContext::CAMERA, "Shutter release sequence completed successfully");
         return true;
     }
 
     bool focus(const std::string& action, int speed = 3) override {
         // Check connection using atomic flag first (fast, never blocks)
         if (!isConnected()) {
-            Logger::error("Cannot focus: camera not connected");
+            LOG_ERROR(LogContext::CAMERA, "Cannot focus: camera not connected");
             return false;
         }
 
         // Acquire lock for entire operation to prevent concurrent SDK access
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
-            Logger::warning("Cannot focus: camera busy with another operation");
+            LOG_WARNING(LogContext::CAMERA, "Cannot focus: camera busy with another operation");
             return false;
         }
 
@@ -401,13 +403,13 @@ public:
                     CrInt8* range_values = reinterpret_cast<CrInt8*>(values_ptr);
                     min_speed = range_values[0];
                     max_speed = range_values[1];
-                    Logger::debug("Camera focus speed range: " + std::to_string(min_speed) +
+                    LOG_DEBUG(LogContext::CAMERA, "Camera focus speed range: " + std::to_string(min_speed) +
                                 " to " + std::to_string(max_speed));
                 }
             }
             SDK::ReleaseDeviceProperties(device_handle_, speed_range_list);
         } else {
-            Logger::warning("Could not query Focus_Speed_Range, using defaults (-7 to 7)");
+            LOG_WARNING(LogContext::CAMERA, "Could not query Focus_Speed_Range, using defaults (-7 to 7)");
         }
 
         // CRITICAL FIX #2: Check FocalDistanceInMeter property's enable status
@@ -434,20 +436,20 @@ public:
             focal_distance_enabled = focal_distance_list[0].IsGetEnableCurrentValue();
 
             if (focal_distance_enabled) {
-                Logger::debug("FocalDistanceInMeter property is enabled and readable");
+                LOG_DEBUG(LogContext::CAMERA, "FocalDistanceInMeter property is enabled and readable");
 
                 // Log current focal distance for debugging
                 auto current_value = focal_distance_list[0].GetCurrentValue();
-                Logger::debug("Current focal distance: " + std::to_string(current_value) + " mm");
+                LOG_DEBUG(LogContext::CAMERA, "Current focal distance: " + std::to_string(current_value) + " mm");
             } else {
-                Logger::warning("FocalDistanceInMeter property is NOT enabled - attempting to enable LiveView");
+                LOG_WARNING(LogContext::CAMERA, "FocalDistanceInMeter property is NOT enabled - attempting to enable LiveView");
 
                 // CRITICAL FIX #3: Try to enable LiveView to enable FocalDistanceInMeter
                 // Some cameras require live view to be active for focus operations
                 // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
                 auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
                 if (CR_SUCCEEDED(lv_result)) {
-                    Logger::info("LiveView enabled - waiting for property updates");
+                    LOG_INFO(LogContext::CAMERA, "LiveView enabled - waiting for property updates");
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give camera time to update
 
                     // Re-check if FocalDistanceInMeter is now enabled
@@ -465,26 +467,26 @@ public:
                         focal_distance_enabled = focal_distance_recheck[0].IsGetEnableCurrentValue();
 
                         if (focal_distance_enabled) {
-                            Logger::info("FocalDistanceInMeter is now enabled after starting LiveView");
+                            LOG_INFO(LogContext::CAMERA, "FocalDistanceInMeter is now enabled after starting LiveView");
                         } else {
-                            Logger::error("FocalDistanceInMeter still not enabled even after LiveView start");
+                            LOG_ERROR(LogContext::CAMERA, "FocalDistanceInMeter still not enabled even after LiveView start");
                         }
                         SDK::ReleaseDeviceProperties(device_handle_, focal_distance_recheck);
                     }
                 } else {
-                    Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
+                    LOG_WARNING(LogContext::CAMERA, "Failed to enable LiveView: 0x" + toHexString(lv_result));
                 }
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, focal_distance_list);
         } else {
-            Logger::warning("Failed to query FocalDistanceInMeter property - attempting to enable LiveView first");
+            LOG_WARNING(LogContext::CAMERA, "Failed to query FocalDistanceInMeter property - attempting to enable LiveView first");
 
             // Try to enable LiveView - this often makes focus properties available
             // NOTE: LiveView is a SETTING, not a PROPERTY - use SetDeviceSetting!
             auto lv_result = SDK::SetDeviceSetting(device_handle_, SDK::Setting_Key_EnableLiveView, 1);
             if (CR_SUCCEEDED(lv_result)) {
-                Logger::info("LiveView enabled - waiting for property updates");
+                LOG_INFO(LogContext::CAMERA, "LiveView enabled - waiting for property updates");
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
                 // Now re-try querying FocalDistanceInMeter
@@ -501,14 +503,14 @@ public:
                 if (CR_SUCCEEDED(focal_retry) && focal_distance_retry && focal_distance_retry_count > 0) {
                     focal_distance_enabled = focal_distance_retry[0].IsGetEnableCurrentValue();
                     if (focal_distance_enabled) {
-                        Logger::info("FocalDistanceInMeter is now available after enabling LiveView");
+                        LOG_INFO(LogContext::CAMERA, "FocalDistanceInMeter is now available after enabling LiveView");
                     }
                     SDK::ReleaseDeviceProperties(device_handle_, focal_distance_retry);
                 } else {
-                    Logger::error("FocalDistanceInMeter still not queryable even after LiveView start");
+                    LOG_ERROR(LogContext::CAMERA, "FocalDistanceInMeter still not queryable even after LiveView start");
                 }
             } else {
-                Logger::warning("Failed to enable LiveView: 0x" + toHexString(lv_result));
+                LOG_WARNING(LogContext::CAMERA, "Failed to enable LiveView: 0x" + toHexString(lv_result));
             }
         }
 
@@ -517,7 +519,7 @@ public:
         int clipped_speed = speed;
         if (speed > std::abs(max_speed)) {
             clipped_speed = std::abs(max_speed);
-            Logger::warning("Speed " + std::to_string(speed) + " exceeds max, using " +
+            LOG_WARNING(LogContext::CAMERA, "Speed " + std::to_string(speed) + " exceeds max, using " +
                            std::to_string(clipped_speed));
         }
 
@@ -529,7 +531,7 @@ public:
             if (focus_operation < min_speed) {
                 focus_operation = min_speed;
             }
-            Logger::info("Executing focus action: NEAR (closer objects), speed=" +
+            LOG_INFO(LogContext::CAMERA, "Executing focus action: NEAR (closer objects), speed=" +
                         std::to_string(std::abs(focus_operation)));
         } else if (action == "far") {
             // Ensure positive speed is within range
@@ -537,13 +539,13 @@ public:
             if (focus_operation > max_speed) {
                 focus_operation = max_speed;
             }
-            Logger::info("Executing focus action: FAR (distant objects), speed=" +
+            LOG_INFO(LogContext::CAMERA, "Executing focus action: FAR (distant objects), speed=" +
                         std::to_string(focus_operation));
         } else if (action == "stop") {
             focus_operation = 0;
-            Logger::info("Executing focus action: STOP");
+            LOG_INFO(LogContext::CAMERA, "Executing focus action: STOP");
         } else {
-            Logger::error("Invalid focus action: " + action + " (valid: near, far, stop)");
+            LOG_ERROR(LogContext::CAMERA, "Invalid focus action: " + action + " (valid: near, far, stop)");
             return false;
         }
 
@@ -562,25 +564,25 @@ public:
 
         if (CR_FAILED(result)) {
             // Enhanced error logging with specific error codes
-            Logger::error("Failed to set focus operation. SDK error: 0x" + toHexString(result));
+            LOG_ERROR(LogContext::CAMERA, "Failed to set focus operation. SDK error: 0x" + toHexString(result));
 
             if (result == 0x8402) {
-                Logger::error("Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
-                Logger::error("Possible causes:");
-                Logger::error("  1. Camera not in manual focus mode");
-                Logger::error("  2. FocalDistanceInMeter property not enabled");
-                Logger::error("  3. Camera in an incompatible shooting mode");
-                Logger::error("  4. Live view may need to be started first");
+                LOG_ERROR(LogContext::CAMERA, "Error 0x8402: CrError_Api_InvalidCalled - Focus_Operation called in invalid state");
+                LOG_ERROR(LogContext::CAMERA, "Possible causes:");
+                LOG_ERROR(LogContext::CAMERA, "  1. Camera not in manual focus mode");
+                LOG_ERROR(LogContext::CAMERA, "  2. FocalDistanceInMeter property not enabled");
+                LOG_ERROR(LogContext::CAMERA, "  3. Camera in an incompatible shooting mode");
+                LOG_ERROR(LogContext::CAMERA, "  4. Live view may need to be started first");
 
                 if (!focal_distance_enabled) {
-                    Logger::error("  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
+                    LOG_ERROR(LogContext::CAMERA, "  -> FocalDistanceInMeter was NOT enabled, this is likely the cause");
                 }
             }
 
             return false;
         }
 
-        Logger::info("Focus action '" + action + "' executed successfully");
+        LOG_INFO(LogContext::CAMERA, "Focus action '" + action + "' executed successfully");
 
         // CRITICAL FIX #6: Add a small delay after focus command
         // This prevents the next property query from interfering with focus operation
@@ -592,19 +594,19 @@ public:
     bool autoFocusHold(const std::string& state) override {
         // Check connection using atomic flag first (fast, never blocks)
         if (!isConnected()) {
-            Logger::error("Cannot trigger auto-focus hold: camera not connected");
+            LOG_ERROR(LogContext::CAMERA, "Cannot trigger auto-focus hold: camera not connected");
             return false;
         }
 
         // Acquire lock for entire operation to prevent concurrent SDK access
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
-            Logger::warning("Cannot trigger auto-focus hold: camera busy with another operation");
+            LOG_WARNING(LogContext::CAMERA, "Cannot trigger auto-focus hold: camera busy with another operation");
             return false;
         }
 
         // DIAGNOSTIC: Query current focus mode before attempting AF Hold
-        Logger::info("[DIAGNOSTIC] Querying current focus mode before AF Hold...");
+        LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] Querying current focus mode before AF Hold...");
         CrInt32u focus_mode_code = SDK::CrDevicePropertyCode::CrDeviceProperty_FocusMode;
         SDK::CrDeviceProperty* focus_properties = nullptr;
         CrInt32 focus_prop_count = 0;
@@ -620,12 +622,12 @@ public:
                     else if (current_mode == 0x0003) mode_str = "AF_C";
                     else if (current_mode == 0x0004) mode_str = "AF_A";
 
-                    Logger::info("[DIAGNOSTIC] Current focus mode: " + mode_str + " (0x" + toHexString(current_mode) + ")");
+                    LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] Current focus mode: " + mode_str + " (0x" + toHexString(current_mode) + ")");
 
                     if (current_mode == 0x0001) {
-                        Logger::warning("[DIAGNOSTIC] Camera is in MANUAL FOCUS mode - PushAutoFocus may not work");
-                        Logger::info("[DIAGNOSTIC] Sony SDK TouchFunctionInMF suggests AF IS possible in MF mode");
-                        Logger::info("[DIAGNOSTIC] This may be a camera body setting or SDK limitation");
+                        LOG_WARNING(LogContext::CAMERA, "[DIAGNOSTIC] Camera is in MANUAL FOCUS mode - PushAutoFocus may not work");
+                        LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] Sony SDK TouchFunctionInMF suggests AF IS possible in MF mode");
+                        LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] This may be a camera body setting or SDK limitation");
                     }
                     break;
                 }
@@ -634,7 +636,7 @@ public:
         }
 
         // DIAGNOSTIC: Check if PushAutoFocus property is available and writable
-        Logger::info("[DIAGNOSTIC] Checking PushAutoFocus property availability...");
+        LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] Checking PushAutoFocus property availability...");
         CrInt32u af_code = SDK::CrDevicePropertyCode::CrDeviceProperty_PushAutoFocus;
         SDK::CrDeviceProperty* af_properties = nullptr;
         CrInt32 af_prop_count = 0;
@@ -646,15 +648,15 @@ public:
                 if (af_properties[i].GetCode() == af_code) {
                     found = true;
                     bool writable = af_properties[i].IsSetEnableCurrentValue();
-                    Logger::info("[DIAGNOSTIC] PushAutoFocus property found, writable=" +
+                    LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] PushAutoFocus property found, writable=" +
                                 std::string(writable ? "YES" : "NO"));
 
                     if (!writable) {
-                        Logger::error("[DIAGNOSTIC] PushAutoFocus is NOT writable in current camera state!");
-                        Logger::error("[DIAGNOSTIC] Possible reasons:");
-                        Logger::error("[DIAGNOSTIC]   1. Camera in Manual Focus mode and AF Hold not supported");
-                        Logger::error("[DIAGNOSTIC]   2. Camera in incompatible shooting mode");
-                        Logger::error("[DIAGNOSTIC]   3. Camera setting disabled AF Hold functionality");
+                        LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] PushAutoFocus is NOT writable in current camera state!");
+                        LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] Possible reasons:");
+                        LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC]   1. Camera in Manual Focus mode and AF Hold not supported");
+                        LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC]   2. Camera in incompatible shooting mode");
+                        LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC]   3. Camera setting disabled AF Hold functionality");
                         SDK::ReleaseDeviceProperties(device_handle_, af_properties);
                         return false;
                     }
@@ -663,8 +665,8 @@ public:
             }
 
             if (!found) {
-                Logger::warning("[DIAGNOSTIC] PushAutoFocus property not found in device properties list");
-                Logger::warning("[DIAGNOSTIC] This camera may not support PushAutoFocus command");
+                LOG_WARNING(LogContext::CAMERA, "[DIAGNOSTIC] PushAutoFocus property not found in device properties list");
+                LOG_WARNING(LogContext::CAMERA, "[DIAGNOSTIC] This camera may not support PushAutoFocus command");
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, af_properties);
@@ -674,12 +676,12 @@ public:
         CrInt16 af_value;
         if (state == "press") {
             af_value = SDK::CrPushAutoFocus_Down;  // Press AF button
-            Logger::info("Auto-focus hold: PRESS (engaging auto-focus)");
+            LOG_INFO(LogContext::CAMERA, "Auto-focus hold: PRESS (engaging auto-focus)");
         } else if (state == "release") {
             af_value = SDK::CrPushAutoFocus_Up;  // Release AF button
-            Logger::info("Auto-focus hold: RELEASE (stopping auto-focus)");
+            LOG_INFO(LogContext::CAMERA, "Auto-focus hold: RELEASE (stopping auto-focus)");
         } else {
-            Logger::error("Invalid auto-focus hold state: " + state + " (valid: press, release)");
+            LOG_ERROR(LogContext::CAMERA, "Invalid auto-focus hold state: " + state + " (valid: press, release)");
             return false;
         }
 
@@ -693,24 +695,24 @@ public:
         auto result = SDK::SetDeviceProperty(device_handle_, &prop);
 
         if (CR_FAILED(result)) {
-            Logger::error("Failed to trigger auto-focus hold. SDK error: 0x" +
+            LOG_ERROR(LogContext::CAMERA, "Failed to trigger auto-focus hold. SDK error: 0x" +
                          toHexString(result));
 
             // DIAGNOSTIC: Provide specific error analysis
             if (result == 0x8402) {
-                Logger::error("[DIAGNOSTIC] Error 0x8402: CrError_Api_InvalidCalled");
-                Logger::error("[DIAGNOSTIC] This typically means the operation is not valid in the current camera state");
-                Logger::error("[DIAGNOSTIC] If camera is in Manual Focus mode, PushAutoFocus may not be supported");
+                LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] Error 0x8402: CrError_Api_InvalidCalled");
+                LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] This typically means the operation is not valid in the current camera state");
+                LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] If camera is in Manual Focus mode, PushAutoFocus may not be supported");
             } else if (result == 0x33794) {
-                Logger::error("[DIAGNOSTIC] Error 0x33794: Property not writable at this time");
-                Logger::error("[DIAGNOSTIC] Camera may be in a state that prevents autofocus operation");
+                LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] Error 0x33794: Property not writable at this time");
+                LOG_ERROR(LogContext::CAMERA, "[DIAGNOSTIC] Camera may be in a state that prevents autofocus operation");
             }
 
             return false;
         }
 
-        Logger::info("Auto-focus hold state '" + state + "' executed successfully");
-        Logger::info("[DIAGNOSTIC] AF Hold succeeded - camera accepted the command");
+        LOG_INFO(LogContext::CAMERA, "Auto-focus hold state '" + state + "' executed successfully");
+        LOG_INFO(LogContext::CAMERA, "[DIAGNOSTIC] AF Hold succeeded - camera accepted the command");
         return true;
     }
 
@@ -720,14 +722,14 @@ public:
 
         // Check connection
         if (!isConnected()) {
-            Logger::warning("Cannot read focal distance: camera not connected");
+            LOG_WARNING(LogContext::CAMERA, "Cannot read focal distance: camera not connected");
             return 0.0f;
         }
 
         // Acquire lock (this is a const method but we need thread safety)
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
-            Logger::warning("Cannot read focal distance: camera busy");
+            LOG_WARNING(LogContext::CAMERA, "Cannot read focal distance: camera busy");
             return 0.0f;  // Return unknown if busy
         }
 
@@ -763,7 +765,7 @@ private:
 
         if (CR_FAILED(result) || property_count == 0 || !property_list) {
             // Query failed - return 0.0f (unknown)
-            Logger::debug("FocalDistanceInMeter query failed: result=" +
+            LOG_DEBUG(LogContext::CAMERA, "FocalDistanceInMeter query failed: result=" +
                          std::to_string(result) +
                          ", count=" + std::to_string(property_count) +
                          " (property unavailable - may need LiveView streaming)");
@@ -778,7 +780,7 @@ private:
 
         // Check for infinity
         if (focal_distance_raw == SDK::CrFocalDistance_Infinity) {
-            Logger::debug("Focal distance: ∞ (infinity)");
+            LOG_DEBUG(LogContext::CAMERA, "Focal distance: ∞ (infinity)");
             return -1.0f; // Return -1 to indicate infinity
         }
 
@@ -787,14 +789,14 @@ private:
         // e.g., 0x00005014 = 20500 / 1000 = 20.5 meters
         float distance_meters = static_cast<float>(focal_distance_raw) / 1000.0f;
 
-        Logger::debug("Focal distance: " + std::to_string(distance_meters) + " meters " +
+        LOG_DEBUG(LogContext::CAMERA, "Focal distance: " + std::to_string(distance_meters) + " meters " +
                      "(raw: 0x" + toHexString(focal_distance_raw) + ")");
 
         return distance_meters;
     }
 
     void initializeSDK() {
-        Logger::info("Initializing Sony SDK...");
+        LOG_INFO(LogContext::CAMERA, "Initializing Sony SDK...");
 
         if (SDK::Init(0)) {
             sdk_initialized_ = true;
@@ -805,26 +807,26 @@ private:
             int minor = (version & 0x00FF0000) >> 16;
             int patch = (version & 0x0000FF00) >> 8;
 
-            Logger::info("Sony SDK initialized successfully (v" +
+            LOG_INFO(LogContext::CAMERA, "Sony SDK initialized successfully (v" +
                         std::to_string(major) + "." +
                         std::to_string(minor) + "." +
                         std::to_string(patch) + ")");
         } else {
-            Logger::error("Failed to initialize Sony SDK");
+            LOG_ERROR(LogContext::CAMERA, "Failed to initialize Sony SDK");
             sdk_initialized_ = false;
         }
     }
 
     void shutdownSDK() {
         if (sdk_initialized_) {
-            Logger::info("Shutting down Sony SDK...");
+            LOG_INFO(LogContext::CAMERA, "Shutting down Sony SDK...");
             SDK::Release();
             sdk_initialized_ = false;
         }
     }
 
     void setPriorityToPCRemote() {
-        Logger::info("Setting priority to PC Remote mode...");
+        LOG_INFO(LogContext::CAMERA, "Setting priority to PC Remote mode...");
 
         // Create property to set priority to PC Remote
         SDK::CrDeviceProperty prop;
@@ -836,24 +838,24 @@ private:
         auto result = SDK::SetDeviceProperty(device_handle_, &prop);
 
         if (CR_FAILED(result)) {
-            Logger::error("Failed to set PriorityKeySettings to PCRemote. SDK error: 0x" +
+            LOG_ERROR(LogContext::CAMERA, "Failed to set PriorityKeySettings to PCRemote. SDK error: 0x" +
                          toHexString(result));
-            Logger::warning("Physical camera controls may interfere with SDK commands!");
+            LOG_WARNING(LogContext::CAMERA, "Physical camera controls may interfere with SDK commands!");
         } else {
-            Logger::info("Successfully set camera priority to PC Remote mode");
-            Logger::info("SDK commands will now override physical camera controls");
+            LOG_INFO(LogContext::CAMERA, "Successfully set camera priority to PC Remote mode");
+            LOG_INFO(LogContext::CAMERA, "SDK commands will now override physical camera controls");
         }
     }
 
     void logAvailableIsoValues() {
-        Logger::info("=== ISO DIAGNOSTIC: Querying available ISO values ===");
+        LOG_INFO(LogContext::CAMERA, "=== ISO DIAGNOSTIC: Querying available ISO values ===");
 
         SDK::CrDeviceProperty* prop_list = nullptr;
         int num_props = 0;
         auto prop_status = SDK::GetDeviceProperties(device_handle_, &prop_list, &num_props);
 
         if (CR_FAILED(prop_status) || !prop_list) {
-            Logger::error("ISO DIAGNOSTIC: Failed to get device properties");
+            LOG_ERROR(LogContext::CAMERA, "ISO DIAGNOSTIC: Failed to get device properties");
             return;
         }
 
@@ -866,17 +868,17 @@ private:
                 if (iso_prop.IsGetEnableCurrentValue()) {
                     CrInt64u current = iso_prop.GetCurrentValue();
                     std::string current_str = (current == 0xFFFFFFFF || current == 0xFFFFFF) ? "auto" : std::to_string(current);
-                    Logger::info("ISO DIAGNOSTIC: Current = " + current_str + " (0x" + toHexString(current) + ")");
+                    LOG_INFO(LogContext::CAMERA, "ISO DIAGNOSTIC: Current = " + current_str + " (0x" + toHexString(current) + ")");
                 }
 
                 // Writable flag
-                Logger::info("ISO DIAGNOSTIC: Writable = " + std::string(iso_prop.IsSetEnableCurrentValue() ? "YES" : "NO"));
+                LOG_INFO(LogContext::CAMERA, "ISO DIAGNOSTIC: Writable = " + std::string(iso_prop.IsSetEnableCurrentValue() ? "YES" : "NO"));
 
                 // Available values
                 CrInt32u value_size_bytes = iso_prop.GetValueSize();
                 CrInt32u num_values = value_size_bytes / sizeof(CrInt32u);  // ISO values are 32-bit
-                Logger::info("ISO DIAGNOSTIC: Value size (bytes) = " + std::to_string(value_size_bytes));
-                Logger::info("ISO DIAGNOSTIC: Available values count = " + std::to_string(num_values));
+                LOG_INFO(LogContext::CAMERA, "ISO DIAGNOSTIC: Value size (bytes) = " + std::to_string(value_size_bytes));
+                LOG_INFO(LogContext::CAMERA, "ISO DIAGNOSTIC: Available values count = " + std::to_string(num_values));
 
                 if (num_values > 0) {
                     CrInt8u* values_ptr = iso_prop.GetValues();
@@ -901,7 +903,7 @@ private:
                         if (j > 0) values_str += ", ";
                         values_str += str_val;
                     }
-                    Logger::info("ISO DIAGNOSTIC: Available = [" + values_str + "]");
+                    LOG_INFO(LogContext::CAMERA, "ISO DIAGNOSTIC: Available = [" + values_str + "]");
                 }
 
                 break;
@@ -909,7 +911,7 @@ private:
         }
 
         SDK::ReleaseDeviceProperties(device_handle_, prop_list);
-        Logger::info("=== ISO DIAGNOSTIC: Complete ===");
+        LOG_INFO(LogContext::CAMERA, "=== ISO DIAGNOSTIC: Complete ===");
     }
 
     bool isConnectedLocked() const {
@@ -929,18 +931,18 @@ private:
         );
 
         if (future_ptr->wait_for(std::chrono::milliseconds(timeout_ms)) == std::future_status::timeout) {
-            Logger::error(operation_name + " timed out after " + std::to_string(timeout_ms) + "ms - camera may be in incompatible state");
-            Logger::warning("Possible causes: camera reviewing image, menu open, or wrong mode");
-            Logger::warning("Background thread detached - it will continue running but won't block");
+            LOG_ERROR(LogContext::CAMERA, operation_name + " timed out after " + std::to_string(timeout_ms) + "ms - camera may be in incompatible state");
+            LOG_WARNING(LogContext::CAMERA, "Possible causes: camera reviewing image, menu open, or wrong mode");
+            LOG_WARNING(LogContext::CAMERA, "Background thread detached - it will continue running but won't block");
 
             // Detach the future by moving it to a background cleanup thread
             // This prevents the destructor from blocking
             std::thread([future_ptr]() {
                 try {
                     future_ptr->wait();  // Wait for completion in background
-                    Logger::debug("Detached SDK operation finally completed");
+                    std::cout << "[DETACHED] SDK operation finally completed" << std::endl;
                 } catch (...) {
-                    Logger::warning("Detached SDK operation threw exception");
+                    std::cout << "[DETACHED] SDK operation threw exception" << std::endl;
                 }
             }).detach();
 
@@ -950,7 +952,7 @@ private:
         try {
             return future_ptr->get();
         } catch (const std::exception& e) {
-            Logger::error(operation_name + " threw exception: " + std::string(e.what()));
+            LOG_ERROR(LogContext::CAMERA, operation_name + " threw exception: " + std::string(e.what()));
             return false;
         }
     }
@@ -991,13 +993,13 @@ private:
 
                 // Check for "untaken" special value (0xFFFF)
                 if (raw_value == 0xFFFF) {
-                    Logger::debug("Battery level not available (untaken)");
+                    LOG_DEBUG(LogContext::CAMERA, "Battery level not available (untaken)");
                     battery_percent = 0;
                 } else if (raw_value <= 100) {
                     battery_percent = static_cast<int>(raw_value);
-                    Logger::debug("Battery level: " + std::to_string(battery_percent) + "%");
+                    LOG_DEBUG(LogContext::CAMERA, "Battery level: " + std::to_string(battery_percent) + "%");
                 } else {
-                    Logger::warning("Invalid battery value: " + std::to_string(raw_value));
+                    LOG_WARNING(LogContext::CAMERA, "Invalid battery value: " + std::to_string(raw_value));
                 }
                 break;
             }
@@ -1020,18 +1022,18 @@ private:
     bool setProperty(const std::string& property, const std::string& value) override {
         // Check connection using atomic flag first (fast, never blocks)
         if (!isConnected()) {
-            Logger::error("Cannot set property: camera not connected");
+            LOG_ERROR(LogContext::CAMERA, "Cannot set property: camera not connected");
             return false;
         }
 
-        Logger::info("Setting property: " + property + " = " + value);
+        LOG_INFO(LogContext::CAMERA, "Setting property: " + property + " = " + value);
 
         // Acquire lock for entire operation to prevent concurrent SDK access
         // CRITICAL FIX: Keep lock held during SDK call to avoid race condition
         // with getProperty() and getBatteryLevel()
         std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) {
-            Logger::warning("Cannot set property: camera busy with another operation");
+            LOG_WARNING(LogContext::CAMERA, "Cannot set property: camera busy with another operation");
             return false;
         }
 
@@ -1045,14 +1047,14 @@ private:
         if (property == "shutter_speed") {
             // Reject AUTO/BULB mode - not suitable for UAV operations
             if (value == "auto" || value == "bulb") {
-                Logger::error("Cannot set shutter_speed to '" + value + "' - AUTO/BULB modes are disabled for UAV flight operations");
+                LOG_ERROR(LogContext::CAMERA, "Cannot set shutter_speed to '" + value + "' - AUTO/BULB modes are disabled for UAV flight operations");
                 return false;
             }
 
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("shutter_speed", value)) {
-                Logger::error("Invalid shutter_speed value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in protocol/camera_properties.json");
+                LOG_ERROR(LogContext::CAMERA, "Invalid shutter_speed value '" + value + "' - not in specification (camera_properties.json)");
+                LOG_ERROR(LogContext::CAMERA, "Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
@@ -1094,7 +1096,7 @@ private:
             };
             auto it = SHUTTER_MAP.find(value);
             if (it == SHUTTER_MAP.end()) {
-                Logger::error("Invalid shutter speed value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid shutter speed value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1103,8 +1105,8 @@ private:
         else if (property == "aperture") {
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("aperture", value)) {
-                Logger::error("Invalid aperture value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in protocol/camera_properties.json");
+                LOG_ERROR(LogContext::CAMERA, "Invalid aperture value '" + value + "' - not in specification (camera_properties.json)");
+                LOG_ERROR(LogContext::CAMERA, "Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
@@ -1137,7 +1139,7 @@ private:
             };
             auto it = APERTURE_MAP.find(value);
             if (it == APERTURE_MAP.end()) {
-                Logger::error("Invalid aperture value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid aperture value: " + value);
                 return false;
             }
             prop.SetCurrentValue(static_cast<uint16_t>(it->second & 0xFFFF));
@@ -1146,8 +1148,8 @@ private:
         else if (property == "iso") {
             // SPECIFICATION-FIRST: Validate value exists in camera_properties.json
             if (!PropertyLoader::isValidValue("iso", value)) {
-                Logger::error("Invalid ISO value '" + value + "' - not in specification (camera_properties.json)");
-                Logger::error("Valid values are defined in protocol/camera_properties.json");
+                LOG_ERROR(LogContext::CAMERA, "Invalid ISO value '" + value + "' - not in specification (camera_properties.json)");
+                LOG_ERROR(LogContext::CAMERA, "Valid values are defined in protocol/camera_properties.json");
                 return false;
             }
 
@@ -1176,7 +1178,7 @@ private:
             };
             auto it = ISO_MAP.find(value);
             if (it == ISO_MAP.end()) {
-                Logger::error("Invalid ISO value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid ISO value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1193,7 +1195,7 @@ private:
             };
             auto it = WB_MAP.find(value);
             if (it == WB_MAP.end()) {
-                Logger::error("Invalid white balance value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid white balance value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1205,7 +1207,7 @@ private:
             prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_Colortemp);
             int kelvin = std::stoi(value);
             if (kelvin < 2500 || kelvin > 9900) {
-                Logger::error("White balance temperature out of range (2500-9900): " + value);
+                LOG_ERROR(LogContext::CAMERA, "White balance temperature out of range (2500-9900): " + value);
                 return false;
             }
             prop.SetCurrentValue(static_cast<uint32_t>(kelvin));
@@ -1220,7 +1222,7 @@ private:
             };
             auto it = FOCUS_MAP.find(value);
             if (it == FOCUS_MAP.end()) {
-                Logger::error("Invalid focus mode value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid focus mode value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1234,7 +1236,7 @@ private:
             };
             auto it = FORMAT_MAP.find(value);
             if (it == FORMAT_MAP.end()) {
-                Logger::error("Invalid file format value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid file format value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1250,7 +1252,7 @@ private:
             };
             auto it = DRIVE_MAP.find(value);
             if (it == DRIVE_MAP.end()) {
-                Logger::error("Invalid drive mode value: " + value);
+                LOG_ERROR(LogContext::CAMERA, "Invalid drive mode value: " + value);
                 return false;
             }
             prop.SetCurrentValue(it->second);
@@ -1269,7 +1271,7 @@ private:
 
                 // Validate range: -5.0 to +5.0 EV
                 if (ev_value < -5.0 || ev_value > 5.0) {
-                    Logger::error("Exposure compensation out of range (-5.0 to +5.0 EV): " + value);
+                    LOG_ERROR(LogContext::CAMERA, "Exposure compensation out of range (-5.0 to +5.0 EV): " + value);
                     return false;
                 }
 
@@ -1277,19 +1279,19 @@ private:
                 // Use int16_t for signed values (can be negative)
                 int16_t sdk_value = static_cast<int16_t>(ev_value * 1000.0);
 
-                Logger::debug("Exposure compensation: " + value + " EV -> SDK value " + std::to_string(sdk_value));
+                LOG_DEBUG(LogContext::CAMERA, "Exposure compensation: " + value + " EV -> SDK value " + std::to_string(sdk_value));
 
                 prop.SetCurrentValue(static_cast<uint16_t>(sdk_value));
                 prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
             } catch (const std::exception& e) {
-                Logger::error("Failed to parse exposure compensation value '" + value + "': " + std::string(e.what()));
-                Logger::error("Expected decimal number (e.g., '+1.0', '-0.3', '0.0')");
+                LOG_ERROR(LogContext::CAMERA, "Failed to parse exposure compensation value '" + value + "': " + std::string(e.what()));
+                LOG_ERROR(LogContext::CAMERA, "Expected decimal number (e.g., '+1.0', '-0.3', '0.0')");
                 return false;
             }
         }
         else {
-            Logger::error("Unknown or unsupported property: " + property);
-            Logger::error("Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode, exposure_compensation");
+            LOG_ERROR(LogContext::CAMERA, "Unknown or unsupported property: " + property);
+            LOG_ERROR(LogContext::CAMERA, "Supported properties: shutter_speed, aperture, iso, white_balance, white_balance_temperature, focus_mode, file_format, drive_mode, exposure_compensation");
             return false;
         }
 
@@ -1301,7 +1303,7 @@ private:
         auto get_status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
 
         if (CR_FAILED(get_status) || !property_list || property_count == 0) {
-            Logger::error("Failed to get device properties before setting. Status: 0x" + std::to_string(get_status));
+            LOG_ERROR(LogContext::CAMERA, "Failed to get device properties before setting. Status: 0x" + std::to_string(get_status));
             if (property_list) {
                 SDK::ReleaseDeviceProperties(device_handle_, property_list);
             }
@@ -1315,10 +1317,10 @@ private:
                 // Check if property is currently writable (enable flag)
                 if (property_list[i].IsSetEnableCurrentValue()) {
                     property_is_writable = true;
-                    Logger::debug("Property is writable (enable flag is set)");
+                    LOG_DEBUG(LogContext::CAMERA, "Property is writable (enable flag is set)");
                 } else {
-                    Logger::warning("Property is NOT writable right now (enable flag is clear)");
-                    Logger::warning("Camera may be: reviewing image, in wrong mode, or property locked");
+                    LOG_WARNING(LogContext::CAMERA, "Property is NOT writable right now (enable flag is clear)");
+                    LOG_WARNING(LogContext::CAMERA, "Camera may be: reviewing image, in wrong mode, or property locked");
                 }
                 break;
             }
@@ -1327,7 +1329,7 @@ private:
         SDK::ReleaseDeviceProperties(device_handle_, property_list);
 
         if (!property_is_writable) {
-            Logger::error("Cannot set property: camera is not accepting changes to this property right now");
+            LOG_ERROR(LogContext::CAMERA, "Cannot set property: camera is not accepting changes to this property right now");
             return false;
         }
 
@@ -1337,11 +1339,11 @@ private:
         auto status = SDK::SetDeviceProperty(device_handle_, &prop);
 
         if (CR_FAILED(status)) {
-            Logger::error("Failed to set property. Status: 0x" + std::to_string(status));
+            LOG_ERROR(LogContext::CAMERA, "Failed to set property. Status: 0x" + std::to_string(status));
             return false;
         }
 
-        Logger::info("Property set successfully");
+        LOG_INFO(LogContext::CAMERA, "Property set successfully");
         return true;
     }
 
@@ -1349,11 +1351,11 @@ private:
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!isConnectedLocked()) {
-            Logger::error("Cannot get property: camera not connected");
+            LOG_ERROR(LogContext::CAMERA, "Cannot get property: camera not connected");
             return "";
         }
 
-        Logger::debug("Getting property: " + property);
+        LOG_DEBUG(LogContext::CAMERA, "Getting property: " + property);
 
         // Map property name to SDK property code
         SDK::CrDevicePropertyCode prop_code;
@@ -1386,7 +1388,7 @@ private:
             prop_code = SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureBiasCompensation;
         }
         else {
-            Logger::error("Unknown property for get: " + property);
+            LOG_ERROR(LogContext::CAMERA, "Unknown property for get: " + property);
             return "";
         }
 
@@ -1397,7 +1399,7 @@ private:
         auto status = SDK::GetDeviceProperties(device_handle_, &property_list, &property_count);
 
         if (CR_FAILED(status) || property_count == 0 || !property_list) {
-            Logger::warning("Failed to get properties from camera. Status: 0x" + std::to_string(status));
+            LOG_WARNING(LogContext::CAMERA, "Failed to get properties from camera. Status: 0x" + std::to_string(status));
             if (property_list) {
                 SDK::ReleaseDeviceProperties(device_handle_, property_list);
             }
@@ -1413,7 +1415,7 @@ private:
                 found = true;
                 uint64_t raw_value = property_list[i].GetCurrentValue();
 
-                Logger::debug("Raw SDK value for " + property + ": " +
+                LOG_DEBUG(LogContext::CAMERA, "Raw SDK value for " + property + ": " +
                              toHexString(raw_value) + " (dec: " + std::to_string(raw_value) + ")");
 
                 if (property == "shutter_speed") {
@@ -1541,39 +1543,39 @@ private:
         SDK::ReleaseDeviceProperties(device_handle_, property_list);
 
         if (!found) {
-            Logger::warning("Property " + property + " not found in camera property list");
+            LOG_WARNING(LogContext::CAMERA, "Property " + property + " not found in camera property list");
             return "";
         }
 
-        Logger::debug("Camera property " + property + " = " + result);
+        LOG_DEBUG(LogContext::CAMERA, "Camera property " + property + " = " + result);
         return result;
     }
 
     // Update cached camera properties for status broadcasts
     void updateCachedProperties() {
-        Logger::info("updateCachedProperties: Entry");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Entry");
         if (!isConnected()) {
-            Logger::error("updateCachedProperties: Camera not connected, returning");
+            LOG_ERROR(LogContext::CAMERA, "updateCachedProperties: Camera not connected, returning");
             return;
         }
 
-        Logger::info("updateCachedProperties: Querying properties...");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Querying properties...");
         // NOTE: No mutex lock needed here - getProperty() acquires it for each call
         // Query current camera settings and update cache
         cached_status_.iso = getProperty("iso");
-        Logger::info("updateCachedProperties: Got ISO");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got ISO");
         cached_status_.shutter_speed = getProperty("shutter_speed");
-        Logger::info("updateCachedProperties: Got shutter_speed");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got shutter_speed");
         cached_status_.aperture = getProperty("aperture");
-        Logger::info("updateCachedProperties: Got aperture");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got aperture");
         cached_status_.white_balance = getProperty("white_balance");
-        Logger::info("updateCachedProperties: Got white_balance");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got white_balance");
         cached_status_.focus_mode = getProperty("focus_mode");
-        Logger::info("updateCachedProperties: Got focus_mode");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got focus_mode");
         cached_status_.file_format = getProperty("file_format");
-        Logger::info("updateCachedProperties: Got file_format");
+        LOG_INFO(LogContext::CAMERA, "updateCachedProperties: Got file_format");
 
-        Logger::info("Updated cached camera properties: ISO=" + cached_status_.iso +
+        LOG_INFO(LogContext::CAMERA, "Updated cached camera properties: ISO=" + cached_status_.iso +
                     ", Shutter=" + cached_status_.shutter_speed +
                     ", Aperture=" + cached_status_.aperture);
     }
@@ -1595,14 +1597,14 @@ private:
 
     // Property refresh loop - runs in separate thread
     void propertyRefreshLoop() {
-        Logger::info("Camera property refresh thread started (interval: 2 seconds)");
+        LOG_INFO(LogContext::CAMERA, "Camera property refresh thread started (interval: 2 seconds)");
 
         while (property_refresh_running_) {
             if (isConnected()) {
                 try {
                     updateCachedProperties();
                 } catch (const std::exception& e) {
-                    Logger::error("Exception in property refresh: " + std::string(e.what()));
+                    LOG_ERROR(LogContext::CAMERA, "Exception in property refresh: " + std::string(e.what()));
                 }
             }
 
@@ -1612,7 +1614,7 @@ private:
             }
         }
 
-        Logger::info("Camera property refresh thread stopped");
+        LOG_INFO(LogContext::CAMERA, "Camera property refresh thread stopped");
     }
 
     // Start periodic property refresh
@@ -1620,7 +1622,7 @@ private:
         if (!property_refresh_running_) {
             property_refresh_running_ = true;
             property_refresh_thread_ = std::thread(&CameraSony::propertyRefreshLoop, this);
-            Logger::info("Started periodic camera property refresh");
+            LOG_INFO(LogContext::CAMERA, "Started periodic camera property refresh");
         }
     }
 
@@ -1631,7 +1633,7 @@ private:
             if (property_refresh_thread_.joinable()) {
                 property_refresh_thread_.join();
             }
-            Logger::info("Stopped periodic camera property refresh");
+            LOG_INFO(LogContext::CAMERA, "Stopped periodic camera property refresh");
         }
     }
 };

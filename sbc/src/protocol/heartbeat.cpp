@@ -2,6 +2,7 @@
 #include "config.h"
 #include "protocol/messages.h"
 #include "utils/logger.h"
+#include "logging/structured_logger.h"
 #include "utils/system_info.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -31,14 +32,14 @@ Heartbeat::~Heartbeat() {
 
 void Heartbeat::start() {
     if (running_) {
-        Logger::warning("Heartbeat already running");
+        LOG_WARNING(LogContext::NETWORK, "Heartbeat already running");
         return;
     }
 
     // Create UDP socket
     socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd_ < 0) {
-        Logger::error("Failed to create heartbeat socket: " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to create heartbeat socket: " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to create heartbeat socket");
     }
 
@@ -50,7 +51,7 @@ void Heartbeat::start() {
 
     if (bind(socket_fd_, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) < 0) {
         close(socket_fd_);
-        Logger::error("Failed to bind heartbeat socket: " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to bind heartbeat socket: " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to bind heartbeat socket");
     }
 
@@ -63,7 +64,7 @@ void Heartbeat::start() {
     running_ = true;
     last_received_ = std::chrono::steady_clock::now();
 
-    Logger::info("Heartbeat started (port " + std::to_string(port_) + ", default target: " + default_target_ip_ + ")");
+    LOG_INFO(LogContext::NETWORK, "Heartbeat started (port " + std::to_string(port_) + ", default target: " + default_target_ip_ + ")");
 
     // Start send and receive threads
     send_thread_ = std::thread(&Heartbeat::sendLoop, this);
@@ -75,7 +76,7 @@ void Heartbeat::stop() {
         return;
     }
 
-    Logger::info("Stopping heartbeat...");
+    LOG_INFO(LogContext::NETWORK, "Stopping heartbeat...");
     running_ = false;
 
     // Wait for threads
@@ -93,7 +94,7 @@ void Heartbeat::stop() {
         socket_fd_ = -1;
     }
 
-    Logger::info("Heartbeat stopped");
+    LOG_INFO(LogContext::NETWORK, "Heartbeat stopped");
 }
 
 double Heartbeat::getTimeSinceLastHeartbeat() const {
@@ -110,14 +111,14 @@ void Heartbeat::setTargetIP(const std::string& target_ip) {
 void Heartbeat::addClient(const std::string& client_ip) {
     std::lock_guard<std::mutex> lock(clients_mutex_);
     if (client_ips_.insert(client_ip).second) {
-        Logger::info("Heartbeat: Added client " + client_ip + " (total clients: " + std::to_string(client_ips_.size()) + ")");
+        LOG_INFO(LogContext::NETWORK, "Heartbeat: Added client " + client_ip + " (total clients: " + std::to_string(client_ips_.size()) + ")");
     }
 }
 
 void Heartbeat::removeClient(const std::string& client_ip) {
     std::lock_guard<std::mutex> lock(clients_mutex_);
     if (client_ips_.erase(client_ip) > 0) {
-        Logger::info("Heartbeat: Removed client " + client_ip + " (remaining clients: " + std::to_string(client_ips_.size()) + ")");
+        LOG_INFO(LogContext::NETWORK, "Heartbeat: Removed client " + client_ip + " (remaining clients: " + std::to_string(client_ips_.size()) + ")");
     }
 }
 
@@ -127,7 +128,7 @@ size_t Heartbeat::getClientCount() const {
 }
 
 void Heartbeat::sendLoop() {
-    Logger::debug("Heartbeat send loop started");
+    LOG_DEBUG(LogContext::NETWORK, "Heartbeat send loop started");
 
     auto next_send = std::chrono::steady_clock::now();
 
@@ -170,9 +171,9 @@ void Heartbeat::sendLoop() {
                 );
 
                 if (bytes_sent < 0) {
-                    Logger::error("Failed to send heartbeat to " + client_ip + ":" + std::to_string(port_) + ": " + std::string(strerror(errno)));
+                    LOG_ERROR(LogContext::NETWORK, "Failed to send heartbeat to " + client_ip + ":" + std::to_string(port_) + ": " + std::string(strerror(errno)));
                 } else {
-                    Logger::debug("Sent heartbeat to " + client_ip + ":" + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
+                    LOG_DEBUG(LogContext::NETWORK, "Sent heartbeat to " + client_ip + ":" + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
                 }
 
                 // Send to alternative port (for Windows Tools with firewall restrictions)
@@ -191,13 +192,13 @@ void Heartbeat::sendLoop() {
                 );
 
                 if (bytes_sent_alt < 0) {
-                    Logger::error("Failed to send heartbeat to " + client_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + ": " + std::string(strerror(errno)));
+                    LOG_ERROR(LogContext::NETWORK, "Failed to send heartbeat to " + client_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + ": " + std::string(strerror(errno)));
                 } else {
-                    Logger::debug("Sent heartbeat to " + client_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
+                    LOG_DEBUG(LogContext::NETWORK, "Sent heartbeat to " + client_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ")");
                 }
             }
         } catch (const std::exception& e) {
-            Logger::error("Exception in sendLoop: " + std::string(e.what()));
+            LOG_ERROR(LogContext::NETWORK, "Exception in sendLoop: " + std::string(e.what()));
         }
 
         // Calculate next send time (1 Hz = 1000ms interval)
@@ -208,16 +209,16 @@ void Heartbeat::sendLoop() {
         if (next_send > now) {
             std::this_thread::sleep_until(next_send);
         } else {
-            Logger::warning("Heartbeat send falling behind schedule");
+            LOG_WARNING(LogContext::NETWORK, "Heartbeat send falling behind schedule");
             next_send = now;
         }
     }
 
-    Logger::debug("Heartbeat send loop ended");
+    LOG_DEBUG(LogContext::NETWORK, "Heartbeat send loop ended");
 }
 
 void Heartbeat::receiveLoop() {
-    Logger::debug("Heartbeat receive loop started");
+    LOG_DEBUG(LogContext::NETWORK, "Heartbeat receive loop started");
 
     char buffer[config::UDP_BUFFER_SIZE];
 
@@ -239,12 +240,12 @@ void Heartbeat::receiveLoop() {
                 // Timeout - check if we haven't received heartbeat in a while
                 double time_since = getTimeSinceLastHeartbeat();
                 if (time_since > config::HEARTBEAT_TIMEOUT_SEC) {
-                    Logger::warning("No heartbeat received for " + std::to_string(static_cast<int>(time_since)) + " seconds");
+                    LOG_WARNING(LogContext::NETWORK, "No heartbeat received for " + std::to_string(static_cast<int>(time_since)) + " seconds");
                 }
                 continue;
             } else {
                 if (running_) {
-                    Logger::error("Failed to receive heartbeat: " + std::string(strerror(errno)));
+                    LOG_ERROR(LogContext::NETWORK, "Failed to receive heartbeat: " + std::string(strerror(errno)));
                 }
                 break;
             }
@@ -264,17 +265,17 @@ void Heartbeat::receiveLoop() {
                 std::string sender = heartbeat_msg["payload"].value("sender", "unknown");
                 int seq_id = heartbeat_msg.value("sequence_id", 0);
 
-                Logger::debug("Received heartbeat from " + sender + " (seq=" + std::to_string(seq_id) + ")");
+                LOG_DEBUG(LogContext::NETWORK, "Received heartbeat from " + sender + " (seq=" + std::to_string(seq_id) + ")");
 
                 last_received_ = std::chrono::steady_clock::now();
                 heartbeat_received_ = true;
             }
         } catch (const json::exception& e) {
-            Logger::warning("Invalid heartbeat message: " + std::string(e.what()));
+            LOG_WARNING(LogContext::NETWORK, "Invalid heartbeat message: " + std::string(e.what()));
         } catch (const std::exception& e) {
-            Logger::error("Exception in receiveLoop: " + std::string(e.what()));
+            LOG_ERROR(LogContext::NETWORK, "Exception in receiveLoop: " + std::string(e.what()));
         }
     }
 
-    Logger::debug("Heartbeat receive loop ended");
+    LOG_DEBUG(LogContext::NETWORK, "Heartbeat receive loop ended");
 }

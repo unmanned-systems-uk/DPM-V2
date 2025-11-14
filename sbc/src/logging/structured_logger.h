@@ -50,6 +50,10 @@ public:
     void disableGroundStreaming();
     bool isGroundStreamingEnabled() const;
 
+    // Dynamic client IP management (for Ground-Side log streaming)
+    void addGroundClient(const std::string& client_ip);
+    void removeGroundClient(const std::string& client_ip);
+
     // Core logging method with structured fields
     void log(LogLevel level, LogContext context, const std::string& message,
              const json& fields = json::object());

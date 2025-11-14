@@ -2,6 +2,7 @@
 #include "config.h"
 #include "protocol/messages.h"
 #include "utils/logger.h"
+#include "logging/structured_logger.h"
 #include "utils/system_info.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -40,14 +41,14 @@ void UDPBroadcaster::setTargetIP(const std::string& target_ip) {
 void UDPBroadcaster::addClient(const std::string& client_ip) {
     std::lock_guard<std::mutex> lock(clients_mutex_);
     if (client_ips_.insert(client_ip).second) {
-        Logger::info("UDP broadcaster: Added client " + client_ip + " (total clients: " + std::to_string(client_ips_.size()) + ")");
+        LOG_INFO(LogContext::NETWORK, "UDP broadcaster: Added client " + client_ip + " (total clients: " + std::to_string(client_ips_.size()) + ")");
     }
 }
 
 void UDPBroadcaster::removeClient(const std::string& client_ip) {
     std::lock_guard<std::mutex> lock(clients_mutex_);
     if (client_ips_.erase(client_ip) > 0) {
-        Logger::info("UDP broadcaster: Removed client " + client_ip + " (remaining clients: " + std::to_string(client_ips_.size()) + ")");
+        LOG_INFO(LogContext::NETWORK, "UDP broadcaster: Removed client " + client_ip + " (remaining clients: " + std::to_string(client_ips_.size()) + ")");
     }
 }
 
@@ -58,19 +59,19 @@ size_t UDPBroadcaster::getClientCount() const {
 
 void UDPBroadcaster::start() {
     if (running_) {
-        Logger::warning("UDP broadcaster already running");
+        LOG_WARNING(LogContext::NETWORK, "UDP broadcaster already running");
         return;
     }
 
     // Create UDP socket
     socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd_ < 0) {
-        Logger::error("Failed to create UDP socket: " + std::string(strerror(errno)));
+        LOG_ERROR(LogContext::NETWORK, "Failed to create UDP socket: " + std::string(strerror(errno)));
         throw std::runtime_error("Failed to create UDP socket");
     }
 
     running_ = true;
-    Logger::info("UDP broadcaster started (default target: " + default_target_ip_ + ":" + std::to_string(port_) + " at 5 Hz)");
+    LOG_INFO(LogContext::NETWORK, "UDP broadcaster started (default target: " + default_target_ip_ + ":" + std::to_string(port_) + " at 5 Hz)");
 
     // Start broadcast thread
     broadcast_thread_ = std::thread(&UDPBroadcaster::broadcastLoop, this);
@@ -81,7 +82,7 @@ void UDPBroadcaster::stop() {
         return;
     }
 
-    Logger::info("Stopping UDP broadcaster...");
+    LOG_INFO(LogContext::NETWORK, "Stopping UDP broadcaster...");
     running_ = false;
 
     // Wait for broadcast thread
@@ -95,11 +96,11 @@ void UDPBroadcaster::stop() {
         socket_fd_ = -1;
     }
 
-    Logger::info("UDP broadcaster stopped");
+    LOG_INFO(LogContext::NETWORK, "UDP broadcaster stopped");
 }
 
 void UDPBroadcaster::broadcastLoop() {
-    Logger::debug("UDP broadcast loop started");
+    LOG_DEBUG(LogContext::NETWORK, "UDP broadcast loop started");
 
     auto next_broadcast = std::chrono::steady_clock::now();
 
@@ -116,12 +117,12 @@ void UDPBroadcaster::broadcastLoop() {
             std::this_thread::sleep_until(next_broadcast);
         } else {
             // We're behind schedule, log warning
-            Logger::warning("UDP broadcast falling behind schedule");
+            LOG_WARNING(LogContext::NETWORK, "UDP broadcast falling behind schedule");
             next_broadcast = now;
         }
     }
 
-    Logger::debug("UDP broadcast loop ended");
+    LOG_DEBUG(LogContext::NETWORK, "UDP broadcast loop ended");
 }
 
 void UDPBroadcaster::sendStatus() {
@@ -181,9 +182,9 @@ void UDPBroadcaster::sendStatus() {
             );
 
             if (bytes_sent < 0) {
-                Logger::error("Failed to send UDP status to " + client_ip + ":" + std::to_string(port_) + ": " + std::string(strerror(errno)));
+                LOG_ERROR(LogContext::NETWORK, "Failed to send UDP status to " + client_ip + ":" + std::to_string(port_) + ": " + std::string(strerror(errno)));
             } else {
-                Logger::debug("Sent UDP status to " + client_ip + ":" + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
+                LOG_DEBUG(LogContext::NETWORK, "Sent UDP status to " + client_ip + ":" + std::to_string(port_) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent) + ")");
             }
 
             // Send to alternative port (for Windows Tools with firewall restrictions)
@@ -202,12 +203,12 @@ void UDPBroadcaster::sendStatus() {
             );
 
             if (bytes_sent_alt < 0) {
-                Logger::error("Failed to send UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + ": " + std::string(strerror(errno)));
+                LOG_ERROR(LogContext::NETWORK, "Failed to send UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + ": " + std::string(strerror(errno)));
             } else {
-                Logger::debug("Sent UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent_alt) + ")");
+                LOG_DEBUG(LogContext::NETWORK, "Sent UDP status to " + client_ip + ":" + std::to_string(config::UDP_STATUS_PORT_ALT) + " (seq=" + std::to_string(sequence_id_ - 1) + ", bytes=" + std::to_string(bytes_sent_alt) + ")");
             }
         }
     } catch (const std::exception& e) {
-        Logger::error("Exception in sendStatus: " + std::string(e.what()));
+        LOG_ERROR(LogContext::NETWORK, "Exception in sendStatus: " + std::string(e.what()));
     }
 }

@@ -2,24 +2,24 @@
 // This version includes extensive logging to identify the exact issue
 
 bool focus(const std::string& action, int speed = 3) override {
-    Logger::info("=== FOCUS DEBUG START ===");
-    Logger::info("Requested action: " + action + ", speed: " + std::to_string(speed));
+    LOG_INFO(LogContext::CAMERA, "=== FOCUS DEBUG START ===");
+    LOG_INFO(LogContext::CAMERA, "Requested action: " + action + ", speed: " + std::to_string(speed));
 
     // Check connection
     if (!isConnected()) {
-        Logger::error("Cannot focus: camera not connected");
+        LOG_ERROR(LogContext::CAMERA, "Cannot focus: camera not connected");
         return false;
     }
 
     // Acquire lock
     std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
     if (!lock.owns_lock()) {
-        Logger::warning("Cannot focus: camera busy with another operation");
+        LOG_WARNING(LogContext::CAMERA, "Cannot focus: camera busy with another operation");
         return false;
     }
 
     // DIAGNOSTIC: Query multiple relevant properties
-    Logger::info("DIAGNOSTIC: Querying camera properties...");
+    LOG_INFO(LogContext::CAMERA, "DIAGNOSTIC: Querying camera properties...");
 
     // 1. Query Focus Mode
     {
@@ -29,24 +29,24 @@ bool focus(const std::string& action, int speed = 3) override {
         auto result = SDK::GetSelectDeviceProperties(device_handle_, 1, codes, &props, &count);
 
         if (CR_SUCCEEDED(result) && props) {
-            Logger::info("Focus Mode:");
-            Logger::info("  - IsGetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "Focus Mode:");
+            LOG_INFO(LogContext::CAMERA, "  - IsGetEnableCurrentValue: " +
                         std::string(props[0].IsGetEnableCurrentValue() ? "true" : "false"));
-            Logger::info("  - IsSetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "  - IsSetEnableCurrentValue: " +
                         std::string(props[0].IsSetEnableCurrentValue() ? "true" : "false"));
-            Logger::info("  - Current value: 0x" + toHexString(props[0].GetCurrentValue()));
-            Logger::info("  - Value type: " + std::to_string(props[0].GetValueType()));
+            LOG_INFO(LogContext::CAMERA, "  - Current value: 0x" + toHexString(props[0].GetCurrentValue()));
+            LOG_INFO(LogContext::CAMERA, "  - Value type: " + std::to_string(props[0].GetValueType()));
 
             // Log if it's manual focus (typically 0x0001)
             if (props[0].GetCurrentValue() == 0x0001) {
-                Logger::info("  -> Camera IS in Manual Focus mode");
+                LOG_INFO(LogContext::CAMERA, "  -> Camera IS in Manual Focus mode");
             } else {
-                Logger::warning("  -> Camera is NOT in Manual Focus mode!");
+                LOG_WARNING(LogContext::CAMERA, "  -> Camera is NOT in Manual Focus mode!");
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, props);
         } else {
-            Logger::error("Failed to query FocusMode: 0x" + toHexString(result));
+            LOG_ERROR(LogContext::CAMERA, "Failed to query FocusMode: 0x" + toHexString(result));
         }
     }
 
@@ -58,27 +58,27 @@ bool focus(const std::string& action, int speed = 3) override {
         auto result = SDK::GetSelectDeviceProperties(device_handle_, 1, codes, &props, &count);
 
         if (CR_SUCCEEDED(result) && props) {
-            Logger::info("Focus_Speed_Range:");
-            Logger::info("  - IsGetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "Focus_Speed_Range:");
+            LOG_INFO(LogContext::CAMERA, "  - IsGetEnableCurrentValue: " +
                         std::string(props[0].IsGetEnableCurrentValue() ? "true" : "false"));
-            Logger::info("  - IsSetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "  - IsSetEnableCurrentValue: " +
                         std::string(props[0].IsSetEnableCurrentValue() ? "true" : "false"));
 
             if (props[0].IsGetEnableCurrentValue()) {
                 auto values = props[0].GetCurrentValues();
                 auto size = props[0].GetCurrentValuesSize();
-                Logger::info("  - Values count: " + std::to_string(size));
+                LOG_INFO(LogContext::CAMERA, "  - Values count: " + std::to_string(size));
                 if (values && size >= 2) {
-                    Logger::info("  - Min speed: " + std::to_string(static_cast<CrInt8>(values[0])));
-                    Logger::info("  - Max speed: " + std::to_string(static_cast<CrInt8>(values[1])));
+                    LOG_INFO(LogContext::CAMERA, "  - Min speed: " + std::to_string(static_cast<CrInt8>(values[0])));
+                    LOG_INFO(LogContext::CAMERA, "  - Max speed: " + std::to_string(static_cast<CrInt8>(values[1])));
                 }
             } else {
-                Logger::warning("  -> Focus_Speed_Range is NOT readable!");
+                LOG_WARNING(LogContext::CAMERA, "  -> Focus_Speed_Range is NOT readable!");
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, props);
         } else {
-            Logger::error("Failed to query Focus_Speed_Range: 0x" + toHexString(result));
+            LOG_ERROR(LogContext::CAMERA, "Failed to query Focus_Speed_Range: 0x" + toHexString(result));
         }
     }
 
@@ -90,30 +90,30 @@ bool focus(const std::string& action, int speed = 3) override {
         auto result = SDK::GetSelectDeviceProperties(device_handle_, 1, codes, &props, &count);
 
         if (CR_SUCCEEDED(result) && props) {
-            Logger::info("FocalDistanceInMeter:");
-            Logger::info("  - IsGetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "FocalDistanceInMeter:");
+            LOG_INFO(LogContext::CAMERA, "  - IsGetEnableCurrentValue: " +
                         std::string(props[0].IsGetEnableCurrentValue() ? "true" : "false"));
-            Logger::info("  - IsSetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "  - IsSetEnableCurrentValue: " +
                         std::string(props[0].IsSetEnableCurrentValue() ? "true" : "false"));
 
             if (props[0].IsGetEnableCurrentValue()) {
                 auto value = props[0].GetCurrentValue();
-                Logger::info("  - Current value: " + std::to_string(value) + " mm");
+                LOG_INFO(LogContext::CAMERA, "  - Current value: " + std::to_string(value) + " mm");
 
                 // Check for special values
                 if (value == 0xFFFFFFFF) {
-                    Logger::info("  - Distance: INFINITY");
+                    LOG_INFO(LogContext::CAMERA, "  - Distance: INFINITY");
                 } else if (value == 0) {
-                    Logger::warning("  - Distance: 0 (may indicate property not active)");
+                    LOG_WARNING(LogContext::CAMERA, "  - Distance: 0 (may indicate property not active)");
                 }
             } else {
-                Logger::error("  -> FocalDistanceInMeter is NOT enabled/readable!");
-                Logger::error("     This is likely why Focus_Operation fails!");
+                LOG_ERROR(LogContext::CAMERA, "  -> FocalDistanceInMeter is NOT enabled/readable!");
+                LOG_ERROR(LogContext::CAMERA, "     This is likely why Focus_Operation fails!");
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, props);
         } else {
-            Logger::error("Failed to query FocalDistanceInMeter: 0x" + toHexString(result));
+            LOG_ERROR(LogContext::CAMERA, "Failed to query FocalDistanceInMeter: 0x" + toHexString(result));
         }
     }
 
@@ -125,20 +125,20 @@ bool focus(const std::string& action, int speed = 3) override {
         auto result = SDK::GetSelectDeviceProperties(device_handle_, 1, codes, &props, &count);
 
         if (CR_SUCCEEDED(result) && props) {
-            Logger::info("Focus_Operation:");
-            Logger::info("  - IsGetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "Focus_Operation:");
+            LOG_INFO(LogContext::CAMERA, "  - IsGetEnableCurrentValue: " +
                         std::string(props[0].IsGetEnableCurrentValue() ? "true" : "false"));
-            Logger::info("  - IsSetEnableCurrentValue: " +
+            LOG_INFO(LogContext::CAMERA, "  - IsSetEnableCurrentValue: " +
                         std::string(props[0].IsSetEnableCurrentValue() ? "true" : "false"));
 
             if (!props[0].IsSetEnableCurrentValue()) {
-                Logger::error("  -> Focus_Operation is NOT settable!");
-                Logger::error("     Camera is in a state where focus control is disabled");
+                LOG_ERROR(LogContext::CAMERA, "  -> Focus_Operation is NOT settable!");
+                LOG_ERROR(LogContext::CAMERA, "     Camera is in a state where focus control is disabled");
             }
 
             SDK::ReleaseDeviceProperties(device_handle_, props);
         } else {
-            Logger::error("Failed to query Focus_Operation: 0x" + toHexString(result));
+            LOG_ERROR(LogContext::CAMERA, "Failed to query Focus_Operation: 0x" + toHexString(result));
         }
     }
 
@@ -150,39 +150,39 @@ bool focus(const std::string& action, int speed = 3) override {
         auto result = SDK::GetSelectDeviceProperties(device_handle_, 1, codes, &props, &count);
 
         if (CR_SUCCEEDED(result) && props) {
-            Logger::info("LiveView_Status:");
+            LOG_INFO(LogContext::CAMERA, "LiveView_Status:");
             auto value = props[0].GetCurrentValue();
-            Logger::info("  - Current value: 0x" + toHexString(value));
+            LOG_INFO(LogContext::CAMERA, "  - Current value: 0x" + toHexString(value));
             if (value == 0x01) {
-                Logger::info("  -> Live View is ON");
+                LOG_INFO(LogContext::CAMERA, "  -> Live View is ON");
             } else {
-                Logger::info("  -> Live View is OFF (some cameras need it ON for focus)");
+                LOG_INFO(LogContext::CAMERA, "  -> Live View is OFF (some cameras need it ON for focus)");
             }
             SDK::ReleaseDeviceProperties(device_handle_, props);
         }
     }
 
-    Logger::info("DIAGNOSTIC: Property queries complete");
-    Logger::info("----------------------------------------");
+    LOG_INFO(LogContext::CAMERA, "DIAGNOSTIC: Property queries complete");
+    LOG_INFO(LogContext::CAMERA, "----------------------------------------");
 
     // Calculate focus operation value
     CrInt8 focus_operation;
     if (action == "near") {
         focus_operation = -speed;
-        Logger::info("Attempting NEAR focus, operation value: " + std::to_string(focus_operation));
+        LOG_INFO(LogContext::CAMERA, "Attempting NEAR focus, operation value: " + std::to_string(focus_operation));
     } else if (action == "far") {
         focus_operation = speed;
-        Logger::info("Attempting FAR focus, operation value: " + std::to_string(focus_operation));
+        LOG_INFO(LogContext::CAMERA, "Attempting FAR focus, operation value: " + std::to_string(focus_operation));
     } else if (action == "stop") {
         focus_operation = 0;
-        Logger::info("Attempting STOP focus");
+        LOG_INFO(LogContext::CAMERA, "Attempting STOP focus");
     } else {
-        Logger::error("Invalid action: " + action);
+        LOG_ERROR(LogContext::CAMERA, "Invalid action: " + action);
         return false;
     }
 
     // Try to set Focus_Operation
-    Logger::info("Sending Focus_Operation command...");
+    LOG_INFO(LogContext::CAMERA, "Sending Focus_Operation command...");
     SDK::CrDeviceProperty prop;
     prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_Focus_Operation);
     prop.SetCurrentValue(static_cast<CrInt64u>(focus_operation));
@@ -191,32 +191,32 @@ bool focus(const std::string& action, int speed = 3) override {
     auto result = SDK::SetDeviceProperty(device_handle_, &prop);
 
     if (CR_FAILED(result)) {
-        Logger::error("Focus_Operation FAILED with error: 0x" + toHexString(result));
+        LOG_ERROR(LogContext::CAMERA, "Focus_Operation FAILED with error: 0x" + toHexString(result));
 
         // Decode specific error codes
         switch (result) {
             case 0x8402:
-                Logger::error("0x8402 = CrError_Api_InvalidCalled");
-                Logger::error("The API was called in an invalid state");
-                Logger::error("Check the diagnostic output above to identify the issue");
+                LOG_ERROR(LogContext::CAMERA, "0x8402 = CrError_Api_InvalidCalled");
+                LOG_ERROR(LogContext::CAMERA, "The API was called in an invalid state");
+                LOG_ERROR(LogContext::CAMERA, "Check the diagnostic output above to identify the issue");
                 break;
             case 0x8401:
-                Logger::error("0x8401 = CrError_Api_InvalidParam");
-                Logger::error("Invalid parameter passed to the API");
+                LOG_ERROR(LogContext::CAMERA, "0x8401 = CrError_Api_InvalidParam");
+                LOG_ERROR(LogContext::CAMERA, "Invalid parameter passed to the API");
                 break;
             case 0x8403:
-                Logger::error("0x8403 = CrError_Api_OperationDenied");
-                Logger::error("Operation denied by the camera");
+                LOG_ERROR(LogContext::CAMERA, "0x8403 = CrError_Api_OperationDenied");
+                LOG_ERROR(LogContext::CAMERA, "Operation denied by the camera");
                 break;
             default:
-                Logger::error("Unknown error code");
+                LOG_ERROR(LogContext::CAMERA, "Unknown error code");
         }
 
-        Logger::info("=== FOCUS DEBUG END (FAILED) ===");
+        LOG_INFO(LogContext::CAMERA, "=== FOCUS DEBUG END (FAILED) ===");
         return false;
     }
 
-    Logger::info("Focus_Operation SUCCESS!");
-    Logger::info("=== FOCUS DEBUG END (SUCCESS) ===");
+    LOG_INFO(LogContext::CAMERA, "Focus_Operation SUCCESS!");
+    LOG_INFO(LogContext::CAMERA, "=== FOCUS DEBUG END (SUCCESS) ===");
     return true;
 }

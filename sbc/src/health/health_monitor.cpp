@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include "logging/structured_logger.h"
 
 namespace fs = std::filesystem;
 
@@ -125,7 +126,7 @@ HealthMonitor& HealthMonitor::getInstance() {
 
 void HealthMonitor::init() {
     std::lock_guard<std::mutex> lock(mutex_);
-    Logger::info("HealthMonitor: Initialized");
+    LOG_INFO(LogContext::SYSTEM, "HealthMonitor: Initialized");
 }
 
 void HealthMonitor::shutdown() {
@@ -134,7 +135,7 @@ void HealthMonitor::shutdown() {
     stopBroadcasting();
     disableArchive();
 
-    Logger::info("HealthMonitor: Shutdown complete");
+    LOG_INFO(LogContext::SYSTEM, "HealthMonitor: Shutdown complete");
 }
 
 void HealthMonitor::updateSystemMetrics(const SystemMetrics& metrics) {
@@ -199,12 +200,12 @@ void HealthMonitor::startBroadcasting(const std::string& ground_ip, int port) {
     // Create UDP socket
     broadcast_socket_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (broadcast_socket_ < 0) {
-        Logger::error("HealthMonitor: Failed to create UDP socket for broadcasting");
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Failed to create UDP socket for broadcasting");
         return;
     }
 
     broadcasting_enabled_ = true;
-    Logger::info("HealthMonitor: Started broadcasting to " + ground_ip + ":" + std::to_string(port));
+    LOG_INFO(LogContext::SYSTEM, "HealthMonitor: Started broadcasting to " + ground_ip + ":" + std::to_string(port));
 }
 
 void HealthMonitor::stopBroadcasting() {
@@ -225,7 +226,7 @@ void HealthMonitor::enableArchive(const std::string& archive_dir, int retention_
     fs::create_directories(archive_dir);
 
     archive_enabled_ = true;
-    Logger::info("HealthMonitor: Enabled archiving to " + archive_dir);
+    LOG_INFO(LogContext::SYSTEM, "HealthMonitor: Enabled archiving to " + archive_dir);
 }
 
 void HealthMonitor::disableArchive() {
@@ -268,10 +269,10 @@ void HealthMonitor::checkThresholds(const HealthSnapshot& snapshot) {
     int cpu_crit = CONFIG_INT("health.thresholds.cpu_critical");
 
     if (snapshot.system.cpu_percent >= cpu_crit) {
-        Logger::error("HealthMonitor: CPU usage critical: " +
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: CPU usage critical: " +
                       std::to_string(snapshot.system.cpu_percent) + "%");
     } else if (snapshot.system.cpu_percent >= cpu_warn) {
-        Logger::warning("HealthMonitor: CPU usage warning: " +
+        LOG_WARNING(LogContext::SYSTEM, "HealthMonitor: CPU usage warning: " +
                         std::to_string(snapshot.system.cpu_percent) + "%");
     }
 
@@ -280,10 +281,10 @@ void HealthMonitor::checkThresholds(const HealthSnapshot& snapshot) {
     int mem_crit = CONFIG_INT("health.thresholds.memory_critical_mb");
 
     if (snapshot.system.memory_used_mb >= static_cast<uint64_t>(mem_crit)) {
-        Logger::error("HealthMonitor: Memory usage critical: " +
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Memory usage critical: " +
                       std::to_string(snapshot.system.memory_used_mb) + " MB");
     } else if (snapshot.system.memory_used_mb >= static_cast<uint64_t>(mem_warn)) {
-        Logger::warning("HealthMonitor: Memory usage warning: " +
+        LOG_WARNING(LogContext::SYSTEM, "HealthMonitor: Memory usage warning: " +
                         std::to_string(snapshot.system.memory_used_mb) + " MB");
     }
 
@@ -292,10 +293,10 @@ void HealthMonitor::checkThresholds(const HealthSnapshot& snapshot) {
     int cam_latency_crit = CONFIG_INT("health.thresholds.camera_latency_critical_ms");
 
     if (snapshot.camera.sdk_latency_ms >= cam_latency_crit) {
-        Logger::error("HealthMonitor: Camera latency critical: " +
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Camera latency critical: " +
                       std::to_string(snapshot.camera.sdk_latency_ms) + " ms");
     } else if (snapshot.camera.sdk_latency_ms >= cam_latency_warn) {
-        Logger::warning("HealthMonitor: Camera latency warning: " +
+        LOG_WARNING(LogContext::SYSTEM, "HealthMonitor: Camera latency warning: " +
                         std::to_string(snapshot.camera.sdk_latency_ms) + " ms");
     }
 
@@ -304,10 +305,10 @@ void HealthMonitor::checkThresholds(const HealthSnapshot& snapshot) {
     int queue_crit = CONFIG_INT("health.thresholds.queue_depth_critical");
 
     if (snapshot.network.command_queue_depth >= static_cast<uint32_t>(queue_crit)) {
-        Logger::error("HealthMonitor: Command queue depth critical: " +
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Command queue depth critical: " +
                       std::to_string(snapshot.network.command_queue_depth));
     } else if (snapshot.network.command_queue_depth >= static_cast<uint32_t>(queue_warn)) {
-        Logger::warning("HealthMonitor: Command queue depth warning: " +
+        LOG_WARNING(LogContext::SYSTEM, "HealthMonitor: Command queue depth warning: " +
                         std::to_string(snapshot.network.command_queue_depth));
     }
 }
@@ -326,7 +327,7 @@ void HealthMonitor::broadcastSnapshot(const HealthSnapshot& snapshot) {
     dest_addr.sin_port = htons(broadcast_port_);
 
     if (inet_pton(AF_INET, ground_ip_.c_str(), &dest_addr.sin_addr) <= 0) {
-        Logger::error("HealthMonitor: Invalid broadcast IP: " + ground_ip_);
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Invalid broadcast IP: " + ground_ip_);
         return;
     }
 
@@ -334,7 +335,7 @@ void HealthMonitor::broadcastSnapshot(const HealthSnapshot& snapshot) {
                           reinterpret_cast<sockaddr*>(&dest_addr), sizeof(dest_addr));
 
     if (sent < 0) {
-        Logger::error("HealthMonitor: Failed to broadcast health snapshot");
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Failed to broadcast health snapshot");
     }
 }
 
@@ -357,7 +358,7 @@ void HealthMonitor::archiveSnapshot(const HealthSnapshot& snapshot) {
             file.close();
         }
     } catch (const std::exception& e) {
-        Logger::error("HealthMonitor: Failed to archive snapshot: " + std::string(e.what()));
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Failed to archive snapshot: " + std::string(e.what()));
     }
 
     // Cleanup old archives
@@ -377,11 +378,11 @@ void HealthMonitor::cleanupOldArchives() {
 
                 if (sctp < cutoff_time) {
                     fs::remove(entry);
-                    Logger::info("HealthMonitor: Removed old archive: " + entry.path().string());
+                    LOG_INFO(LogContext::SYSTEM, "HealthMonitor: Removed old archive: " + entry.path().string());
                 }
             }
         }
     } catch (const std::exception& e) {
-        Logger::error("HealthMonitor: Failed to cleanup old archives: " + std::string(e.what()));
+        LOG_ERROR(LogContext::SYSTEM, "HealthMonitor: Failed to cleanup old archives: " + std::string(e.what()));
     }
 }

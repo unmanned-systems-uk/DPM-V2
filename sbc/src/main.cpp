@@ -5,7 +5,8 @@
 #include <thread>
 #include <chrono>
 #include "config.h"
-#include "utils/logger.h"
+#include "utils/logger.h"  // Keep for init/close during migration
+#include "logging/structured_logger.h"  // New structured logger
 #include "protocol/tcp_server.h"
 #include "protocol/udp_broadcaster.h"
 #include "protocol/heartbeat.h"
@@ -34,7 +35,7 @@ extern "C" CameraInterface* createCamera();
 // Signal handler
 void signalHandler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
-        Logger::info("Received shutdown signal (" + std::to_string(signal) + ")");
+        LOG_INFO(LogContext::SYSTEM, "shutdown_signal", "Received shutdown signal (" + std::to_string(signal) + ")");
         g_shutdown_requested = true;
     }
 }
@@ -60,7 +61,7 @@ void printBanner() {
 
 // Camera health check thread - monitors connection and auto-reconnects
 void cameraHealthCheckThread() {
-    Logger::info("Camera health check thread started (30s interval)");
+    LOG_INFO(LogContext::CAMERA, "health_check_start", "Camera health check thread started (30s interval)");
 
     bool was_connected = g_camera->isConnected();
     const int CHECK_INTERVAL_SEC = 30;
@@ -77,7 +78,7 @@ void cameraHealthCheckThread() {
 
         // Detect connection state changes
         if (was_connected && !is_connected) {
-            Logger::warning("Camera disconnected - attempting reconnection");
+            LOG_WARNING(LogContext::CAMERA, "camera_disconnected", "Camera disconnected - attempting reconnection");
 
             // Send notification via TCP
             if (g_tcp_server) {
@@ -96,11 +97,11 @@ void cameraHealthCheckThread() {
 
         // Attempt reconnection if disconnected
         if (!is_connected) {
-            Logger::info("Attempting camera reconnection...");
+            LOG_INFO(LogContext::CAMERA, "reconnection_attempt", "Attempting camera reconnection...");
             bool reconnected = g_camera->connect();
 
             if (reconnected) {
-                Logger::info("Camera reconnected successfully!");
+                LOG_INFO(LogContext::CAMERA, "reconnection_success", "Camera reconnected successfully!");
 
                 // Send success notification
                 if (g_tcp_server) {
@@ -116,13 +117,13 @@ void cameraHealthCheckThread() {
 
                 was_connected = true;
             } else {
-                Logger::debug("Camera reconnection attempt failed - will retry in " +
+                LOG_DEBUG(LogContext::CAMERA, "reconnection_failed", "Camera reconnection attempt failed - will retry in " +
                             std::to_string(CHECK_INTERVAL_SEC) + " seconds");
             }
         }
     }
 
-    Logger::info("Camera health check thread stopped");
+    LOG_INFO(LogContext::CAMERA, "health_check_stop", "Camera health check thread stopped");
 }
 
 int main(int argc, char* argv[]) {
@@ -140,26 +141,26 @@ int main(int argc, char* argv[]) {
         Logger::init(config::LOG_FILE);
         Logger::setLevel(Logger::Level::DEBUG);
 
-        Logger::info("========================================");
-        Logger::info("Payload Manager Service Starting...");
-        Logger::info("========================================");
-        Logger::info("Version: " + std::string(config::SERVER_VERSION));
-        Logger::info("Protocol: " + std::string(config::PROTOCOL_VERSION));
-        Logger::info("Phase: 1 (Initial Connectivity - MVP)");
-        Logger::info("Log file: " + std::string(config::LOG_FILE));
+        LOG_INFO(LogContext::SYSTEM, "startup_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "startup_title", "Payload Manager Service Starting...");
+        LOG_INFO(LogContext::SYSTEM, "startup_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "version", "Version: " + std::string(config::SERVER_VERSION));
+        LOG_INFO(LogContext::SYSTEM, "protocol", "Protocol: " + std::string(config::PROTOCOL_VERSION));
+        LOG_INFO(LogContext::SYSTEM, "phase", "Phase: 1 (Initial Connectivity - MVP)");
+        LOG_INFO(LogContext::SYSTEM, "log_file", "Log file: " + std::string(config::LOG_FILE));
 
         // Register signal handlers
         std::signal(SIGINT, signalHandler);
         std::signal(SIGTERM, signalHandler);
-        Logger::info("Signal handlers registered (SIGINT, SIGTERM)");
+        LOG_INFO(LogContext::SYSTEM, "signal_handlers", "Signal handlers registered (SIGINT, SIGTERM)");
 
         // Initialize ConfigManager (Phase 1: Gap 3)
-        Logger::info("Initializing ConfigManager...");
+        LOG_INFO(LogContext::SYSTEM, "config_init_start", "Initializing ConfigManager...");
         ConfigManager::getInstance().load();
-        Logger::info("ConfigManager initialized - config loaded from JSON files");
+        LOG_INFO(LogContext::SYSTEM, "config_init_done", "ConfigManager initialized - config loaded from JSON files");
 
         // Initialize StructuredLogger (Phase 1: Gap 1)
-        Logger::info("Initializing StructuredLogger with sinks...");
+        LOG_INFO(LogContext::SYSTEM, "logger_init_start", "Initializing StructuredLogger with sinks...");
         StructuredLogger::getInstance().init();
 
         // Add console sink
@@ -184,49 +185,49 @@ int main(int argc, char* argv[]) {
         );
         StructuredLogger::getInstance().addSink(network_sink);
 
-        Logger::info("StructuredLogger initialized with 3 sinks (console, file, network)");
+        LOG_INFO(LogContext::SYSTEM, "logger_init_done", "StructuredLogger initialized with 3 sinks (console, file, network)");
 
         // Initialize HealthMonitor (Phase 1: Gap 2)
-        Logger::info("Initializing HealthMonitor...");
+        LOG_INFO(LogContext::SYSTEM, "health_init_start", "Initializing HealthMonitor...");
         HealthMonitor::getInstance().init();
-        Logger::info("HealthMonitor initialized with 3-tier retention");
+        LOG_INFO(LogContext::SYSTEM, "health_init_done", "HealthMonitor initialized with 3-tier retention");
 
         // Initialize PropertyLoader (specification-first architecture)
-        Logger::info("Loading camera property specifications from camera_properties.json...");
+        LOG_INFO(LogContext::CAMERA, "property_loader_start", "Loading camera property specifications from camera_properties.json...");
         if (!PropertyLoader::initialize()) {
-            Logger::error("Failed to initialize PropertyLoader - check camera_properties.json exists");
+            LOG_ERROR(LogContext::CAMERA, "property_loader_error", "Failed to initialize PropertyLoader - check camera_properties.json exists");
             return 1;
         }
-        Logger::info("PropertyLoader initialized successfully");
-        Logger::info("Loaded properties: ISO=" + std::to_string(PropertyLoader::getValueCount("iso")) +
+        LOG_INFO(LogContext::CAMERA, "property_loader_done", "PropertyLoader initialized successfully");
+        LOG_INFO(LogContext::CAMERA, "property_loader_stats", "Loaded properties: ISO=" + std::to_string(PropertyLoader::getValueCount("iso")) +
                     ", Shutter=" + std::to_string(PropertyLoader::getValueCount("shutter_speed")) +
                     ", Aperture=" + std::to_string(PropertyLoader::getValueCount("aperture")));
 
         // Create camera interface (Sony SDK integration)
-        Logger::info("Creating camera interface (Sony SDK)...");
+        LOG_INFO(LogContext::CAMERA, "camera_create", "Creating camera interface (Sony SDK)...");
         g_camera = std::shared_ptr<CameraInterface>(createCamera());
         if (!g_camera) {
-            Logger::error("Failed to create camera interface");
+            LOG_ERROR(LogContext::CAMERA, "camera_create_error", "Failed to create camera interface");
             return 1;
         }
 
         // Attempt to connect camera (Sony SDK)
-        Logger::info("Attempting to connect to Sony camera...");
+        LOG_INFO(LogContext::CAMERA, "camera_connect_attempt", "Attempting to connect to Sony camera...");
         bool camera_connected = g_camera->connect();
         if (camera_connected) {
-            Logger::info("Sony camera connected successfully!");
+            LOG_INFO(LogContext::CAMERA, "camera_connect_success", "Sony camera connected successfully!");
         } else {
-            Logger::warning("Sony camera connection failed - will retry automatically");
+            LOG_WARNING(LogContext::CAMERA, "camera_connect_failed", "Sony camera connection failed - will retry automatically");
         }
 
         // Create TCP server
-        Logger::info("Creating TCP server on port " + std::to_string(config::TCP_PORT) + "...");
+        LOG_INFO(LogContext::NETWORK, "tcp_create", "Creating TCP server on port " + std::to_string(config::TCP_PORT) + "...");
         g_tcp_server = std::make_unique<TCPServer>(config::TCP_PORT);
         g_tcp_server->setCamera(g_camera);
 
         // Create UDP broadcaster
         std::string ground_ip = config::getGroundStationIP();
-        Logger::info("Creating UDP broadcaster (target: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + ")...");
+        LOG_INFO(LogContext::NETWORK, "udp_create", "Creating UDP broadcaster (target: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + ")...");
         g_udp_broadcaster = std::make_unique<UDPBroadcaster>(
             config::UDP_STATUS_PORT,
             ground_ip.c_str()
@@ -234,7 +235,7 @@ int main(int argc, char* argv[]) {
         g_udp_broadcaster->setCamera(g_camera);
 
         // Create heartbeat handler
-        Logger::info("Creating heartbeat handler (port " + std::to_string(config::UDP_HEARTBEAT_PORT) + ")...");
+        LOG_INFO(LogContext::NETWORK, "heartbeat_create", "Creating heartbeat handler (port " + std::to_string(config::UDP_HEARTBEAT_PORT) + ")...");
         g_heartbeat = std::make_unique<Heartbeat>(
             config::UDP_HEARTBEAT_PORT,
             ground_ip.c_str()
@@ -243,12 +244,12 @@ int main(int argc, char* argv[]) {
         // Connect TCP server to broadcasters for dynamic IP discovery
         g_tcp_server->setUDPBroadcaster(g_udp_broadcaster.get());
         g_tcp_server->setHeartbeat(g_heartbeat.get());
-        Logger::info("Dynamic IP discovery enabled - broadcasters will auto-update when client connects");
+        LOG_INFO(LogContext::NETWORK, "dynamic_ip_enabled", "Dynamic IP discovery enabled - broadcasters will auto-update when client connects");
 
         // Start all components
-        Logger::info("========================================");
-        Logger::info("Starting all components...");
-        Logger::info("========================================");
+        LOG_INFO(LogContext::SYSTEM, "start_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "start_title", "Starting all components...");
+        LOG_INFO(LogContext::SYSTEM, "start_banner", "========================================");
 
         g_tcp_server->start();
         g_udp_broadcaster->start();
@@ -258,22 +259,22 @@ int main(int argc, char* argv[]) {
         std::string health_broadcast_ip = CONFIG_STRING("network.ground_ip");
         int health_broadcast_port = CONFIG_INT("network.udp_health_port");
         HealthMonitor::getInstance().startBroadcasting(health_broadcast_ip, health_broadcast_port);
-        Logger::info("HealthMonitor broadcasting started: " + health_broadcast_ip + ":" + std::to_string(health_broadcast_port) + " (5 Hz)");
+        LOG_INFO(LogContext::SYSTEM, "health_broadcast_start", "HealthMonitor broadcasting started: " + health_broadcast_ip + ":" + std::to_string(health_broadcast_port) + " (5 Hz)");
 
         // Start camera health check thread
         g_health_check_running = true;
         g_health_check_thread = std::thread(cameraHealthCheckThread);
 
-        Logger::info("========================================");
-        Logger::info("Payload Manager Service Running");
-        Logger::info("========================================");
-        Logger::info("TCP Command Server: 0.0.0.0:" + std::to_string(config::TCP_PORT));
-        Logger::info("UDP Status Broadcast: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + " (5 Hz)");
-        Logger::info("Heartbeat: " + ground_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT) + " (1 Hz)");
-        Logger::info(std::string("Camera: Sony SDK ") + (camera_connected ? "(connected)" : "(not connected)"));
-        Logger::info("========================================");
-        Logger::info("Press Ctrl+C to stop");
-        Logger::info("========================================");
+        LOG_INFO(LogContext::SYSTEM, "running_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "running_title", "Payload Manager Service Running");
+        LOG_INFO(LogContext::SYSTEM, "running_banner", "========================================");
+        LOG_INFO(LogContext::NETWORK, "tcp_server_info", "TCP Command Server: 0.0.0.0:" + std::to_string(config::TCP_PORT));
+        LOG_INFO(LogContext::NETWORK, "udp_status_info", "UDP Status Broadcast: " + ground_ip + ":" + std::to_string(config::UDP_STATUS_PORT) + " (5 Hz)");
+        LOG_INFO(LogContext::NETWORK, "heartbeat_info", "Heartbeat: " + ground_ip + ":" + std::to_string(config::UDP_HEARTBEAT_PORT) + " (1 Hz)");
+        LOG_INFO(LogContext::CAMERA, "camera_status", std::string("Camera: Sony SDK ") + (camera_connected ? "(connected)" : "(not connected)"));
+        LOG_INFO(LogContext::SYSTEM, "running_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "running_instruction", "Press Ctrl+C to stop");
+        LOG_INFO(LogContext::SYSTEM, "running_banner", "========================================");
 
         std::cout << "\nService started successfully!\n";
         std::cout << "TCP server: port " << config::TCP_PORT << "\n";
@@ -322,22 +323,22 @@ int main(int argc, char* argv[]) {
 
                 // Log warning every 10 seconds
                 if (duration.count() >= 10) {
-                    Logger::warning("Ground heartbeat timeout: " + std::to_string(static_cast<int>(time_since_heartbeat)) + " seconds since last heartbeat");
+                    LOG_WARNING(LogContext::NETWORK, "heartbeat_timeout", "Ground heartbeat timeout: " + std::to_string(static_cast<int>(time_since_heartbeat)) + " seconds since last heartbeat");
                     last_warning = now;
                 }
             }
         }
 
         // Shutdown sequence
-        Logger::info("========================================");
-        Logger::info("Shutdown requested - stopping components...");
-        Logger::info("========================================");
+        LOG_INFO(LogContext::SYSTEM, "shutdown_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "shutdown_title", "Shutdown requested - stopping components...");
+        LOG_INFO(LogContext::SYSTEM, "shutdown_banner", "========================================");
 
         std::cout << "\nShutting down...\n";
 
         // Stop health check thread first
         if (g_health_check_running) {
-            Logger::info("Stopping camera health check...");
+            LOG_INFO(LogContext::CAMERA, "health_check_stop_start", "Stopping camera health check...");
             g_health_check_running = false;
             if (g_health_check_thread.joinable()) {
                 g_health_check_thread.join();
@@ -345,36 +346,36 @@ int main(int argc, char* argv[]) {
         }
 
         if (g_heartbeat) {
-            Logger::info("Stopping heartbeat handler...");
+            LOG_INFO(LogContext::NETWORK, "heartbeat_stop", "Stopping heartbeat handler...");
             g_heartbeat->stop();
         }
 
         if (g_udp_broadcaster) {
-            Logger::info("Stopping UDP broadcaster...");
+            LOG_INFO(LogContext::NETWORK, "udp_stop", "Stopping UDP broadcaster...");
             g_udp_broadcaster->stop();
         }
 
         if (g_tcp_server) {
-            Logger::info("Stopping TCP server...");
+            LOG_INFO(LogContext::NETWORK, "tcp_stop", "Stopping TCP server...");
             g_tcp_server->stop();
         }
 
         if (g_camera) {
-            Logger::info("Disconnecting camera...");
+            LOG_INFO(LogContext::CAMERA, "camera_disconnect", "Disconnecting camera...");
             g_camera->disconnect();
         }
 
         // Shutdown Phase 1 components
-        Logger::info("Stopping HealthMonitor...");
+        LOG_INFO(LogContext::SYSTEM, "health_shutdown", "Stopping HealthMonitor...");
         HealthMonitor::getInstance().stopBroadcasting();
         HealthMonitor::getInstance().shutdown();
 
-        Logger::info("Stopping StructuredLogger...");
+        LOG_INFO(LogContext::SYSTEM, "logger_shutdown", "Stopping StructuredLogger...");
         StructuredLogger::getInstance().shutdown();
 
-        Logger::info("========================================");
-        Logger::info("Payload Manager Service Stopped");
-        Logger::info("========================================");
+        LOG_INFO(LogContext::SYSTEM, "stopped_banner", "========================================");
+        LOG_INFO(LogContext::SYSTEM, "stopped_title", "Payload Manager Service Stopped");
+        LOG_INFO(LogContext::SYSTEM, "stopped_banner", "========================================");
 
         std::cout << "Shutdown complete.\n";
 
@@ -383,7 +384,7 @@ int main(int argc, char* argv[]) {
         return 0;
 
     } catch (const std::exception& e) {
-        Logger::error("Fatal error: " + std::string(e.what()));
+        LOG_ERROR(LogContext::SYSTEM, "fatal_error", "Fatal error: " + std::string(e.what()));
         std::cerr << "FATAL ERROR: " << e.what() << std::endl;
 
         // Cleanup on error

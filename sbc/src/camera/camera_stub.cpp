@@ -1,12 +1,13 @@
 #include "camera/camera_interface.h"
 #include "utils/logger.h"
+#include "logging/structured_logger.h"
 
 // Camera stub implementation for Phase 1
 // Returns placeholder data without Sony SDK integration
 class CameraStub : public CameraInterface {
 public:
     CameraStub() : connected_(false) {
-        Logger::info("CameraStub created (Phase 1 - no Sony SDK)");
+        LOG_INFO(LogContext::CAMERA, "CameraStub created (Phase 1 - no Sony SDK)");
     }
 
     ~CameraStub() override {
@@ -14,14 +15,14 @@ public:
     }
 
     bool connect() override {
-        Logger::info("CameraStub: connect() called (stub - always returns false)");
+        LOG_INFO(LogContext::CAMERA, "CameraStub: connect() called (stub - always returns false)");
         connected_ = false;  // Always false in Phase 1
         return false;
     }
 
     void disconnect() override {
         if (connected_) {
-            Logger::info("CameraStub: disconnect() called");
+            LOG_INFO(LogContext::CAMERA, "CameraStub: disconnect() called");
             connected_ = false;
         }
     }

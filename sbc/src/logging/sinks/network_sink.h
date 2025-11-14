@@ -5,6 +5,7 @@
 #include <string>
 #include <mutex>
 #include <chrono>
+#include <set>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -24,6 +25,11 @@ public:
     void disableGroundStreaming();
     bool isGroundStreamingEnabled() const;
 
+    // Dynamic client IP management (like UDP broadcaster)
+    void addClient(const std::string& client_ip);
+    void removeClient(const std::string& client_ip);
+    size_t getClientCount() const;
+
 private:
     void sendUDP(const std::string& ip, int port, const std::string& data);
     void checkGroundStreamingTimeout();
@@ -36,6 +42,9 @@ private:
 
     bool ground_streaming_enabled_;
     std::chrono::system_clock::time_point ground_streaming_end_time_;
+
+    // Dynamic client IP tracking (for Ground-Side log streaming)
+    std::set<std::string> client_ips_;
 
     int socket_fd_;
     mutable std::mutex mutex_;

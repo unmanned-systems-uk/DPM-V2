@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include "logging/structured_logger.h"
 
 // Initialize static members
 SystemInfo::NetworkStats SystemInfo::last_network_stats_ = {0, 0, std::chrono::steady_clock::now()};
@@ -25,7 +26,7 @@ messages::SystemStatus SystemInfo::getStatus() {
         status.network_rx_mbps = getNetworkRxMbps();
         status.network_tx_mbps = getNetworkTxMbps();
     } catch (const std::exception& e) {
-        Logger::error("Failed to get system status: " + std::string(e.what()));
+        LOG_ERROR(LogContext::SYSTEM, "Failed to get system status: " + std::string(e.what()));
     }
 
     return status;
@@ -85,7 +86,7 @@ double SystemInfo::getCPUPercent() {
             double usage = 100.0 * (1.0 - static_cast<double>(idle_delta) / total_delta);
             return (usage < 0.0) ? 0.0 : (usage > 100.0) ? 100.0 : usage;
         } else {
-            Logger::warning("CPU total_delta is zero or negative: " + std::to_string(total_delta));
+            LOG_WARNING(LogContext::SYSTEM, "CPU total_delta is zero or negative: " + std::to_string(total_delta));
         }
     } catch (...) {
         // Ignore errors

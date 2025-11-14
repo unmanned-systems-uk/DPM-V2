@@ -10,12 +10,18 @@ NetworkSink::NetworkSink(const std::string& ground_ip, int ground_port,
     : ground_ip_(ground_ip), ground_port_(ground_port),
       systemtools_ip_(systemtools_ip), systemtools_port_(systemtools_port),
       systemtools_enabled_(systemtools_enabled), ground_streaming_enabled_(false),
+      ground_streaming_end_time_(std::chrono::system_clock::now()),
       socket_fd_(-1) {
 
     // Create UDP socket
     socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd_ < 0) {
         std::cerr << "NetworkSink: Failed to create UDP socket" << std::endl;
+    }
+
+    // Add default ground IP to client list (for backwards compatibility)
+    if (!ground_ip.empty() && ground_ip != "0.0.0.0") {
+        client_ips_.insert(ground_ip);
     }
 }
 
@@ -33,12 +39,15 @@ void NetworkSink::write(const json& log_entry) {
 
     std::string data = log_entry.dump();
 
-    // Send to Ground-Side if streaming is enabled
+    // Send to Ground-Side clients if streaming is enabled
     if (ground_streaming_enabled_) {
-        sendUDP(ground_ip_, ground_port_, data);
+        // Send to all registered Ground-Side clients (dynamic discovery)
+        for (const auto& client_ip : client_ips_) {
+            sendUDP(client_ip, ground_port_, data);
+        }
     }
 
-    // Send to SystemTools if enabled
+    // Send to SystemTools if enabled (always-on monitoring)
     if (systemtools_enabled_) {
         sendUDP(systemtools_ip_, systemtools_port_, data);
     }
@@ -49,7 +58,7 @@ void NetworkSink::flush() {
 }
 
 std::string NetworkSink::name() const {
-    return "network";
+    return "NetworkSink";
 }
 
 void NetworkSink::enableGroundStreaming(int duration_sec) {
@@ -98,4 +107,25 @@ void NetworkSink::checkGroundStreamingTimeout() {
             ground_streaming_enabled_ = false;
         }
     }
+}
+
+void NetworkSink::addClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (client_ips_.insert(client_ip).second) {
+        std::cout << "NetworkSink: Added client " << client_ip
+                  << " (total clients: " << client_ips_.size() << ")" << std::endl;
+    }
+}
+
+void NetworkSink::removeClient(const std::string& client_ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (client_ips_.erase(client_ip) > 0) {
+        std::cout << "NetworkSink: Removed client " << client_ip
+                  << " (remaining clients: " << client_ips_.size() << ")" << std::endl;
+    }
+}
+
+size_t NetworkSink::getClientCount() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return client_ips_.size();
 }

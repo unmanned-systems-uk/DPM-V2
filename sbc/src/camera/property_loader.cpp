@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <sstream>
+#include "logging/structured_logger.h"
 
 using json = nlohmann::json;
 
@@ -14,19 +15,19 @@ std::unordered_set<std::string> PropertyLoader::aperture_values_;
 
 bool PropertyLoader::initialize(const std::string& json_path) {
     if (initialized_) {
-        Logger::warning("PropertyLoader::initialize() called multiple times - ignoring");
+        LOG_WARNING(LogContext::CAMERA, "PropertyLoader::initialize() called multiple times - ignoring");
         return true;
     }
 
-    Logger::info("PropertyLoader: Loading camera properties from " + json_path);
+    LOG_INFO(LogContext::CAMERA, "PropertyLoader: Loading camera properties from " + json_path);
 
     try {
         // Load JSON file
         std::ifstream file(json_path);
         if (!file.is_open()) {
-            Logger::error("PropertyLoader: Failed to open " + json_path);
-            Logger::error("PropertyLoader: Make sure camera_properties.json exists at ~/DPM-V2/protocol/");
-            Logger::error("PropertyLoader: This is a shared specification file - NEVER in docs/ folder!");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Failed to open " + json_path);
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Make sure camera_properties.json exists at ~/DPM-V2/protocol/");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: This is a shared specification file - NEVER in docs/ folder!");
             return false;
         }
 
@@ -36,7 +37,7 @@ bool PropertyLoader::initialize(const std::string& json_path) {
 
         // Validate JSON structure
         if (!spec.contains("properties")) {
-            Logger::error("PropertyLoader: Invalid JSON - missing 'properties' field");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Invalid JSON - missing 'properties' field");
             return false;
         }
 
@@ -53,17 +54,17 @@ bool PropertyLoader::initialize(const std::string& json_path) {
                             iso_values_.insert(val.get<std::string>());
                         }
                     }
-                    Logger::info("PropertyLoader: Loaded " + std::to_string(iso_values_.size()) + " ISO values");
+                    LOG_INFO(LogContext::CAMERA, "PropertyLoader: Loaded " + std::to_string(iso_values_.size()) + " ISO values");
                 } else {
-                    Logger::error("PropertyLoader: ISO validation.values is not an array");
+                    LOG_ERROR(LogContext::CAMERA, "PropertyLoader: ISO validation.values is not an array");
                     return false;
                 }
             } else {
-                Logger::error("PropertyLoader: ISO property missing validation.values");
+                LOG_ERROR(LogContext::CAMERA, "PropertyLoader: ISO property missing validation.values");
                 return false;
             }
         } else {
-            Logger::error("PropertyLoader: Missing 'iso' property in JSON");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Missing 'iso' property in JSON");
             return false;
         }
 
@@ -78,17 +79,17 @@ bool PropertyLoader::initialize(const std::string& json_path) {
                             shutter_speed_values_.insert(val.get<std::string>());
                         }
                     }
-                    Logger::info("PropertyLoader: Loaded " + std::to_string(shutter_speed_values_.size()) + " shutter speed values");
+                    LOG_INFO(LogContext::CAMERA, "PropertyLoader: Loaded " + std::to_string(shutter_speed_values_.size()) + " shutter speed values");
                 } else {
-                    Logger::error("PropertyLoader: Shutter speed validation.values is not an array");
+                    LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Shutter speed validation.values is not an array");
                     return false;
                 }
             } else {
-                Logger::error("PropertyLoader: Shutter speed property missing validation.values");
+                LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Shutter speed property missing validation.values");
                 return false;
             }
         } else {
-            Logger::error("PropertyLoader: Missing 'shutter_speed' property in JSON");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Missing 'shutter_speed' property in JSON");
             return false;
         }
 
@@ -103,47 +104,47 @@ bool PropertyLoader::initialize(const std::string& json_path) {
                             aperture_values_.insert(val.get<std::string>());
                         }
                     }
-                    Logger::info("PropertyLoader: Loaded " + std::to_string(aperture_values_.size()) + " aperture values");
+                    LOG_INFO(LogContext::CAMERA, "PropertyLoader: Loaded " + std::to_string(aperture_values_.size()) + " aperture values");
                 } else {
-                    Logger::error("PropertyLoader: Aperture validation.values is not an array");
+                    LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Aperture validation.values is not an array");
                     return false;
                 }
             } else {
-                Logger::error("PropertyLoader: Aperture property missing validation.values");
+                LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Aperture property missing validation.values");
                 return false;
             }
         } else {
-            Logger::error("PropertyLoader: Missing 'aperture' property in JSON");
+            LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Missing 'aperture' property in JSON");
             return false;
         }
 
         // Validation: Ensure we loaded expected counts
         if (iso_values_.size() < 10) {
-            Logger::warning("PropertyLoader: Only loaded " + std::to_string(iso_values_.size()) + " ISO values - expected ~35");
+            LOG_WARNING(LogContext::CAMERA, "PropertyLoader: Only loaded " + std::to_string(iso_values_.size()) + " ISO values - expected ~35");
         }
         if (shutter_speed_values_.size() < 10) {
-            Logger::warning("PropertyLoader: Only loaded " + std::to_string(shutter_speed_values_.size()) + " shutter speed values - expected ~56");
+            LOG_WARNING(LogContext::CAMERA, "PropertyLoader: Only loaded " + std::to_string(shutter_speed_values_.size()) + " shutter speed values - expected ~56");
         }
         if (aperture_values_.size() < 5) {
-            Logger::warning("PropertyLoader: Only loaded " + std::to_string(aperture_values_.size()) + " aperture values - expected ~23");
+            LOG_WARNING(LogContext::CAMERA, "PropertyLoader: Only loaded " + std::to_string(aperture_values_.size()) + " aperture values - expected ~23");
         }
 
         initialized_ = true;
-        Logger::info("PropertyLoader: Initialization complete");
-        Logger::info("PropertyLoader: Loaded total of " +
+        LOG_INFO(LogContext::CAMERA, "PropertyLoader: Initialization complete");
+        LOG_INFO(LogContext::CAMERA, "PropertyLoader: Loaded total of " +
                     std::to_string(iso_values_.size() + shutter_speed_values_.size() + aperture_values_.size()) +
                     " property values from specification");
 
         return true;
 
     } catch (const json::parse_error& e) {
-        Logger::error("PropertyLoader: JSON parse error: " + std::string(e.what()));
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader: JSON parse error: " + std::string(e.what()));
         return false;
     } catch (const json::type_error& e) {
-        Logger::error("PropertyLoader: JSON type error: " + std::string(e.what()));
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader: JSON type error: " + std::string(e.what()));
         return false;
     } catch (const std::exception& e) {
-        Logger::error("PropertyLoader: Unexpected error: " + std::string(e.what()));
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader: Unexpected error: " + std::string(e.what()));
         return false;
     }
 }
@@ -154,7 +155,7 @@ bool PropertyLoader::isInitialized() {
 
 const std::unordered_set<std::string>& PropertyLoader::getIsoValues() {
     if (!initialized_) {
-        Logger::error("PropertyLoader::getIsoValues() called before initialization!");
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader::getIsoValues() called before initialization!");
         static std::unordered_set<std::string> empty;
         return empty;
     }
@@ -163,7 +164,7 @@ const std::unordered_set<std::string>& PropertyLoader::getIsoValues() {
 
 const std::unordered_set<std::string>& PropertyLoader::getShutterSpeedValues() {
     if (!initialized_) {
-        Logger::error("PropertyLoader::getShutterSpeedValues() called before initialization!");
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader::getShutterSpeedValues() called before initialization!");
         static std::unordered_set<std::string> empty;
         return empty;
     }
@@ -172,7 +173,7 @@ const std::unordered_set<std::string>& PropertyLoader::getShutterSpeedValues() {
 
 const std::unordered_set<std::string>& PropertyLoader::getApertureValues() {
     if (!initialized_) {
-        Logger::error("PropertyLoader::getApertureValues() called before initialization!");
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader::getApertureValues() called before initialization!");
         static std::unordered_set<std::string> empty;
         return empty;
     }
@@ -181,7 +182,7 @@ const std::unordered_set<std::string>& PropertyLoader::getApertureValues() {
 
 bool PropertyLoader::isValidValue(const std::string& property, const std::string& value) {
     if (!initialized_) {
-        Logger::error("PropertyLoader::isValidValue() called before initialization!");
+        LOG_ERROR(LogContext::CAMERA, "PropertyLoader::isValidValue() called before initialization!");
         return false;
     }
 
@@ -192,7 +193,7 @@ bool PropertyLoader::isValidValue(const std::string& property, const std::string
     } else if (property == "aperture") {
         return aperture_values_.find(value) != aperture_values_.end();
     } else {
-        Logger::warning("PropertyLoader::isValidValue() called with unknown property: " + property);
+        LOG_WARNING(LogContext::CAMERA, "PropertyLoader::isValidValue() called with unknown property: " + property);
         return false;
     }
 }
