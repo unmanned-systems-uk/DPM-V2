@@ -428,6 +428,64 @@ Request deep thinking with Sonnet (current model):
 
 ---
 
+## 🎯 RULE 10: Architecture Documentation Updates
+
+### **CRITICAL:** Track All Architecture Changes
+
+**When ANY domain updates architecture documentation:**
+
+1. **Domain Responsibilities:**
+   - Comment out deprecated sections (NEVER delete)
+   - Add WHO/Date/Time stamps to new sections
+   - Create `[ARCHITECTURE][DOMAIN]` issue
+   - Use architecture label for PM tracking
+
+2. **PM Responsibilities:**
+   - Monitor for architecture label: `gh issue list --label architecture`
+   - Review domain-specific architecture doc changes
+   - Integrate into master architecture documents
+   - Close architecture update issue when integrated
+
+3. **Deprecation Protocol:**
+   ```markdown
+   <!-- DEPRECATED: YYYY-MM-DD by WHO
+        Reason: [Why replaced]
+        Superseded by: [New section reference]
+
+   ## Old Section
+   [Preserved content...]
+   -->
+   ```
+
+4. **New Section Protocol:**
+   ```markdown
+   ## New Section
+
+   **WHO:** CC-[Domain]
+   **Date:** YYYY-MM-DD
+   **Time:** HH:MM UTC
+   **Supersedes:** [What this replaces]
+   **Related Issue:** #[number]
+   ```
+
+5. **Master Doc Updates:**
+   - Update `docs/architecture/SOFTWARE_ARCHITECTURE_DOCUMENT.md`
+   - Update `docs/ALL_DOMAINS/INTEGRATION_POINTS.md` (if applicable)
+   - Maintain architectural evolution timeline
+   - Commit with clear reference to domain changes
+
+### **Why This Rule Exists:**
+- **Preserve History:** See what approaches were tried before
+- **PM Tracking:** Architecture changes don't slip through unnoticed
+- **Accountability:** WHO/Date stamps show evolution
+- **Master Doc Sync:** PM knows exactly what needs updating
+- **Future Sessions:** Claude can learn from architectural evolution
+
+### **Reference Document:**
+See `.claude/ARCHITECTURE_UPDATE_RULES.md` for complete workflow and templates.
+
+---
+
 ## 📋 PM Session Checklist
 
 **Before Starting Work:**

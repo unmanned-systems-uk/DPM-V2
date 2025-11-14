@@ -4,9 +4,9 @@
 **Document Standard:** ISO/IEC/IEEE 42010:2011
 **Conforms To:** Organization Architecture Documentation Standard v1.0
 **Template:** `docs/standards/SOFTWARE_ARCHITECTURE_DOCUMENT_TEMPLATE.md`
-**Version:** 1.0
+**Version:** 1.2
 **Date:** 2025-11-11
-**Updated:** 2025-11-12 (Added reference to standards)
+**Updated:** 2025-11-14 (Added Tri-Domain Log Aggregation - Issue #103)
 **Status:** Draft
 **Classification:** Internal Use
 
@@ -20,6 +20,7 @@
 |---------|------|--------|-------------|
 | 1.0 | 2025-11-11 | DPM-V2 Team | Initial consolidated SAD |
 | 1.1 | 2025-11-12 | DPM-V2 Team | Added reference to organization architecture standards |
+| 1.2 | 2025-11-14 | CC-PM | Added Pattern 4: Tri-Domain Log Aggregation (Issue #103) |
 
 **Approval:**
 - [ ] Development Team Lead
@@ -659,13 +660,38 @@ See `docs/architecture/c4-level1-context.puml` for visual representation.
 
 ### Dev-Tools Architecture
 
-**Pattern:** Tab-based GUI (Tkinter)
+**Pattern:** Multi-mode diagnostic suite (GUI + CLI + Log Aggregator)
 
-**Components:**
-- ConnectionTab: Manage connections
-- CameraTab: Debug mode command testing
-- NetworkTab: Packet monitoring
-- LogsTab: Log retrieval and analysis
+**Platform:** Cross-platform (Linux/Windows/macOS)
+
+**Runtime:** Python 3.8+
+
+**Main Components:**
+
+1. **GUI Mode (main.py):**
+   - Tab-based Tkinter interface
+   - 12 tabs: Connection, Config, Protocol, Command, Camera, System, Logs, Activity, Remote Control, H16 Diagnostics, GitHub Integration, Git Helper
+   - Real-time monitoring and diagnostics
+   - ADB/SSH client integration
+
+2. **CLI Mode (cli_interface.py):**
+   - Command-line interface for headless deployment
+   - Monitoring and diagnostics without GUI
+   - Suitable for remote/automation scenarios
+
+3. **Tri-Domain Log Aggregator (log_aggregator.py):**
+   - UDP listener for Air-Side logs (port 5007)
+   - TCP listener for Ground-Side logs (port 5008, via ADB)
+   - Unified chronological timeline display
+   - Filtering (level, domain, context, text search)
+   - Export (JSON, CSV, text)
+   - Replay mode for saved logs
+
+**Network Clients:**
+- TCPClient: Command sending to Air-Side (port 5000)
+- SSHClient: Air-Side Docker logs and system access
+- ADBClient: H16 diagnostics and app management
+- UdpListener: Status/heartbeat monitoring
 
 ### Component Interactions
 
@@ -1157,6 +1183,108 @@ See `c4-level4-deployment.puml` for visual representation.
 
 ---
 
+**Pattern 4: Tri-Domain Log Aggregation** (see Issue #74, #103)
+
+**WHO:** CC-PM
+**Date:** 2025-11-14
+**Time:** 23:30 UTC
+**Supersedes:** File-based log collection (manual polling)
+**Related Issues:** #74, #103, #105
+
+**Participants:** Air-Side → SystemTools, Ground-Side → SystemTools (unidirectional push)
+
+**Architecture:**
+
+**Air-Side → SystemTools (UDP Streaming):**
+- Protocol: JSON over UDP
+- Port: 5007
+- Mode: Always-on streaming
+- Trigger: Every log entry (INFO, DEBUG, WARNING, ERROR)
+- Format: Structured JSON logs
+
+**Message Format (Air-Side):**
+```json
+{
+  "timestamp": "2025-11-14T23:30:45.123Z",
+  "level": "INFO",
+  "context": "CAMERA",
+  "message": "Camera initialized successfully",
+  "thread_id": "main",
+  "file": "camera_manager.cpp",
+  "line": 142,
+  "domain": "AIR"
+}
+```
+
+**Ground-Side → SystemTools (TCP Streaming):**
+- Protocol: JSON over TCP
+- Port: 5008 (via ADB forward from H16)
+- Mode: Always-on streaming
+- Trigger: Every log entry (INFO, DEBUG, WARNING, ERROR)
+- Format: Structured JSON logs
+
+**Message Format (Ground-Side):**
+```json
+{
+  "timestamp": "2025-11-14T23:30:45.156Z",
+  "level": "DEBUG",
+  "context": "UI",
+  "message": "Button pressed: set_aperture",
+  "tag": "DPM",
+  "domain": "GROUND"
+}
+```
+
+**SystemTools Log Aggregator:**
+- Component: `SystemTools/log_aggregator.py`
+- Listeners: Dual protocol (UDP 5007 + TCP 5008)
+- Display: Color-coded unified timeline (Blue [AIR], Magenta [GROUND])
+- Buffer: 10,000 entries (circular)
+- Features: Filter, search, export (JSON/CSV/text)
+- Deployment: tmux session `log-viewer` for persistent monitoring
+
+**Use Cases:**
+- Real-time system-wide debugging
+- Cross-domain issue correlation
+- Performance analysis (measure latency between domains)
+- Production monitoring
+- Historical log replay
+
+**Characteristics:**
+- **Real-time:** Zero-lag visibility into system behavior
+- **Unified:** Both domains in single chronological stream
+- **Always-on:** Continuous streaming (no polling)
+- **Persistent:** tmux session survives disconnects
+- **Proven ROI:** Discovered Issue #102 (camera timeouts) within minutes
+
+**Network Configuration:**
+```
+Air-Side (10.0.1.53) ──UDP 5007──> SystemTools (10.0.1.83)
+Ground-Side (H16) ──TCP 5008──> ADB Forward ──> SystemTools (127.0.0.1:5008)
+```
+
+**Error Handling:**
+- UDP packet loss: Acceptable (logs are diagnostic, not critical)
+- TCP disconnect: Auto-reconnect on next log entry
+- JSON parse errors: Skip malformed entry, continue processing
+- Buffer overflow: Circular buffer evicts oldest entries
+
+**Deprecated Approach:**
+<!-- DEPRECATED: 2025-11-14 by CC-PM
+     Reason: No real-time capability, 5-minute lag minimum, manual intervention
+     Superseded by: Pattern 4 - Tri-Domain Log Aggregation (above)
+
+**Old Pattern: File-Based Log Collection**
+- Manual polling of log files every 5 minutes
+- SCP transfer from Air-Side Pi
+- Local storage and offline review
+- No real-time visibility
+- Minimum 5-minute lag for issue detection
+- Manual intervention required
+-->
+
+---
+
 ### Integration Testing
 
 **Unit Testing:**
@@ -1168,11 +1296,13 @@ See `c4-level4-deployment.puml` for visual representation.
 - SystemTools: Command builder tests full protocol
 - Packet Analysis: Monitor UDP broadcasts
 - Response Validation: Verify protocol compliance
+- **NEW:** Log Aggregation: Verify real-time log streaming from both domains
 
 **End-to-End Testing:**
 - Hardware-in-Loop: Full system with real camera
 - Network Scenarios: WiFi vs R16 link
 - Failure Testing: Camera disconnect, network loss
+- **NEW:** Cross-Domain Correlation: Trace user action (Ground) → command (Air) → camera response via logs
 
 ---
 
@@ -1600,6 +1730,8 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 6. HeartbeatManager (1Hz connection health)
 7. SystemMonitor (CPU, memory, temp)
 8. NotificationManager (real-time events)
+9. StructuredLogger (C++ logging framework)
+10. NetworkSink (UDP log streaming to clients on port 5005)
 
 **Threading Model:**
 - Camera thread (SDK callbacks)
@@ -1607,6 +1739,7 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 - TCP handler threads (one per client)
 - UDP broadcast thread (5Hz timer)
 - UDP heartbeat thread (1Hz timer)
+- UDP log streaming threads (one per active client)
 
 ---
 
@@ -1621,11 +1754,13 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 - SettingsScreen (configuration)
 - StatusDisplay (indicators)
 - VideoPlayer (RTSP stream)
+- LogViewerScreen (diagnostic logs)
 
 **ViewModel Layer:**
 - CameraViewModel (camera state/control)
 - ConnectionViewModel (network state)
 - SettingsViewModel (app settings)
+- LogViewerViewModel (log filtering/streaming control)
 
 **Repository Layer:**
 - CameraRepository (data abstraction)
@@ -1636,10 +1771,89 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 - UdpStatusListener (receive status)
 - HeartbeatClient (bidirectional heartbeat)
 - NetworkMonitor (connection health)
+- UdpLogReceiver (receive Air-Side logs on port 5005)
+
+**Logging Layer:**
+- StructuredLogger (unified logging)
+- MemorySink (in-memory log storage, 1000 entries)
+- FileSink (persistent log files with rotation)
+- NetworkSink (send logs to SystemTools via TCP)
 
 **Data Layer:**
 - MessageSerializer (JSON codec)
 - DataStore (persistent settings)
+
+#### Ground-Side Logging Architecture
+
+**Purpose:** Unified diagnostic logging with multi-domain log aggregation and real-time viewing.
+
+**Design Pattern:** Structured logging with multiple sinks
+
+**Components:**
+
+1. **StructuredLogger (Kotlin)**
+   - Singleton logging facade
+   - Supports levels: DEBUG, INFO, WARN, ERROR, CRITICAL
+   - Contextual logging: SYSTEM, NETWORK, CAMERA, UI
+   - Domain tagging: GROUND, AIR (for received Air-Side logs)
+   - Thread-safe with coroutines
+   - Integration with Android Timber for Logcat
+
+2. **MemorySink (Kotlin)**
+   - In-memory circular buffer (max 1000 entries)
+   - StateFlow for reactive UI updates
+   - Powers Log Viewer screen
+   - Thread-safe concurrent access
+   - Automatic oldest-entry eviction
+
+3. **FileSink (Kotlin)**
+   - Persistent file storage (`/storage/emulated/0/Android/data/.../files/logs/`)
+   - JSON-formatted log entries
+   - Automatic log rotation (max 50MB per file, keep 3 files)
+   - Crash-safe write operations
+
+4. **NetworkSink (Kotlin)**
+   - TCP streaming to SystemTools (port 5008 via ADB bridge)
+   - JSON log entry format
+   - Optional (disabled by default, enable in debug builds)
+   - Non-blocking (failures don't affect app performance)
+
+5. **UdpLogReceiver (Kotlin)**
+   - Listens on UDP port 5005 for Air-Side logs
+   - Parses JSON log entries from Air-Side
+   - Automatically adds to MemorySink with domain=AIR
+   - Activated on app startup
+   - **Integration Point:** See Issue #92 for Air-Side NetworkSink implementation
+
+**Log Viewer UI Features:**
+- Merged timeline (Ground + Air logs sorted by timestamp)
+- Filters: Level, Context, Domain
+- Text search across message and fields
+- Auto-scroll toggle
+- Color-coded by domain (Purple=Ground, Blue=Air)
+- Start/Stop Air-Side log streaming controls
+- Real-time counter: "Ground=X Air=Y"
+
+**Air-Side Log Streaming Flow:**
+```
+1. User clicks "Start Log Streaming" in Log Viewer
+   ↓
+2. Ground-Side sends TCP command: logging.enable_streaming
+   ↓
+3. Air-Side discovers client IP and creates NetworkSink
+   ↓
+4. Air-Side sends log entries via UDP to <client_ip>:5005
+   ↓
+5. Ground-Side UdpLogReceiver receives and parses logs
+   ↓
+6. Logs added to MemorySink with domain=AIR
+   ↓
+7. Log Viewer UI displays merged Ground+Air timeline
+```
+
+**Implementation Status:**
+- Ground-Side: ✅ Complete (Issue #73)
+- Air-Side NetworkSink: ⚠️ In Progress (Issue #92)
 
 ---
 
@@ -1647,17 +1861,40 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 
 **Diagram:** `c4-level3-dev-tools-components.puml`
 
-**Tab-Based UI:**
-- ConnectionTab (manage connections)
-- CameraTab (debug mode testing)
-- NetworkTab (packet monitoring)
-- LogsTab (log retrieval)
+**Current Version:** 1.9.0+ (Phase 2 Complete)
 
-**Diagnostic Components:**
-- PacketAnalyzer (protocol validation)
-- ConnectionMonitor (health tracking)
-- CommandBuilder (test command generation)
-- ResponseValidator (response verification)
+**GUI Tabs (12 total):**
+- ConnectionTab: Multi-domain connection management (Air-Side TCP, Ground-Side ADB, SSH)
+- ConfigTab: System configuration and settings
+- ProtocolInspectorTab: Protocol message inspection and validation
+- CommandSenderTab: Interactive command sending and testing
+- CameraDashboardTab: Camera control and property monitoring
+- SystemMonitorTab: System health and resource monitoring
+- LogInspectorTab: Log viewing and analysis
+- ActivityLogTab: Activity timeline and event tracking
+- RemoteControlTab: Remote system control features
+- H16DiagnosticsTab: Android H16 ADB diagnostics and troubleshooting
+- GitHubIntegrationTab: GitHub issue management
+- GitHelperTab: Git workflow assistance
+
+**Core Diagnostic Components:**
+- **TriDomainLogAggregator:** Unified Air+Ground+SystemTools log timeline (Issue #74)
+- **CLIInterface:** Headless command-line diagnostic mode
+- **ADBClient:** Android Debug Bridge integration for H16
+- **SSHClient:** Remote Air-Side access and Docker log retrieval
+- **PacketAnalyzer:** Network packet analysis and statistics
+- **ConnectionMonitor:** Multi-domain connection health tracking
+- **CommandBuilder:** Interactive command construction
+- **ResponseValidator:** Protocol response validation
+- **PropertyLoader:** Camera property specification loader
+- **LogParser:** Multi-format log parsing and analysis
+
+**Network Architecture:**
+- UDP 5007: Air-Side structured logs (always-on streaming)
+- TCP 5008: Ground-Side logs (via ADB port forward)
+- TCP 5000: Air-Side command channel
+- UDP 5001: Air-Side status broadcasts
+- UDP 5002: Heartbeat channel
 
 ---
 
@@ -1687,11 +1924,21 @@ SkyDroid H16 (Hardware)
 
 **Dev-Tools Deployment:**
 ```
-Workstation (Hardware)
-  └─ OS (Windows/Linux/macOS)
+Development Workstation (Hardware)
+  └─ OS (Cross-platform: Linux/Windows/macOS)
        └─ Python 3.8+ (Runtime)
-            └─ SystemTools (Python scripts)
+            ├─ SystemTools GUI (main.py) - Tkinter-based
+            ├─ SystemTools CLI (cli_interface.py) - Headless mode
+            └─ Log Aggregator (log_aggregator.py) - Standalone
 ```
+
+**Dev-Tools Network Integration:**
+- SSH to Air-Side (10.0.1.53:22) - Docker logs, system access
+- ADB to Ground-Side (10.0.1.92:5555) - H16 diagnostics, app management
+- UDP from Air-Side (5007) - Structured log streaming
+- TCP from Ground-Side (5008) - Log forwarding via ADB bridge
+- TCP to Air-Side (5000) - Command sending
+- UDP from Air-Side (5001, 5002) - Status/heartbeat monitoring
 
 **Network Infrastructure:**
 - **Production:** R16 data link (192.168.144.0/24, 20-50 Mbps)
