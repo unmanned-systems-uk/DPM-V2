@@ -353,6 +353,14 @@ The Context View describes DPM-V2 within its operational environment, identifyin
 - **Rate:** 1 Hz
 - **Timeout:** 10 seconds → trigger reconnect
 
+#### UDP Log Streaming (Port 5005)
+- **Purpose:** Real-time diagnostic log streaming
+- **Protocol:** JSON over UDP
+- **Direction:** Air→Ground/Dev (unidirectional, on-demand)
+- **Activation:** Via `logging.enable_streaming` command
+- **Duration:** Configurable (default 300 seconds)
+- **Features:** Dynamic client registration, auto-disable, multi-client support
+
 **See INTEGRATION_POINTS.md for detailed protocol specifications**
 
 ---

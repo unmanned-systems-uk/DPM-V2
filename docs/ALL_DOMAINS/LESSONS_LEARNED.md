@@ -1,7 +1,7 @@
 # DPM-V2 Lessons Learned Registry
 *Maintained by: CC-Project-Manager*
-*Last Updated: 2025-11-10*
-*Version: 1.4*
+*Last Updated: 2025-11-14*
+*Version: 1.5*
 
 ## 🎯 Purpose
 
@@ -325,6 +325,154 @@ Users must switch to AF-S, AF-C, or AF-A mode to use AF Hold functionality. This
    - Set reasonable timeouts (5-10 seconds)
    - Log timeout events
    - Allow user retry
+
+---
+
+### ADB Port Forwarding
+
+#### ⚠️ LESSON: ADB Multiple Device/Emulator Error
+
+**Related Issues:** #74, #99
+**Date:** 2025-11-14
+**Context:** Phase 1 Ground-Side → SystemTools log streaming
+
+**Problem:**
+```bash
+adb reverse tcp:5008 tcp:5008
+# Error: adb: error: more than one device/emulator
+```
+
+**Root Cause:**
+- Java/Gradle daemon had multiple ADB connections active
+- `adb devices` showed only one device
+- `lsof -i :5037` showed 6+ Java connections to ADB server
+- ADB confused about which device to target
+
+**Attempted Solutions:**
+1. ❌ `adb -s 10.0.1.92:5555 reverse` - Still failed with same error
+2. ❌ `ANDROID_SERIAL=10.0.1.92:5555 adb reverse` - Still failed
+3. ❌ Kill Gradle daemon - Didn't resolve issue immediately
+
+**Workaround Implemented (Phase 1 Only):**
+- **Hardcoded dev machine IP** in Ground-Side: `host = "10.0.1.83"`
+- **SystemTools listens on all interfaces**: `host = "0.0.0.0"`
+- Direct TCP connection over network (bypasses ADB entirely)
+
+**Limitations:**
+- ❌ Not dynamic - breaks if IP changes
+- ❌ Network-dependent - won't work over USB-only
+- ❌ Not portable - hardcoded for specific dev machine
+- ❌ NOT PRODUCTION READY
+
+**Proper Solutions (Issue #99):**
+1. **Debug ADB issue** - Find why multiple devices detected
+2. **Service Discovery (mDNS)** - Dynamic IP discovery
+3. **User Configuration** - Manual IP entry in settings
+4. **Hybrid approach** - All three with fallback chain
+
+**Action Items:**
+- ✅ Issue #74 documented with workaround details
+- ✅ Issue #99 created for production fix
+- 🔴 Must resolve before Phase 2/Production deployment
+
+**Lesson:** ADB port forwarding can be unreliable with multiple IDE/build tool connections. Always have fallback options for critical functionality.
+
+---
+
+### Container Configuration and Deployment
+
+#### ⚠️ Production Config Overrides and Container Image Rebuilds
+
+**Related Issues:** #74
+**Date Documented:** 2025-11-14
+**WHO:** CC-PM, CC-Air-Side
+
+**Problem:**
+Air-Side payload_manager container was not sending logs to SystemTools despite config showing `network_systemtools_enabled: true` in `default.json`.
+
+**Root Cause:**
+1. **Config baked into image:** Configuration files are `COPY`'d into container image at build time (Dockerfile.prod:29)
+2. **Production overrides:** `sbc/config/production.json` overrides `default.json` settings
+3. **Hidden disable:** production.json had `"network_systemtools_enabled": false` overriding default
+4. **Container restart insufficient:** Simple `docker restart` doesn't reload config from host filesystem
+
+**Investigation Timeline:**
+1. ✅ Verified NetworkSink code correct (sends to SystemTools when enabled)
+2. ✅ Verified network connectivity (test packets successful)
+3. ✅ Verified default.json config (correctly set to true)
+4. ❌ Missed production.json override initially
+5. ✅ Discovered via docker exec inspection of container's internal config
+
+**Solution - Two-Phase Approach:**
+
+**Phase 1: Hot-Patch (Immediate Fix)**
+```bash
+# Edit config inside RUNNING container
+docker exec payload-manager bash -c "cat > /app/sbc/config/production.json << 'EOF'
+{
+  "network_systemtools_enabled": true,
+  ...
+}
+EOF"
+
+# Restart container to apply
+docker restart payload-manager
+```
+**Pros:** Immediate fix, validates solution works
+**Cons:** Lost on next container restart, not tracked in git
+
+**Phase 2: Rebuild Image (Permanent Fix)**
+```bash
+# Edit host config file
+vim sbc/config/production.json  # Set network_systemtools_enabled: true
+
+# Rebuild container image
+cd sbc && ./build_container.sh
+
+# Deploy new image
+docker stop payload-manager && docker rm payload-manager
+./run_container.sh prod
+```
+**Pros:** Permanent, tracked in git, survives restarts
+**Cons:** Slower (full rebuild required)
+
+**Key Learnings:**
+
+1. **Always check ALL config files:**
+   - Don't assume default.json is the only config
+   - Production environments often have override configs
+   - Use `docker exec` to inspect container's actual config, not host filesystem
+
+2. **Container config debugging workflow:**
+   ```bash
+   # 1. Check host configs
+   cat sbc/config/default.json | grep setting
+   cat sbc/config/production.json | grep setting
+
+   # 2. Check CONTAINER'S config (the one actually used!)
+   docker exec container cat /app/sbc/config/production.json | grep setting
+
+   # 3. If mismatch, container has stale config → rebuild needed
+   ```
+
+3. **Hot-patch for validation, rebuild for production:**
+   - Use hot-patch to quickly test if fix works
+   - Once validated, always follow with proper rebuild
+   - Document both steps in issue for reproducibility
+
+4. **Git tracking critical:**
+   - Edits inside containers are ephemeral
+   - Must commit config changes to git on host
+   - Verify with: `git status` before declaring "done"
+
+**Success Criteria Checklist:**
+- [ ] Config change made on HOST filesystem
+- [ ] Config change committed to git
+- [ ] Container image rebuilt with new config
+- [ ] New container deployed and tested
+- [ ] Verified config inside running container matches git
+
+**Lesson:** Container configuration changes require image rebuilds, not just restarts. Always inspect the container's internal config, not just the host filesystem. Use hot-patching to validate fixes quickly, then rebuild for permanent deployment.
 
 ---
 

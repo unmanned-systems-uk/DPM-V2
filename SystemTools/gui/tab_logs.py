@@ -14,7 +14,7 @@ from utils.logger import logger
 from utils.config import config
 from network.ssh_client import SSHClient
 from utils.log_parser import LogParser
-from gui.log_subtabs import CameraEventsTab, ActiveClientsTab, CameraComparisonTab
+from gui.log_subtabs import CameraEventsTab, ActiveClientsTab, CameraComparisonTab, TriDomainAggregationTab
 
 
 class LogInspectorTab(ttk.Frame):
@@ -234,6 +234,10 @@ class LogInspectorTab(ttk.Frame):
         # Tab 4: Camera Status Comparison
         self.camera_comparison_tab = CameraComparisonTab(self.log_notebook, self.log_parser)
         self.log_notebook.add(self.camera_comparison_tab, text="Status Comparison")
+
+        # Tab 5: Tri-Domain Aggregation (Issue #105)
+        self.tri_domain_tab = TriDomainAggregationTab(self.log_notebook)
+        self.log_notebook.add(self.tri_domain_tab, text="Tri-Domain Aggregation")
 
     def _get_ssh_config(self) -> dict:
         """Get SSH configuration from config"""
@@ -798,3 +802,7 @@ class LogInspectorTab(ttk.Frame):
         # Disconnect SSH
         if self.ssh_client and self.ssh_client.is_connected():
             self.ssh_client.disconnect()
+
+        # Cleanup Tri-Domain Aggregation tab
+        if hasattr(self, 'tri_domain_tab') and self.tri_domain_tab:
+            self.tri_domain_tab.cleanup()

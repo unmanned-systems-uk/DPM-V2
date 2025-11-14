@@ -10,10 +10,104 @@ Date: November 2025
 """
 
 import sys
+import subprocess
 from pathlib import Path
 
 # Add SystemTools to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+
+# Auto-install missing dependencies
+def check_and_install_dependencies():
+    """Check for required dependencies and auto-install if missing"""
+    required_packages = {
+        'paramiko': 'paramiko>=3.4.0',
+        'matplotlib': 'matplotlib>=3.8.0',
+        'rich': 'rich>=13.7.0'
+    }
+
+    missing_packages = []
+
+    # Check each required package
+    for package_name, pip_spec in required_packages.items():
+        try:
+            __import__(package_name)
+        except ImportError:
+            missing_packages.append((package_name, pip_spec))
+
+    # Check tkinter (special case - can't be pip installed)
+    try:
+        import tkinter
+    except ImportError:
+        print("\n" + "="*60)
+        print("⚠️  WARNING: tkinter not found (required for GUI)")
+        print("="*60)
+        print("\ntkinter cannot be installed via pip.")
+        print("Please install it using your system package manager:\n")
+        if sys.platform.startswith('linux'):
+            print("  Ubuntu/Debian: sudo apt-get install python3-tk")
+            print("  CentOS/RHEL:   sudo yum install python3-tkinter")
+        elif sys.platform == 'darwin':
+            print("  macOS:         brew install python-tk")
+        elif sys.platform == 'win32':
+            print("  Windows:       Reinstall Python and check 'tcl/tk and IDLE'")
+        print("\n" + "="*60 + "\n")
+
+        response = input("Continue without GUI support? (y/n): ")
+        if response.lower() != 'y':
+            sys.exit(1)
+
+    # Auto-install missing pip packages
+    if missing_packages:
+        print("\n" + "="*60)
+        print("📦 Auto-Installing Missing Dependencies")
+        print("="*60)
+        print("\nThe following packages are required but not installed:")
+        for pkg_name, _ in missing_packages:
+            print(f"  - {pkg_name}")
+        print()
+
+        # Ask for confirmation
+        response = input("Auto-install now? (y/n): ")
+        if response.lower() != 'y':
+            print("\nℹ️  You can manually install dependencies by running:")
+            print("   Linux/macOS: ./install_dependencies.sh")
+            print("   Windows:     install_dependencies.bat")
+            print("   Or: pip install -r requirements.txt\n")
+            sys.exit(1)
+
+        print("\nInstalling packages...\n")
+
+        # Upgrade pip first
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except:
+            pass  # Ignore pip upgrade errors
+
+        # Install each missing package
+        success = True
+        for pkg_name, pip_spec in missing_packages:
+            try:
+                print(f"  Installing {pkg_name}...", end=' ', flush=True)
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', pip_spec],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print("✅")
+            except subprocess.CalledProcessError:
+                print("❌")
+                success = False
+
+        if not success:
+            print("\n❌ Some packages failed to install.")
+            print("Try running manually: pip install -r requirements.txt\n")
+            sys.exit(1)
+
+        print("\n✅ All dependencies installed successfully!\n")
+        print("="*60 + "\n")
+
+
+# Check dependencies before importing any third-party modules
+check_and_install_dependencies()
 
 # Import DevTools configuration first
 from devtools_config import devtools_config, parse_args

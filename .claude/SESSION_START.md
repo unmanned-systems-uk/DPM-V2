@@ -77,7 +77,19 @@ python main.py  # Diagnostic GUI
 # Check ALL domains, coordinate handoffs
 gh issue list --state open
 cat docs/ALL_DOMAINS/LESSONS_LEARNED.md
+
+# CRITICAL: Setup tmux monitoring sessions
+# This gives PM real-time visibility into all domain activities
+tmux list-sessions  # Should see: Air-Side-PI, Ground-Side, SystemTools
 ```
+
+**PM REQUIRES TMUX SESSIONS:**
+User must have these tmux sessions active:
+1. **Air-Side-PI**: SSH to Pi 5 (10.0.1.53) running Claude Code
+2. **Ground-Side**: Local session working on Android
+3. **SystemTools**: Local session for Python tools
+
+Without these, PM cannot monitor real-time progress!
 
 ---
 
