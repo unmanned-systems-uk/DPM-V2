@@ -138,3 +138,13 @@ def configure_tkinter_text_tags(text_widget, domain_colors: Dict[str, str] = Non
 
     # Search highlight (always yellow for visibility)
     text_widget.tag_config("highlight", background="#FFFF00", foreground="#000000")
+
+    # Raise tag priorities (higher priority tags override lower ones)
+    # Order: domain < level < highlight
+    for domain in domain_colors.keys():
+        text_widget.tag_raise(domain.lower())
+
+    for level_tag in ["debug", "info", "warning", "error"]:
+        text_widget.tag_raise(level_tag)
+
+    text_widget.tag_raise("highlight")
