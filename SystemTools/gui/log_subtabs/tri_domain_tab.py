@@ -21,6 +21,7 @@ import sys
 
 from utils.logger import logger
 from utils.config import config
+from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from network.log_listeners import AirSideListener, GroundSideListener
 
 
@@ -30,8 +31,9 @@ class TriDomainAggregationTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
 
-        # Log queue (shared with listeners)
-        self.log_queue = deque(maxlen=10000)  # Max 10,000 entries
+        # Log queue (shared with listeners) - size from config
+        max_entries = get_buffer_max_entries()
+        self.log_queue = deque(maxlen=max_entries)
 
         # Listeners
         self.air_listener: Optional[AirSideListener] = None
@@ -207,16 +209,8 @@ class TriDomainAggregationTab(ttk.Frame):
         text_frame.grid_rowconfigure(0, weight=1)
         text_frame.grid_columnconfigure(0, weight=1)
 
-        # Configure text tags for color-coding (matching log_aggregator.py)
-        self.log_text.tag_config("air", foreground="#0080FF")  # Bright blue
-        self.log_text.tag_config("ground", foreground="#FF00FF")  # Magenta
-        self.log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")  # Yellow highlight
-        self.log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))  # Red
-        self.log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))  # Orange
-        self.log_text.tag_config("debug", foreground="#808080")  # Gray for debug
-        self.log_text.tag_config("info", foreground="#00FF00")  # Green for info
-        self.log_text.tag_config("timestamp", foreground="#00FFFF")  # Cyan for timestamps
-        self.log_text.tag_config("context", foreground="#FFFF00")  # Yellow for context
+        # Configure text tags for color-coding from config
+        configure_tkinter_text_tags(self.log_text)
 
     def _update_status_indicator(self, status: str):
         """Update status indicator: stopped (gray), running (green), paused (orange)"""
@@ -620,14 +614,8 @@ class TriDomainAggregationTab(ttk.Frame):
                                                     state='normal')
         popup_log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        # Configure same color tags as main display
-        popup_log_text.tag_config("air", foreground="#0080FF")
-        popup_log_text.tag_config("ground", foreground="#FF00FF")
-        popup_log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")
-        popup_log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))
-        popup_log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))
-        popup_log_text.tag_config("debug", foreground="#808080")
-        popup_log_text.tag_config("info", foreground="#00FF00")
+        # Configure same color tags as main display from config
+        configure_tkinter_text_tags(popup_log_text)
 
         # Copy current log content to popup
         current_content = self.log_text.get(1.0, tk.END)

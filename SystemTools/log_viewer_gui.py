@@ -29,6 +29,7 @@ import threading
 
 from network.log_listeners import AirSideListener, GroundSideListener
 from utils.logger import logger
+from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 
 
 class LogViewerGUI(tk.Tk):
@@ -41,7 +42,8 @@ class LogViewerGUI(tk.Tk):
         self.geometry("1600x900")
 
         # Log queue (shared with listeners)
-        self.log_queue = deque(maxlen=10000)
+        max_entries = get_buffer_max_entries()
+        self.log_queue = deque(maxlen=max_entries)
 
         # Listeners
         self.air_listener: Optional[AirSideListener] = None
@@ -199,14 +201,8 @@ class LogViewerGUI(tk.Tk):
         self.log_text.pack(fill=tk.BOTH, expand=True)
         self.log_text.config(state=tk.DISABLED)
 
-        # Configure color tags
-        self.log_text.tag_config("air", foreground="#0080FF")  # Bright blue
-        self.log_text.tag_config("ground", foreground="#FF00FF")  # Magenta
-        self.log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")  # Yellow
-        self.log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))  # Red
-        self.log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))  # Orange
-        self.log_text.tag_config("debug", foreground="#808080")  # Gray
-        self.log_text.tag_config("info", foreground="#00FF00")  # Green
+        # Configure color tags from config
+        configure_tkinter_text_tags(self.log_text)
 
     def _update_status_indicator(self, status: str):
         """Update status indicator"""
