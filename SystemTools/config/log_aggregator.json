@@ -18,6 +18,12 @@
       "AIR": "blue",
       "GROUND": "magenta"
     },
+    "level_colors": {
+      "ERROR": "red",
+      "WARNING": "orange",
+      "INFO": "green",
+      "DEBUG": "gray"
+    },
     "show_timestamp": true,
     "show_thread": false,
     "show_function": false,
