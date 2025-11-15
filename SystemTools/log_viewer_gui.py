@@ -28,6 +28,7 @@ import csv
 import threading
 
 from network.log_listeners import AirSideListener, GroundSideListener
+from network.udp_discovery import UDPDiscoverySender, load_discovery_config
 from utils.logger import logger
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 
@@ -48,6 +49,7 @@ class LogViewerGUI(tk.Tk):
         # Listeners
         self.air_listener: Optional[AirSideListener] = None
         self.ground_listener: Optional[GroundSideListener] = None
+        self.discovery_sender: Optional[UDPDiscoverySender] = None
 
         # Stream state
         self.stream_running = False
@@ -226,6 +228,18 @@ class LogViewerGUI(tk.Tk):
         self.log_queue.clear()
         self.display_buffer.clear()
 
+        # Start UDP discovery sender (for Air-Side auto-configuration)
+        discovery_config = load_discovery_config()
+        if discovery_config.get('enabled', True):
+            self.discovery_sender = UDPDiscoverySender(
+                target_host=discovery_config['target_host'],
+                target_port=discovery_config['target_port'],
+                interval_seconds=discovery_config['interval_seconds'],
+                payload=discovery_config['payload']
+            )
+            self.discovery_sender.start()
+            logger.info("UDP discovery sender started")
+
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
         self.ground_listener = GroundSideListener(host="127.0.0.1", port=5008)
@@ -279,6 +293,11 @@ class LogViewerGUI(tk.Tk):
         self.gui_update_running = False
         if self.gui_update_thread:
             self.gui_update_thread.join(timeout=2.0)
+
+        # Stop discovery sender
+        if self.discovery_sender:
+            self.discovery_sender.stop()
+            self.discovery_sender = None
 
         # Stop listeners
         if self.air_listener:

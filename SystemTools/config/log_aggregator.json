@@ -11,6 +11,16 @@
       "host": "0.0.0.0",
       "port": 5008,
       "buffer_size": 4096
+    },
+    "discovery": {
+      "enabled": true,
+      "target_host": "10.0.1.53",
+      "target_port": 5009,
+      "interval_seconds": 10,
+      "payload": {
+        "type": "discovery",
+        "source": "systemtools"
+      }
     }
   },
   "display": {

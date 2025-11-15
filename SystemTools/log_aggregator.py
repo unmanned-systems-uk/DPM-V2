@@ -23,6 +23,7 @@ from pathlib import Path
 
 # Import listeners from shared module (Issue #105)
 from network.log_listeners import AirSideListener, GroundSideListener
+from network.udp_discovery import UDPDiscoverySender, load_discovery_config
 
 try:
     from rich.console import Console
@@ -42,6 +43,7 @@ class LogAggregator:
         self.log_queue = deque(maxlen=self.config['buffer']['max_entries'])
         self.air_listener = None
         self.ground_listener = None
+        self.discovery_sender = None
         self.console = Console()
         self.running = False
 
@@ -100,6 +102,17 @@ class LogAggregator:
         """Start the log aggregator"""
         self.running = True
 
+        # Start UDP discovery sender (for Air-Side auto-configuration)
+        discovery_config = load_discovery_config()
+        if discovery_config.get('enabled', True):
+            self.discovery_sender = UDPDiscoverySender(
+                target_host=discovery_config['target_host'],
+                target_port=discovery_config['target_port'],
+                interval_seconds=discovery_config['interval_seconds'],
+                payload=discovery_config['payload']
+            )
+            self.discovery_sender.start()
+
         # Start listeners
         air_config = self.config['network']['air_side']
         self.air_listener = AirSideListener(
@@ -130,6 +143,8 @@ class LogAggregator:
     def stop(self):
         """Stop the log aggregator"""
         self.running = False
+        if self.discovery_sender:
+            self.discovery_sender.stop()
         if self.air_listener:
             self.air_listener.stop()
         if self.ground_listener:
