@@ -8,7 +8,7 @@ Part of Issue #105 - Tri-Domain Log Aggregation GUI Integration
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, scrolledtext
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -53,6 +53,9 @@ class TriDomainAggregationTab(ttk.Frame):
         self.gui_update_running = False
         self.gui_update_thread = None
 
+        # Pop-out window
+        self.popup_window = None
+
         self._create_ui()
 
         logger.debug("Tri-Domain Aggregation tab initialized")
@@ -92,6 +95,8 @@ class TriDomainAggregationTab(ttk.Frame):
 
         self.clear_btn = ttk.Button(button_row, text="Clear Display", command=self._on_clear)
         self.clear_btn.pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_row, text="🗗 Pop Out", command=self._pop_out_window).pack(side=tk.LEFT, padx=5)
 
         # Auto-scroll toggle
         self.auto_scroll_var = tk.BooleanVar(value=True)
@@ -195,12 +200,16 @@ class TriDomainAggregationTab(ttk.Frame):
         text_frame.grid_rowconfigure(0, weight=1)
         text_frame.grid_columnconfigure(0, weight=1)
 
-        # Configure text tags for color-coding
-        self.log_text.tag_config("air", foreground="blue")
-        self.log_text.tag_config("ground", foreground="magenta")
-        self.log_text.tag_config("highlight", background="yellow")
-        self.log_text.tag_config("error", foreground="red", font=('Courier New', 9, 'bold'))
-        self.log_text.tag_config("warning", foreground="orange")
+        # Configure text tags for color-coding (matching log_aggregator.py)
+        self.log_text.tag_config("air", foreground="#0080FF")  # Bright blue
+        self.log_text.tag_config("ground", foreground="#FF00FF")  # Magenta
+        self.log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")  # Yellow highlight
+        self.log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))  # Red
+        self.log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))  # Orange
+        self.log_text.tag_config("debug", foreground="#808080")  # Gray for debug
+        self.log_text.tag_config("info", foreground="#00FF00")  # Green for info
+        self.log_text.tag_config("timestamp", foreground="#00FFFF")  # Cyan for timestamps
+        self.log_text.tag_config("context", foreground="#FFFF00")  # Yellow for context
 
     def _update_status_indicator(self, status: str):
         """Update status indicator: stopped (gray), running (green), paused (orange)"""
@@ -421,12 +430,16 @@ class TriDomainAggregationTab(ttk.Frame):
         elif domain_code == 'GROUND':
             self.log_text.tag_add("ground", f"{line_number}.0", f"{line_number}.end")
 
-        # Apply level-based highlighting
+        # Apply level-based highlighting (with priority to override domain color)
         level_code = entry.get('level', 'INFO')
         if level_code == 'ERROR':
             self.log_text.tag_add("error", f"{line_number}.0", f"{line_number}.end")
         elif level_code == 'WARNING':
             self.log_text.tag_add("warning", f"{line_number}.0", f"{line_number}.end")
+        elif level_code == 'DEBUG':
+            self.log_text.tag_add("debug", f"{line_number}.0", f"{line_number}.end")
+        elif level_code == 'INFO':
+            self.log_text.tag_add("info", f"{line_number}.0", f"{line_number}.end")
 
         # Highlight search text
         search_text = self.filter_search.get()
@@ -548,7 +561,145 @@ class TriDomainAggregationTab(ttk.Frame):
             logger.error(f"Error copying selection: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
+    def _pop_out_window(self):
+        """Pop out log viewer into a separate window"""
+        # If window already exists, bring it to front
+        if self.popup_window and self.popup_window.winfo_exists():
+            self.popup_window.lift()
+            self.popup_window.focus_force()
+            logger.debug("Pop-out window brought to front")
+            return
+
+        # Create new popup window
+        self.popup_window = tk.Toplevel(self)
+        self.popup_window.title("DPM SystemTools - Tri-Domain Log Aggregation")
+        self.popup_window.geometry("1400x800")
+
+        # Set window icon (same as main window if available)
+        try:
+            self.popup_window.iconbitmap(self.master.master.master.iconbitmap())
+        except:
+            pass
+
+        # Create main frame
+        main_frame = ttk.Frame(self.popup_window, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title label
+        title_label = ttk.Label(main_frame, text="📊 Tri-Domain Log Aggregation (Air-Side + Ground-Side)",
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 10))
+
+        # Info label
+        info_frame = ttk.Frame(main_frame)
+        info_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(info_frame, text="Status:", font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
+        popup_status_label = ttk.Label(info_frame,
+                                       text=self.status_label.cget("text"),
+                                       font=('Arial', 9, 'bold'),
+                                       foreground=self.status_label.cget("foreground"))
+        popup_status_label.pack(side=tk.LEFT, padx=5)
+
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
+
+        popup_line_count = ttk.Label(info_frame, text=self.line_count_label.cget("text"))
+        popup_line_count.pack(side=tk.LEFT, padx=5)
+
+        # Log display area (scrolled text)
+        popup_log_text = scrolledtext.ScrolledText(main_frame,
+                                                    font=('Courier New', 9),
+                                                    wrap=tk.NONE,
+                                                    state='normal')
+        popup_log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Configure same color tags as main display
+        popup_log_text.tag_config("air", foreground="#0080FF")
+        popup_log_text.tag_config("ground", foreground="#FF00FF")
+        popup_log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")
+        popup_log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))
+        popup_log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))
+        popup_log_text.tag_config("debug", foreground="#808080")
+        popup_log_text.tag_config("info", foreground="#00FF00")
+
+        # Copy current log content to popup
+        current_content = self.log_text.get(1.0, tk.END)
+        popup_log_text.insert(1.0, current_content)
+
+        # Re-apply all tags (simple approach - could be optimized)
+        # This ensures colors are preserved
+        for tag_name in ["air", "ground", "error", "warning", "debug", "info", "highlight"]:
+            ranges = self.log_text.tag_ranges(tag_name)
+            for i in range(0, len(ranges), 2):
+                start = ranges[i]
+                end = ranges[i+1]
+                popup_log_text.tag_add(tag_name, start, end)
+
+        popup_log_text.config(state='disabled')
+
+        # Bottom button bar
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(button_frame, text="Refresh",
+                  command=lambda: self._refresh_popup(popup_log_text, popup_status_label, popup_line_count)).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="Copy All",
+                  command=lambda: self._copy_popup_content(popup_log_text)).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="Close",
+                  command=self.popup_window.destroy).pack(side=tk.RIGHT, padx=5)
+
+        # Handle window close
+        self.popup_window.protocol("WM_DELETE_WINDOW", self.popup_window.destroy)
+
+        logger.info("Pop-out log window created")
+
+    def _refresh_popup(self, popup_text, status_label, line_count_label):
+        """Refresh popup window with current log content"""
+        popup_text.config(state='normal')
+        popup_text.delete(1.0, tk.END)
+
+        # Copy current content
+        current_content = self.log_text.get(1.0, tk.END)
+        popup_text.insert(1.0, current_content)
+
+        # Re-apply tags
+        for tag_name in ["air", "ground", "error", "warning", "debug", "info", "highlight"]:
+            ranges = self.log_text.tag_ranges(tag_name)
+            for i in range(0, len(ranges), 2):
+                start = ranges[i]
+                end = ranges[i+1]
+                popup_text.tag_add(tag_name, start, end)
+
+        popup_text.config(state='disabled')
+        popup_text.see(tk.END)
+
+        # Update status labels
+        status_label.config(text=self.status_label.cget("text"),
+                           foreground=self.status_label.cget("foreground"))
+        line_count_label.config(text=self.line_count_label.cget("text"))
+
+        logger.debug("Pop-out window refreshed")
+
+    def _copy_popup_content(self, popup_text):
+        """Copy popup window content to clipboard"""
+        content = popup_text.get(1.0, tk.END).strip()
+        if content:
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(content)
+                self.update()
+                messagebox.showinfo("Success", "Logs copied to clipboard!", parent=self.popup_window)
+            except Exception as e:
+                logger.error(f"Error copying from popup: {e}")
+                messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.popup_window)
+
     def cleanup(self):
         """Cleanup on tab close"""
+        # Close popup window if open
+        if self.popup_window and self.popup_window.winfo_exists():
+            self.popup_window.destroy()
+
         if self.stream_running:
             self._on_stop()
