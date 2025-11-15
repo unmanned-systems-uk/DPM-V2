@@ -1,10 +1,20 @@
+#!/usr/bin/env python3
 """
-Tri-Domain Log Aggregation Sub-Tab
-===================================
+DPM SystemTools - Tri-Domain Log Viewer GUI
+===========================================
 
-Real-time aggregated log view from Air-Side (UDP) and Ground-Side (TCP)
+Standalone GUI wrapper for the tri-domain log aggregator.
+Provides tkinter-based interface with all log_aggregator.py features.
 
-Part of Issue #105 - Tri-Domain Log Aggregation GUI Integration
+Usage:
+    python log_viewer_gui.py
+
+Features:
+- Real-time log aggregation from Air-Side (UDP 5007) and Ground-Side (TCP 5008)
+- Color-coded display (Blue=AIR, Magenta=GROUND)
+- Filters: Domain, Level, Context, Text Search
+- Export: JSON, CSV, Text
+- Auto-scroll, Pause, Clear
 """
 
 import tkinter as tk
@@ -16,22 +26,22 @@ from typing import Dict, Any, Optional
 import json
 import csv
 import threading
-import subprocess
-import sys
 
-from utils.logger import logger
-from utils.config import config
 from network.log_listeners import AirSideListener, GroundSideListener
+from utils.logger import logger
 
 
-class TriDomainAggregationTab(ttk.Frame):
-    """Tri-Domain log aggregation tab - unified Air-Side + Ground-Side logs"""
+class LogViewerGUI(tk.Tk):
+    """Standalone Tri-Domain Log Viewer GUI Application"""
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
+
+        self.title("DPM SystemTools - Tri-Domain Log Viewer")
+        self.geometry("1600x900")
 
         # Log queue (shared with listeners)
-        self.log_queue = deque(maxlen=10000)  # Max 10,000 entries
+        self.log_queue = deque(maxlen=10000)
 
         # Listeners
         self.air_listener: Optional[AirSideListener] = None
@@ -55,20 +65,30 @@ class TriDomainAggregationTab(ttk.Frame):
         self.gui_update_running = False
         self.gui_update_thread = None
 
-        # Pop-out window
-        self.popup_window = None
+        # Display buffer (for filtering)
+        self.display_buffer = []
 
         self._create_ui()
 
-        logger.debug("Tri-Domain Aggregation tab initialized")
+        # Handle window close
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+
+        logger.info("Tri-Domain Log Viewer GUI initialized")
 
     def _create_ui(self):
         """Create UI elements"""
-        # Top: Stream Controls
+        # Top: Title and Controls
+        header_frame = ttk.Frame(self, padding=10)
+        header_frame.pack(fill=tk.X)
+
+        ttk.Label(header_frame, text="📊 Tri-Domain Log Aggregation Viewer",
+                 font=('Arial', 14, 'bold')).pack(side=tk.LEFT, padx=10)
+
+        # Stream Controls
         controls_frame = ttk.LabelFrame(self, text="Stream Controls", padding=10)
         controls_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Status indicator row
+        # Status row
         status_row = ttk.Frame(controls_frame)
         status_row.pack(fill=tk.X, pady=5)
 
@@ -77,40 +97,32 @@ class TriDomainAggregationTab(ttk.Frame):
         self.status_indicator.pack(side=tk.LEFT, padx=5)
         self._update_status_indicator("stopped")
 
-        self.status_label = ttk.Label(status_row, text="Stopped", font=('Arial', 9, 'bold'))
+        self.status_label = ttk.Label(status_row, text="Stopped", font=('Arial', 10, 'bold'))
         self.status_label.pack(side=tk.LEFT, padx=5)
 
-        # Control buttons row
+        # Buttons row
         button_row = ttk.Frame(controls_frame)
         button_row.pack(fill=tk.X, pady=5)
 
-        self.start_btn = ttk.Button(button_row, text="▶ Start", command=self._on_start, width=10)
+        self.start_btn = ttk.Button(button_row, text="▶ Start", command=self._on_start, width=12)
         self.start_btn.pack(side=tk.LEFT, padx=5)
 
-        self.pause_btn = ttk.Button(button_row, text="⏸ Pause", command=self._on_pause, state=tk.DISABLED, width=10)
+        self.pause_btn = ttk.Button(button_row, text="⏸ Pause", command=self._on_pause, state=tk.DISABLED, width=12)
         self.pause_btn.pack(side=tk.LEFT, padx=5)
 
-        self.stop_btn = ttk.Button(button_row, text="⏹ Stop", command=self._on_stop, state=tk.DISABLED, width=10)
+        self.stop_btn = ttk.Button(button_row, text="⏹ Stop", command=self._on_stop, state=tk.DISABLED, width=12)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         ttk.Separator(button_row, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
 
-        self.clear_btn = ttk.Button(button_row, text="Clear Display", command=self._on_clear)
-        self.clear_btn.pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(button_row, text="🗗 Pop Out", command=self._pop_out_window).pack(side=tk.LEFT, padx=5)
-
-        ttk.Separator(button_row, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
-
-        ttk.Button(button_row, text="🚀 Launch Standalone Viewer", command=self._launch_standalone,
-                  style='Accent.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_row, text="Clear", command=self._on_clear, width=10).pack(side=tk.LEFT, padx=5)
 
         # Auto-scroll toggle
         self.auto_scroll_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(button_row, text="Auto-scroll", variable=self.auto_scroll_var,
                        command=self._on_auto_scroll_changed).pack(side=tk.LEFT, padx=10)
 
-        # Last update time
+        # Last update
         ttk.Label(button_row, text="Last Update:").pack(side=tk.RIGHT, padx=5)
         self.last_update_label = ttk.Label(button_row, text="Never", font=('Arial', 9, 'italic'))
         self.last_update_label.pack(side=tk.RIGHT, padx=5)
@@ -119,11 +131,10 @@ class TriDomainAggregationTab(ttk.Frame):
         filters_frame = ttk.LabelFrame(self, text="Filters (Accumulative AND Logic)", padding=10)
         filters_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Filter row 1: Domain, Level, Context
+        # Filter row 1
         filter_row1 = ttk.Frame(filters_frame)
         filter_row1.pack(fill=tk.X, pady=5)
 
-        # Domain filter
         ttk.Label(filter_row1, text="Domain:").pack(side=tk.LEFT, padx=5)
         domain_combo = ttk.Combobox(filter_row1, textvariable=self.filter_domain,
                                     values=["ALL", "AIR", "GROUND"], state="readonly", width=10)
@@ -132,7 +143,6 @@ class TriDomainAggregationTab(ttk.Frame):
 
         ttk.Separator(filter_row1, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
 
-        # Level filter
         ttk.Label(filter_row1, text="Level:").pack(side=tk.LEFT, padx=5)
         level_combo = ttk.Combobox(filter_row1, textvariable=self.filter_level,
                                    values=["ALL", "DEBUG", "INFO", "WARNING", "ERROR"], state="readonly", width=10)
@@ -141,10 +151,9 @@ class TriDomainAggregationTab(ttk.Frame):
 
         ttk.Separator(filter_row1, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
 
-        # Context filter
         ttk.Label(filter_row1, text="Context:").pack(side=tk.LEFT, padx=5)
         context_combo = ttk.Combobox(filter_row1, textvariable=self.filter_context,
-                                     values=["ALL", "CAMERA", "NETWORK", "COMMAND", "UI"], state="readonly", width=12)
+                                     values=["ALL", "CAMERA", "NETWORK", "COMMAND", "UI", "SYSTEM"], state="readonly", width=12)
         context_combo.pack(side=tk.LEFT, padx=5)
         context_combo.bind("<<ComboboxSelected>>", self._on_filter_changed)
 
@@ -153,14 +162,11 @@ class TriDomainAggregationTab(ttk.Frame):
         filter_row2.pack(fill=tk.X, pady=5)
 
         ttk.Label(filter_row2, text="Search:").pack(side=tk.LEFT, padx=5)
-        search_entry = ttk.Entry(filter_row2, textvariable=self.filter_search, width=40)
+        search_entry = ttk.Entry(filter_row2, textvariable=self.filter_search, width=50)
         search_entry.pack(side=tk.LEFT, padx=5)
         search_entry.bind("<KeyRelease>", self._on_filter_changed)
 
         ttk.Button(filter_row2, text="Clear", command=self._on_clear_search).pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(filter_row2, text="(Searches entire log message)",
-                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=10)
 
         # Export/Copy Frame
         export_frame = ttk.Frame(self)
@@ -183,57 +189,42 @@ class TriDomainAggregationTab(ttk.Frame):
         self.line_count_label = ttk.Label(export_frame, text="Lines: 0 / Buffer: 0")
         self.line_count_label.pack(side=tk.RIGHT, padx=10)
 
-        # Log Display (fixed-width columns)
+        # Log Display
         log_frame = ttk.LabelFrame(self, text="Aggregated Logs (Air-Side + Ground-Side)", padding=5)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Text widget with scrollbar
-        text_frame = ttk.Frame(log_frame)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.NONE,
+                                                   font=('Courier New', 9))
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        self.log_text.config(state=tk.DISABLED)
 
-        # Use Courier New for fixed-width display
-        self.log_text = tk.Text(text_frame, wrap=tk.NONE, font=('Courier New', 9))
-        self.log_text.config(state=tk.DISABLED)  # Read-only
-
-        # Scrollbars
-        v_scroll = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.log_text.yview)
-        h_scroll = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=self.log_text.xview)
-        self.log_text.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
-
-        self.log_text.grid(row=0, column=0, sticky='nsew')
-        v_scroll.grid(row=0, column=1, sticky='ns')
-        h_scroll.grid(row=1, column=0, sticky='ew')
-
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        # Configure text tags for color-coding (matching log_aggregator.py)
+        # Configure color tags
         self.log_text.tag_config("air", foreground="#0080FF")  # Bright blue
         self.log_text.tag_config("ground", foreground="#FF00FF")  # Magenta
-        self.log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")  # Yellow highlight
+        self.log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")  # Yellow
         self.log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))  # Red
         self.log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))  # Orange
-        self.log_text.tag_config("debug", foreground="#808080")  # Gray for debug
-        self.log_text.tag_config("info", foreground="#00FF00")  # Green for info
-        self.log_text.tag_config("timestamp", foreground="#00FFFF")  # Cyan for timestamps
-        self.log_text.tag_config("context", foreground="#FFFF00")  # Yellow for context
+        self.log_text.tag_config("debug", foreground="#808080")  # Gray
+        self.log_text.tag_config("info", foreground="#00FF00")  # Green
 
     def _update_status_indicator(self, status: str):
-        """Update status indicator: stopped (gray), running (green), paused (orange)"""
+        """Update status indicator"""
         self.status_indicator.delete("all")
         color_map = {"stopped": "gray", "running": "green", "paused": "orange"}
         color = color_map.get(status, "gray")
         self.status_indicator.create_oval(2, 2, 18, 18, fill=color, outline=color)
 
     def _on_start(self):
-        """Start streaming logs from Air-Side and Ground-Side"""
+        """Start streaming logs"""
         if self.stream_running:
             return
 
-        logger.info("Starting Tri-Domain log aggregation...")
+        logger.info("Starting Tri-Domain log streaming...")
 
-        # Clear queue
+        # Clear queue and buffer
         self.log_queue.clear()
+        self.display_buffer.clear()
 
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
@@ -257,10 +248,10 @@ class TriDomainAggregationTab(ttk.Frame):
         self.pause_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.NORMAL)
 
-        logger.info("Tri-Domain log aggregation started")
+        logger.info("Tri-Domain log streaming started")
 
     def _on_pause(self):
-        """Pause display updates (listeners keep running, buffer logs)"""
+        """Pause/resume display updates"""
         if not self.stream_running:
             return
 
@@ -278,11 +269,11 @@ class TriDomainAggregationTab(ttk.Frame):
             logger.info("Display resumed")
 
     def _on_stop(self):
-        """Stop both listeners and clear buffer"""
+        """Stop streaming"""
         if not self.stream_running:
             return
 
-        logger.info("Stopping Tri-Domain log aggregation...")
+        logger.info("Stopping Tri-Domain log streaming...")
 
         # Stop GUI update thread
         self.gui_update_running = False
@@ -310,13 +301,14 @@ class TriDomainAggregationTab(ttk.Frame):
         self.pause_btn.config(state=tk.DISABLED, text="⏸ Pause")
         self.stop_btn.config(state=tk.DISABLED)
 
-        logger.info("Tri-Domain log aggregation stopped")
+        logger.info("Tri-Domain log streaming stopped")
 
     def _on_clear(self):
         """Clear log display"""
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
+        self.display_buffer.clear()
         self._update_line_count()
 
     def _on_auto_scroll_changed(self):
@@ -324,13 +316,13 @@ class TriDomainAggregationTab(ttk.Frame):
         self.auto_scroll = self.auto_scroll_var.get()
 
     def _on_filter_changed(self, event=None):
-        """Handle filter change - redisplay all logs with new filter"""
-        self._redisplay_all_logs()
+        """Handle filter change - redisplay filtered logs"""
+        self._redisplay_filtered_logs()
 
     def _on_clear_search(self):
         """Clear search filter"""
         self.filter_search.set("")
-        self._redisplay_all_logs()
+        self._redisplay_filtered_logs()
 
     def _gui_update_worker(self):
         """Background thread to update GUI with new log entries"""
@@ -352,11 +344,13 @@ class TriDomainAggregationTab(ttk.Frame):
         if not self.gui_update_running or self.stream_paused:
             return
 
-        # Process up to 100 entries at a time to avoid blocking UI
+        # Process up to 100 entries at a time
         entries_to_process = []
         for _ in range(min(100, len(self.log_queue))):
             if self.log_queue:
-                entries_to_process.append(self.log_queue.popleft())
+                entry = self.log_queue.popleft()
+                entries_to_process.append(entry)
+                self.display_buffer.append(entry)  # Keep in buffer for filtering
 
         if not entries_to_process:
             return
@@ -372,7 +366,7 @@ class TriDomainAggregationTab(ttk.Frame):
         self.last_update_label.config(text=self.last_update_time.strftime("%H:%M:%S"))
 
     def _should_display(self, entry: Dict[str, Any]) -> bool:
-        """Check if log entry matches current filters (AND logic)"""
+        """Check if log entry matches current filters"""
         # Domain filter
         domain_filter = self.filter_domain.get()
         if domain_filter != "ALL" and entry.get('domain') != domain_filter:
@@ -400,44 +394,41 @@ class TriDomainAggregationTab(ttk.Frame):
         return True
 
     def _append_log_entry(self, entry: Dict[str, Any]):
-        """Append a single log entry to display with fixed-width formatting"""
+        """Append a single log entry to display"""
         # Format: [TIMESTAMP] [DOMAIN ] [LEVEL  ] [CONTEXT] Message
         timestamp = entry.get('timestamp', 'NO-TS')
         if 'T' in timestamp:
-            # Extract just the time portion (HH:MM:SS.mmm)
             try:
-                time_part = timestamp.split('T')[1][:12]  # HH:MM:SS.mmm
+                time_part = timestamp.split('T')[1][:12]
             except:
                 time_part = timestamp[:12]
         else:
             time_part = timestamp[:12]
 
-        domain = entry.get('domain', 'UNK').ljust(6)[:6]  # Fixed width: 6 chars
-        level = entry.get('level', 'INFO').ljust(7)[:7]    # Fixed width: 7 chars
-        context = entry.get('context', 'UNKNOWN').ljust(8)[:8]  # Fixed width: 8 chars
+        domain = entry.get('domain', 'UNK').ljust(6)[:6]
+        level = entry.get('level', 'INFO').ljust(7)[:7]
+        context = entry.get('context', 'UNKNOWN').ljust(8)[:8]
         message = entry.get('message', '')
 
-        # Build the log line
         log_line = f"{time_part} [{domain}] [{level}] [{context}] {message}\n"
 
         # Enable editing
         self.log_text.config(state=tk.NORMAL)
 
-        # Get insertion position
-        insert_pos = self.log_text.index(tk.INSERT)
-
         # Insert line
         self.log_text.insert(tk.END, log_line)
 
-        # Apply color-coding based on domain
+        # Get line number
         line_number = int(self.log_text.index(tk.END).split('.')[0]) - 1
+
+        # Apply domain color
         domain_code = entry.get('domain', '')
         if domain_code == 'AIR':
             self.log_text.tag_add("air", f"{line_number}.0", f"{line_number}.end")
         elif domain_code == 'GROUND':
             self.log_text.tag_add("ground", f"{line_number}.0", f"{line_number}.end")
 
-        # Apply level-based highlighting (with priority to override domain color)
+        # Apply level color (overrides domain color)
         level_code = entry.get('level', 'INFO')
         if level_code == 'ERROR':
             self.log_text.tag_add("error", f"{line_number}.0", f"{line_number}.end")
@@ -453,7 +444,7 @@ class TriDomainAggregationTab(ttk.Frame):
         if search_text:
             self._highlight_search_in_line(line_number, log_line, search_text)
 
-        # Auto-scroll to bottom
+        # Auto-scroll
         if self.auto_scroll:
             self.log_text.see(tk.END)
 
@@ -472,59 +463,57 @@ class TriDomainAggregationTab(ttk.Frame):
             self.log_text.tag_add("highlight", start_pos, end_pos)
             start_idx = idx + len(search_text)
 
-    def _redisplay_all_logs(self):
-        """Redisplay all logs from queue with current filters"""
-        # This is a simplified version - we can't recover old logs from queue
-        # Once they're displayed and removed, they're gone
-        # For full filtering, we'd need to keep a persistent buffer
-        # For now, just note that filters apply to NEW logs
-        logger.debug("Filters updated - will apply to new log entries")
+    def _redisplay_filtered_logs(self):
+        """Redisplay all logs from buffer with current filters"""
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.DISABLED)
+
+        for entry in self.display_buffer:
+            if self._should_display(entry):
+                self._append_log_entry(entry)
+
+        self._update_line_count()
 
     def _update_line_count(self):
         """Update line count label"""
         total_lines = int(self.log_text.index(tk.END).split('.')[0]) - 1
-        buffer_size = len(self.log_queue)
-        self.line_count_label.config(text=f"Lines: {total_lines} / Buffer: {buffer_size}")
+        buffer_size = len(self.display_buffer)
+        self.line_count_label.config(text=f"Displayed: {total_lines} / Buffer: {buffer_size}")
 
     def _on_save_to_file(self):
-        """Export logs to file (JSON, CSV, or text format)"""
-        content = self.log_text.get(1.0, tk.END).strip()
-        if not content:
+        """Export logs to file"""
+        if not self.display_buffer:
             messagebox.showinfo("No Data", "No logs to export")
             return
 
-        # Get export format
         export_format = self.export_format_var.get()
-
-        # Get save location
-        default_dir = config.get("data", "log_directory", str(Path.home() / "Documents"))
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # File extensions
         ext_map = {"json": ".json", "csv": ".csv", "text": ".txt"}
-        filetypes_map = {
-            "json": [("JSON files", "*.json"), ("All files", "*.*")],
-            "csv": [("CSV files", "*.csv"), ("All files", "*.*")],
-            "text": [("Text files", "*.txt"), ("Log files", "*.log"), ("All files", "*.*")]
-        }
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         filepath = filedialog.asksaveasfilename(
             title="Save Logs",
-            initialdir=default_dir,
             initialfile=f"tri_domain_logs_{timestamp}{ext_map[export_format]}",
             defaultextension=ext_map[export_format],
-            filetypes=filetypes_map[export_format]
+            filetypes=[("All files", "*.*")]
         )
 
         if filepath:
             try:
-                if export_format == "text":
-                    # Simple text export
+                # Filter logs that should be displayed
+                filtered_logs = [entry for entry in self.display_buffer if self._should_display(entry)]
+
+                if export_format == "json":
                     with open(filepath, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                else:
-                    # JSON/CSV export would require parsing the text back
-                    # For simplicity, just save as text for now
+                        json.dump(filtered_logs, f, indent=2)
+                elif export_format == "csv":
+                    with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                        if filtered_logs:
+                            writer = csv.DictWriter(f, fieldnames=filtered_logs[0].keys())
+                            writer.writeheader()
+                            writer.writerows(filtered_logs)
+                else:  # text
+                    content = self.log_text.get(1.0, tk.END)
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.write(content)
 
@@ -568,169 +557,18 @@ class TriDomainAggregationTab(ttk.Frame):
             logger.error(f"Error copying selection: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
-    def _pop_out_window(self):
-        """Pop out log viewer into a separate window"""
-        # If window already exists, bring it to front
-        if self.popup_window and self.popup_window.winfo_exists():
-            self.popup_window.lift()
-            self.popup_window.focus_force()
-            logger.debug("Pop-out window brought to front")
-            return
-
-        # Create new popup window
-        self.popup_window = tk.Toplevel(self)
-        self.popup_window.title("DPM SystemTools - Tri-Domain Log Aggregation")
-        self.popup_window.geometry("1400x800")
-
-        # Set window icon (same as main window if available)
-        try:
-            self.popup_window.iconbitmap(self.master.master.master.iconbitmap())
-        except:
-            pass
-
-        # Create main frame
-        main_frame = ttk.Frame(self.popup_window, padding=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Title label
-        title_label = ttk.Label(main_frame, text="📊 Tri-Domain Log Aggregation (Air-Side + Ground-Side)",
-                               font=('Arial', 12, 'bold'))
-        title_label.pack(pady=(0, 10))
-
-        # Info label
-        info_frame = ttk.Frame(main_frame)
-        info_frame.pack(fill=tk.X, pady=(0, 10))
-
-        ttk.Label(info_frame, text="Status:", font=('Arial', 9)).pack(side=tk.LEFT, padx=5)
-        popup_status_label = ttk.Label(info_frame,
-                                       text=self.status_label.cget("text"),
-                                       font=('Arial', 9, 'bold'),
-                                       foreground=self.status_label.cget("foreground"))
-        popup_status_label.pack(side=tk.LEFT, padx=5)
-
-        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
-
-        popup_line_count = ttk.Label(info_frame, text=self.line_count_label.cget("text"))
-        popup_line_count.pack(side=tk.LEFT, padx=5)
-
-        # Log display area (scrolled text)
-        popup_log_text = scrolledtext.ScrolledText(main_frame,
-                                                    font=('Courier New', 9),
-                                                    wrap=tk.NONE,
-                                                    state='normal')
-        popup_log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-
-        # Configure same color tags as main display
-        popup_log_text.tag_config("air", foreground="#0080FF")
-        popup_log_text.tag_config("ground", foreground="#FF00FF")
-        popup_log_text.tag_config("highlight", background="#FFFF00", foreground="#000000")
-        popup_log_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))
-        popup_log_text.tag_config("warning", foreground="#FFA500", font=('Courier New', 9))
-        popup_log_text.tag_config("debug", foreground="#808080")
-        popup_log_text.tag_config("info", foreground="#00FF00")
-
-        # Copy current log content to popup
-        current_content = self.log_text.get(1.0, tk.END)
-        popup_log_text.insert(1.0, current_content)
-
-        # Re-apply all tags (simple approach - could be optimized)
-        # This ensures colors are preserved
-        for tag_name in ["air", "ground", "error", "warning", "debug", "info", "highlight"]:
-            ranges = self.log_text.tag_ranges(tag_name)
-            for i in range(0, len(ranges), 2):
-                start = ranges[i]
-                end = ranges[i+1]
-                popup_log_text.tag_add(tag_name, start, end)
-
-        popup_log_text.config(state='disabled')
-
-        # Bottom button bar
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
-
-        ttk.Button(button_frame, text="Refresh",
-                  command=lambda: self._refresh_popup(popup_log_text, popup_status_label, popup_line_count)).pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(button_frame, text="Copy All",
-                  command=lambda: self._copy_popup_content(popup_log_text)).pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(button_frame, text="Close",
-                  command=self.popup_window.destroy).pack(side=tk.RIGHT, padx=5)
-
-        # Handle window close
-        self.popup_window.protocol("WM_DELETE_WINDOW", self.popup_window.destroy)
-
-        logger.info("Pop-out log window created")
-
-    def _refresh_popup(self, popup_text, status_label, line_count_label):
-        """Refresh popup window with current log content"""
-        popup_text.config(state='normal')
-        popup_text.delete(1.0, tk.END)
-
-        # Copy current content
-        current_content = self.log_text.get(1.0, tk.END)
-        popup_text.insert(1.0, current_content)
-
-        # Re-apply tags
-        for tag_name in ["air", "ground", "error", "warning", "debug", "info", "highlight"]:
-            ranges = self.log_text.tag_ranges(tag_name)
-            for i in range(0, len(ranges), 2):
-                start = ranges[i]
-                end = ranges[i+1]
-                popup_text.tag_add(tag_name, start, end)
-
-        popup_text.config(state='disabled')
-        popup_text.see(tk.END)
-
-        # Update status labels
-        status_label.config(text=self.status_label.cget("text"),
-                           foreground=self.status_label.cget("foreground"))
-        line_count_label.config(text=self.line_count_label.cget("text"))
-
-        logger.debug("Pop-out window refreshed")
-
-    def _copy_popup_content(self, popup_text):
-        """Copy popup window content to clipboard"""
-        content = popup_text.get(1.0, tk.END).strip()
-        if content:
-            try:
-                self.clipboard_clear()
-                self.clipboard_append(content)
-                self.update()
-                messagebox.showinfo("Success", "Logs copied to clipboard!", parent=self.popup_window)
-            except Exception as e:
-                logger.error(f"Error copying from popup: {e}")
-                messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.popup_window)
-
-    def _launch_standalone(self):
-        """Launch standalone Tri-Domain Log Viewer GUI"""
-        try:
-            script_path = Path(__file__).parent.parent.parent / "log_viewer_gui.py"
-
-            if not script_path.exists():
-                messagebox.showerror("Error", f"Standalone viewer not found:\n{script_path}")
-                logger.error(f"log_viewer_gui.py not found at {script_path}")
-                return
-
-            # Launch in separate process
-            subprocess.Popen([sys.executable, str(script_path)],
-                           cwd=str(script_path.parent),
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-
-            logger.info("Launched standalone Tri-Domain Log Viewer")
-            messagebox.showinfo("Launched", "Standalone Tri-Domain Log Viewer launched!\n\n"
-                              "Check your taskbar for the new window.")
-
-        except Exception as e:
-            logger.error(f"Error launching standalone viewer: {e}")
-            messagebox.showerror("Error", f"Failed to launch standalone viewer:\n{e}")
-
-    def cleanup(self):
-        """Cleanup on tab close"""
-        # Close popup window if open
-        if self.popup_window and self.popup_window.winfo_exists():
-            self.popup_window.destroy()
-
+    def _on_closing(self):
+        """Handle window close"""
         if self.stream_running:
             self._on_stop()
+        self.destroy()
+
+
+def main():
+    """Main entry point"""
+    app = LogViewerGUI()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
