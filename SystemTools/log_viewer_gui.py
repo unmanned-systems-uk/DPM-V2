@@ -197,7 +197,9 @@ class LogViewerGUI(tk.Tk):
 
         # Text widget with scrollbar
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.NONE,
-                                                   font=('Courier New', 9))
+                                                   font=('Courier New', 9),
+                                                   bg='#FFFFFF',  # White background
+                                                   fg='#000000')  # Black default text
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
         # Configure color tags from config (BEFORE disabling widget)

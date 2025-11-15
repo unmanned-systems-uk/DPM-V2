@@ -194,7 +194,8 @@ class TriDomainAggregationTab(ttk.Frame):
         text_frame.pack(fill=tk.BOTH, expand=True)
 
         # Use Courier New for fixed-width display
-        self.log_text = tk.Text(text_frame, wrap=tk.NONE, font=('Courier New', 9))
+        self.log_text = tk.Text(text_frame, wrap=tk.NONE, font=('Courier New', 9),
+                                bg='#FFFFFF', fg='#000000')  # White bg, black default text
         self.log_text.config(state=tk.DISABLED)  # Read-only
 
         # Scrollbars
@@ -611,7 +612,9 @@ class TriDomainAggregationTab(ttk.Frame):
         popup_log_text = scrolledtext.ScrolledText(main_frame,
                                                     font=('Courier New', 9),
                                                     wrap=tk.NONE,
-                                                    state='normal')
+                                                    state='normal',
+                                                    bg='#FFFFFF',  # White background
+                                                    fg='#000000')  # Black default text
         popup_log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
         # Configure same color tags as main display from config
