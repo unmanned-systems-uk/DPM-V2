@@ -17,6 +17,7 @@
 #include "logging/sinks/console_sink.h"
 #include "logging/sinks/file_sink.h"
 #include "logging/sinks/network_sink.h"
+#include "network/udp_discovery_listener.h"
 #include "health/health_monitor.h"
 #include "utils/system_info.h"
 
@@ -24,6 +25,7 @@
 std::unique_ptr<TCPServer> g_tcp_server;
 std::unique_ptr<UDPBroadcaster> g_udp_broadcaster;
 std::unique_ptr<Heartbeat> g_heartbeat;
+std::unique_ptr<UdpDiscoveryListener> g_discovery_listener;
 std::shared_ptr<CameraInterface> g_camera;
 std::atomic<bool> g_shutdown_requested(false);
 std::atomic<bool> g_health_check_running(false);
@@ -186,6 +188,17 @@ int main(int argc, char* argv[]) {
         StructuredLogger::getInstance().addSink(network_sink);
 
         LOG_INFO(LogContext::SYSTEM, "logger_init_done", "StructuredLogger initialized with 3 sinks (console, file, network)");
+
+        // Initialize UDP Discovery Listener for SystemTools auto-detection (Issue #110)
+        if (CONFIG_BOOL("discovery.enabled")) {
+            int discovery_port = CONFIG_INT("discovery.port");
+            LOG_INFO(LogContext::NETWORK, "discovery_init_start", "Starting UDP discovery listener on port " + std::to_string(discovery_port) + "...");
+            g_discovery_listener = std::make_unique<UdpDiscoveryListener>(discovery_port);
+            g_discovery_listener->start();
+            LOG_INFO(LogContext::NETWORK, "discovery_init_done", "UDP discovery listener active - SystemTools IP will be auto-detected");
+        } else {
+            LOG_INFO(LogContext::NETWORK, "discovery_disabled", "UDP discovery disabled - using config IP for SystemTools");
+        }
 
         // Initialize HealthMonitor (Phase 1: Gap 2)
         LOG_INFO(LogContext::SYSTEM, "health_init_start", "Initializing HealthMonitor...");
@@ -360,6 +373,11 @@ int main(int argc, char* argv[]) {
             g_tcp_server->stop();
         }
 
+        if (g_discovery_listener) {
+            LOG_INFO(LogContext::NETWORK, "discovery_stop", "Stopping UDP discovery listener...");
+            g_discovery_listener->stop();
+        }
+
         if (g_camera) {
             LOG_INFO(LogContext::CAMERA, "camera_disconnect", "Disconnecting camera...");
             g_camera->disconnect();
@@ -397,6 +415,7 @@ int main(int argc, char* argv[]) {
         if (g_heartbeat) g_heartbeat->stop();
         if (g_udp_broadcaster) g_udp_broadcaster->stop();
         if (g_tcp_server) g_tcp_server->stop();
+        if (g_discovery_listener) g_discovery_listener->stop();
         if (g_camera) g_camera->disconnect();
 
         // Shutdown Phase 1 components on error

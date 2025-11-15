@@ -49,6 +49,7 @@ set(SOURCES
     src/protocol/tcp_server.cpp
     src/protocol/udp_broadcaster.cpp
     src/protocol/heartbeat.cpp
+    src/network/udp_discovery_listener.cpp
     src/camera/camera_sony.cpp
     src/camera/property_loader.cpp
     src/config/config_manager.cpp

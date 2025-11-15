@@ -141,8 +141,8 @@ void TCPServer::acceptLoop() {
         // Register client with NetworkSink for log streaming (dynamic discovery)
         StructuredLogger::getInstance().addGroundClient(client_ip);
 
-        // Update SystemTools IP for log streaming (dynamic discovery - Issue #99)
-        StructuredLogger::getInstance().setSystemToolsIP(client_ip);
+        // NOTE: SystemTools IP detection moved to UDP Discovery Protocol (Issue #110)
+        // TCP connections include Ground-Side (192.168.144.11), not just SystemTools
 
         // Set client socket options for better handling
         int opt = 1;

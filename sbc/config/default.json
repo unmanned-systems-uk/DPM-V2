@@ -8,8 +8,15 @@
     "udp_heartbeat_port": 5002,
     "udp_logs_port": 5005,
     "udp_health_port": 5004,
+    "udp_discovery_port": 5009,
     "ground_ip": "192.168.144.11",
     "air_ip": "192.168.144.20"
+  },
+
+  "discovery": {
+    "enabled": true,
+    "port": 5009,
+    "timeout_sec": 60
   },
 
   "timing": {
