@@ -197,3 +197,18 @@ void StructuredLogger::removeGroundClient(const std::string& client_ip) {
         }
     }
 }
+
+void StructuredLogger::setSystemToolsIP(const std::string& ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and update SystemTools IP
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->setSystemToolsIP(ip);
+            }
+            break;
+        }
+    }
+}

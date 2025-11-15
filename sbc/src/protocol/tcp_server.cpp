@@ -141,6 +141,9 @@ void TCPServer::acceptLoop() {
         // Register client with NetworkSink for log streaming (dynamic discovery)
         StructuredLogger::getInstance().addGroundClient(client_ip);
 
+        // Update SystemTools IP for log streaming (dynamic discovery - Issue #99)
+        StructuredLogger::getInstance().setSystemToolsIP(client_ip);
+
         // Set client socket options for better handling
         int opt = 1;
         // Disable Nagle's algorithm for lower latency

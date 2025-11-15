@@ -54,6 +54,9 @@ public:
     void addGroundClient(const std::string& client_ip);
     void removeGroundClient(const std::string& client_ip);
 
+    // Dynamic SystemTools IP update (resolves Issue #99 for Air-Side)
+    void setSystemToolsIP(const std::string& ip);
+
     // Core logging method with structured fields
     void log(LogLevel level, LogContext context, const std::string& message,
              const json& fields = json::object());

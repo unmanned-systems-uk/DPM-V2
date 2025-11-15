@@ -129,3 +129,12 @@ size_t NetworkSink::getClientCount() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return client_ips_.size();
 }
+
+void NetworkSink::setSystemToolsIP(const std::string& ip) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (ip != systemtools_ip_) {
+        std::cout << "NetworkSink: SystemTools IP updated from " << systemtools_ip_
+                  << " to " << ip << " (dynamic detection)" << std::endl;
+        systemtools_ip_ = ip;
+    }
+}

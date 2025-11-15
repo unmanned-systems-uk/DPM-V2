@@ -30,6 +30,9 @@ public:
     void removeClient(const std::string& client_ip);
     size_t getClientCount() const;
 
+    // Dynamic SystemTools IP update (resolves Issue #99 for Air-Side)
+    void setSystemToolsIP(const std::string& ip);
+
 private:
     void sendUDP(const std::string& ip, int port, const std::string& data);
     void checkGroundStreamingTimeout();
