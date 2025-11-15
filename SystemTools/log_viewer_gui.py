@@ -199,10 +199,12 @@ class LogViewerGUI(tk.Tk):
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.NONE,
                                                    font=('Courier New', 9))
         self.log_text.pack(fill=tk.BOTH, expand=True)
-        self.log_text.config(state=tk.DISABLED)
 
-        # Configure color tags from config
+        # Configure color tags from config (BEFORE disabling widget)
         configure_tkinter_text_tags(self.log_text)
+
+        # Disable editing (after configuring tags)
+        self.log_text.config(state=tk.DISABLED)
 
     def _update_status_indicator(self, status: str):
         """Update status indicator"""

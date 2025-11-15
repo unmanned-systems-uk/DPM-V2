@@ -73,15 +73,21 @@ def _inject_logs(app):
         app.log_queue.append(entry)
         print(f"  Injected: {entry['domain']} {entry['level']} - {entry['message'][:40]}")
 
-    # Trigger GUI update
-    app._update_display()
+    # Manually trigger display (bypass worker thread for testing)
+    print("\nProcessing queue manually...")
+    for entry in fake_entries:
+        if app._should_display(entry):
+            app._append_log_entry(entry)
 
-    print("\nLogs injected. Check the GUI window:")
+    app._update_line_count()
+
+    print("\nLogs injected and displayed. Check the GUI window:")
     print("  - Lines should have different colors based on level")
     print("  - ERROR: RED and BOLD")
     print("  - WARNING: ORANGE")
     print("  - INFO: GREEN")
     print("  - DEBUG: GRAY")
+    print("\nIf you see NO colors, the issue is in LogViewerGUI class.")
     print("="*60 + "\n")
 
 if __name__ == "__main__":
