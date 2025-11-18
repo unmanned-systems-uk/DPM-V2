@@ -33,6 +33,9 @@ public:
     // Dynamic SystemTools IP update (resolves Issue #99 for Air-Side)
     void setSystemToolsIP(const std::string& ip);
 
+    // Dynamic SystemTools enable/disable (for runtime config updates)
+    void setSystemToolsEnabled(bool enabled);
+
 private:
     void sendUDP(const std::string& ip, int port, const std::string& data);
     void checkGroundStreamingTimeout();

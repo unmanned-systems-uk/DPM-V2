@@ -33,6 +33,7 @@ COPY DPM-V2/protocol /app/protocol
 
 # Build payload_manager only (skip test programs for now)
 RUN cd /app/sbc && \
+    rm -rf build && \
     mkdir -p build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \

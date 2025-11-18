@@ -904,6 +904,8 @@ json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
 
     // Validate parameters
     if (!payload.contains("parameters")) {
+        LOG_ERROR(LogContext::COMMAND, "system.update_config validation failed: Missing 'parameters' object in payload");
+        LOG_ERROR(LogContext::COMMAND, "Received payload: " + payload.dump());
         return messages::createErrorResponse(
             seq_id, "system.update_config",
             messages::ErrorCode::INVALID_JSON,
@@ -913,6 +915,8 @@ json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
 
     const json& params = payload["parameters"];
     if (!params.contains("updates")) {
+        LOG_ERROR(LogContext::COMMAND, "system.update_config validation failed: Missing 'updates' field in parameters");
+        LOG_ERROR(LogContext::COMMAND, "Received parameters: " + params.dump());
         return messages::createErrorResponse(
             seq_id, "system.update_config",
             messages::ErrorCode::INVALID_JSON,
@@ -922,6 +926,8 @@ json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
 
     const json& updates = params["updates"];
     if (!updates.is_object()) {
+        LOG_ERROR(LogContext::COMMAND, "system.update_config validation failed: 'updates' is not an object (type: " + std::string(updates.type_name()) + ")");
+        LOG_ERROR(LogContext::COMMAND, "Received updates value: " + updates.dump());
         return messages::createErrorResponse(
             seq_id, "system.update_config",
             messages::ErrorCode::INVALID_JSON,
@@ -936,12 +942,14 @@ json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
     std::vector<json> failed;
 
     for (auto& [key, value] : updates.items()) {
-        LOG_DEBUG(LogContext::COMMAND, "Updating config: " + key + " = " + value.dump());
+        LOG_INFO(LogContext::COMMAND, "Updating config: " + key + " = " + value.dump());
 
         bool success = ConfigManager::getInstance().set(key, value);
         if (success) {
             updated.push_back(key);
+            LOG_INFO(LogContext::COMMAND, "Successfully updated config key: " + key);
         } else {
+            LOG_ERROR(LogContext::COMMAND, "Failed to update config key: " + key + " (value: " + value.dump() + ")");
             failed.push_back({
                 {"key", key},
                 {"value", value},
@@ -955,6 +963,17 @@ json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
     if (!updated.empty()) {
         ConfigManager::getInstance().saveLocal();
         LOG_INFO(LogContext::COMMAND, "Configuration changes saved to local.json");
+    }
+
+    // Apply runtime updates for logging configuration changes
+    // These changes take effect immediately without requiring restart
+    for (const auto& key : updated) {
+        if (key == "logging.network_systemtools_enabled") {
+            bool enabled = ConfigManager::getInstance().getBool(key);
+            StructuredLogger::getInstance().setSystemToolsEnabled(enabled);
+            LOG_INFO(LogContext::COMMAND, "Applied runtime update: SystemTools logging " +
+                     std::string(enabled ? "ENABLED" : "DISABLED"));
+        }
     }
 
     // Determine if restart is required

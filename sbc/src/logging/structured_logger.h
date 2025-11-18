@@ -57,6 +57,9 @@ public:
     // Dynamic SystemTools IP update (resolves Issue #99 for Air-Side)
     void setSystemToolsIP(const std::string& ip);
 
+    // Dynamic SystemTools enable/disable (for runtime config updates)
+    void setSystemToolsEnabled(bool enabled);
+
     // Core logging method with structured fields
     void log(LogLevel level, LogContext context, const std::string& message,
              const json& fields = json::object());

@@ -48,7 +48,10 @@ void NetworkSink::write(const json& log_entry) {
     }
 
     // Send to SystemTools if enabled (always-on monitoring)
-    if (systemtools_enabled_) {
+    // CRITICAL: Always send ERROR logs regardless of enabled state (Issue #148)
+    // This ensures critical errors are visible in SystemTools even when passive logging is disabled
+    bool is_error_log = log_entry.contains("level") && log_entry["level"] == "ERROR";
+    if (systemtools_enabled_ || is_error_log) {
         sendUDP(systemtools_ip_, systemtools_port_, data);
     }
 }
@@ -136,5 +139,15 @@ void NetworkSink::setSystemToolsIP(const std::string& ip) {
         std::cout << "NetworkSink: SystemTools IP updated from " << systemtools_ip_
                   << " to " << ip << " (dynamic detection)" << std::endl;
         systemtools_ip_ = ip;
+    }
+}
+
+void NetworkSink::setSystemToolsEnabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (enabled != systemtools_enabled_) {
+        systemtools_enabled_ = enabled;
+        std::cout << "NetworkSink: SystemTools logging "
+                  << (enabled ? "ENABLED" : "DISABLED")
+                  << " (runtime config update)" << std::endl;
     }
 }

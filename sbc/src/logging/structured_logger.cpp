@@ -212,3 +212,18 @@ void StructuredLogger::setSystemToolsIP(const std::string& ip) {
         }
     }
 }
+
+void StructuredLogger::setSystemToolsEnabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Find NetworkSink in sinks and update SystemTools enabled state
+    for (auto& sink : sinks_) {
+        if (sink->name() == "NetworkSink") {
+            auto network_sink = std::dynamic_pointer_cast<NetworkSink>(sink);
+            if (network_sink) {
+                network_sink->setSystemToolsEnabled(enabled);
+            }
+            break;
+        }
+    }
+}
