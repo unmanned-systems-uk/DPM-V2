@@ -1,5 +1,6 @@
 #include "protocol/tcp_server.h"
 #include "config.h"
+#include "config/config_manager.h"
 #include "protocol/messages.h"
 #include "protocol/udp_broadcaster.h"
 #include "protocol/heartbeat.h"
@@ -289,13 +290,17 @@ json TCPServer::processCommand(const json& command) {
 
         // For other messages, get command from payload
         std::string cmd = command["payload"]["command"];
-        LOG_INFO(LogContext::NETWORK, "Processing command: " + cmd);
+        LOG_INFO(LogContext::COMMAND, "Processing command: " + cmd);
 
         // Route to appropriate handler
         if (cmd == "handshake") {
             return handleHandshake(command["payload"], seq_id);
         } else if (cmd == "system.get_status") {
             return handleSystemGetStatus(command["payload"], seq_id);
+        } else if (cmd == "system.get_config") {
+            return handleSystemGetConfig(command["payload"], seq_id);
+        } else if (cmd == "system.update_config") {
+            return handleSystemUpdateConfig(command["payload"], seq_id);
         } else if (cmd == "camera.capture") {
             return handleCameraCapture(command["payload"], seq_id);
         } else if (cmd == "camera.focus") {
@@ -393,7 +398,7 @@ json TCPServer::handleCameraCapture(const json& payload, int seq_id) {
     }
 
     // Trigger capture
-    LOG_INFO(LogContext::NETWORK, "Executing camera.capture command");
+    LOG_INFO(LogContext::COMMAND, "Executing camera.capture command");
     bool success = camera_->capture();
 
     if (!success) {
@@ -479,7 +484,7 @@ json TCPServer::handleCameraFocus(const json& payload, int seq_id) {
     }
 
     // Execute focus operation
-    LOG_INFO(LogContext::NETWORK, "Executing camera.focus command: action=" + action + ", speed=" + std::to_string(speed));
+    LOG_INFO(LogContext::COMMAND, "Executing camera.focus command: action=" + action + ", speed=" + std::to_string(speed));
     bool success = camera_->focus(action, speed);
 
     if (!success) {
@@ -562,7 +567,7 @@ json TCPServer::handleCameraAutoFocusHold(const json& payload, int seq_id) {
     }
 
     // Execute auto-focus hold operation
-    LOG_INFO(LogContext::NETWORK, "Executing camera.auto_focus_hold command: state=" + state);
+    LOG_INFO(LogContext::COMMAND, "Executing camera.auto_focus_hold command: state=" + state);
     bool success = camera_->autoFocusHold(state);
 
     if (!success) {
@@ -626,7 +631,7 @@ json TCPServer::handleCameraSetProperty(const json& payload, int seq_id) {
                         params["value"].get<std::string>() :
                         std::to_string(params["value"].get<int>());
 
-    LOG_INFO(LogContext::NETWORK, "Executing camera.set_property: " + property + " = " + value);
+    LOG_INFO(LogContext::COMMAND, "Executing camera.set_property: " + property + " = " + value);
 
     // Set the property
     bool success = camera_->setProperty(property, value);
@@ -721,7 +726,7 @@ json TCPServer::handleCameraGetProperties(const json& payload, int seq_id) {
         );
     }
 
-    LOG_INFO(LogContext::NETWORK, "Executing camera.get_properties for " +
+    LOG_INFO(LogContext::COMMAND, "Executing camera.get_properties for " +
                  std::to_string(properties_array.size()) + " properties");
 
     // Get each property
@@ -801,7 +806,7 @@ bool TCPServer::validateMessage(const json& msg, std::string& error) {
 }
 
 json TCPServer::handleEnableLogStreaming(const json& payload, int seq_id) {
-    LOG_INFO(LogContext::NETWORK, "Executing logging.enable_streaming");
+    LOG_INFO(LogContext::COMMAND, "Executing logging.enable_streaming");
 
     // Get optional duration parameter (default: 300 seconds)
     int duration_sec = 300;
@@ -835,12 +840,12 @@ json TCPServer::handleEnableLogStreaming(const json& payload, int seq_id) {
         {"duration_sec", duration_sec}
     };
 
-    LOG_INFO(LogContext::NETWORK, "Log streaming enabled for " + std::to_string(duration_sec) + " seconds");
+    LOG_INFO(LogContext::COMMAND, "Log streaming enabled for " + std::to_string(duration_sec) + " seconds");
     return messages::createSuccessResponse(seq_id, "logging.enable_streaming", result);
 }
 
 json TCPServer::handleDisableLogStreaming(const json& payload, int seq_id) {
-    LOG_INFO(LogContext::NETWORK, "Executing logging.disable_streaming");
+    LOG_INFO(LogContext::COMMAND, "Executing logging.disable_streaming");
 
     // Disable ground streaming via StructuredLogger
     StructuredLogger::getInstance().disableGroundStreaming();
@@ -849,12 +854,12 @@ json TCPServer::handleDisableLogStreaming(const json& payload, int seq_id) {
         {"status", "disabled"}
     };
 
-    LOG_INFO(LogContext::NETWORK, "Log streaming disabled");
+    LOG_INFO(LogContext::COMMAND, "Log streaming disabled");
     return messages::createSuccessResponse(seq_id, "logging.disable_streaming", result);
 }
 
 json TCPServer::handleGetHealth(const json& payload, int seq_id) {
-    LOG_INFO(LogContext::NETWORK, "Executing health.get_snapshot");
+    LOG_INFO(LogContext::COMMAND, "Executing health.get_snapshot");
 
     // Get current health snapshot
     HealthSnapshot snapshot = HealthMonitor::getInstance().getCurrentSnapshot();
@@ -862,6 +867,121 @@ json TCPServer::handleGetHealth(const json& payload, int seq_id) {
     // Convert to JSON
     json result = snapshot.toJson();
 
-    LOG_INFO(LogContext::NETWORK, "Health snapshot retrieved successfully");
+    LOG_INFO(LogContext::COMMAND, "Health snapshot retrieved successfully");
     return messages::createSuccessResponse(seq_id, "health.get_snapshot", result);
+}
+
+json TCPServer::handleSystemGetConfig(const json& payload, int seq_id) {
+    (void)payload; // Suppress unused parameter warning
+
+    LOG_INFO(LogContext::COMMAND, "Executing system.get_config");
+
+    try {
+        // Get full configuration from ConfigManager
+        json config = ConfigManager::getInstance().exportConfig();
+
+        // Wrap in result object per protocol specification
+        // Protocol: protocol/commands.json lines 279-368
+        json result = {
+            {"config", config}
+        };
+
+        LOG_INFO(LogContext::COMMAND, "Configuration exported successfully (" +
+                 std::to_string(config.size()) + " sections)");
+        return messages::createSuccessResponse(seq_id, "system.get_config", result);
+    } catch (const std::exception& e) {
+        LOG_ERROR(LogContext::COMMAND, "Failed to export configuration: " + std::string(e.what()));
+        return messages::createErrorResponse(
+            seq_id, "system.get_config",
+            messages::ErrorCode::INTERNAL_ERROR,
+            "Failed to retrieve configuration: " + std::string(e.what())
+        );
+    }
+}
+
+json TCPServer::handleSystemUpdateConfig(const json& payload, int seq_id) {
+    LOG_INFO(LogContext::COMMAND, "Executing system.update_config");
+
+    // Validate parameters
+    if (!payload.contains("parameters")) {
+        return messages::createErrorResponse(
+            seq_id, "system.update_config",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required 'parameters' object"
+        );
+    }
+
+    const json& params = payload["parameters"];
+    if (!params.contains("updates")) {
+        return messages::createErrorResponse(
+            seq_id, "system.update_config",
+            messages::ErrorCode::INVALID_JSON,
+            "Missing required field: updates"
+        );
+    }
+
+    const json& updates = params["updates"];
+    if (!updates.is_object()) {
+        return messages::createErrorResponse(
+            seq_id, "system.update_config",
+            messages::ErrorCode::INVALID_JSON,
+            "Field 'updates' must be an object"
+        );
+    }
+
+    LOG_INFO(LogContext::COMMAND, "Processing " + std::to_string(updates.size()) + " config updates");
+
+    // Apply updates
+    std::vector<std::string> updated;
+    std::vector<json> failed;
+
+    for (auto& [key, value] : updates.items()) {
+        LOG_DEBUG(LogContext::COMMAND, "Updating config: " + key + " = " + value.dump());
+
+        bool success = ConfigManager::getInstance().set(key, value);
+        if (success) {
+            updated.push_back(key);
+        } else {
+            failed.push_back({
+                {"key", key},
+                {"value", value},
+                {"error", "Failed to set value"}
+            });
+        }
+    }
+
+    // Save updated config to local.json (persists across restarts)
+    // Protocol: protocol/commands.json line 389
+    if (!updated.empty()) {
+        ConfigManager::getInstance().saveLocal();
+        LOG_INFO(LogContext::COMMAND, "Configuration changes saved to local.json");
+    }
+
+    // Determine if restart is required
+    // Network/port changes typically require restart
+    bool restart_required = false;
+    for (const auto& key : updated) {
+        if (key.find("network.") == 0 ||
+            key.find("tcp_port") != std::string::npos ||
+            key.find("udp_") != std::string::npos) {
+            restart_required = true;
+            break;
+        }
+    }
+
+    // Build response per protocol specification
+    // Protocol: protocol/commands.json lines 379-385
+    json result = {
+        {"updated", json(updated)},
+        {"failed", json(failed)},
+        {"config_file", "local.json"},
+        {"restart_required", restart_required}
+    };
+
+    LOG_INFO(LogContext::COMMAND, "Configuration updated: " +
+             std::to_string(updated.size()) + " succeeded, " +
+             std::to_string(failed.size()) + " failed" +
+             (restart_required ? " (restart required)" : ""));
+
+    return messages::createSuccessResponse(seq_id, "system.update_config", result);
 }
