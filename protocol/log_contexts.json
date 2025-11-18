@@ -1,0 +1,173 @@
+{
+  "version": "1.0",
+  "description": "DPM Log Context & Level Definitions - Single Source of Truth for All Domains",
+  "last_updated": "2025-11-18",
+
+  "contexts": [
+    {
+      "id": "CAMERA",
+      "description": "Camera SDK operations, property changes, capture events, device lifecycle",
+      "domains": ["air-side"],
+      "color": "#4CAF50",
+      "examples": [
+        "Camera connected",
+        "Property changed: ISO=800",
+        "Shutter release triggered",
+        "Camera disconnected with error"
+      ]
+    },
+    {
+      "id": "NETWORK",
+      "description": "Socket operations, TCP/UDP send/receive, connection events (transport layer only)",
+      "domains": ["air-side", "ground-side", "systemtools"],
+      "color": "#2196F3",
+      "examples": [
+        "TCP server listening on port 5000",
+        "Client connected from 192.168.1.10",
+        "UDP packet sent to ground-side",
+        "Socket error: Connection reset"
+      ]
+    },
+    {
+      "id": "COMMAND",
+      "description": "Protocol command parsing, routing, validation, dispatch (protocol layer)",
+      "domains": ["air-side", "ground-side", "systemtools"],
+      "color": "#FF9800",
+      "examples": [
+        "Received command: system.get_config",
+        "Processing command: camera.set_iso",
+        "Command validation failed: missing parameters",
+        "Sending response: success"
+      ]
+    },
+    {
+      "id": "SYSTEM",
+      "description": "System operations, config changes, health monitoring, startup/shutdown",
+      "domains": ["air-side", "ground-side", "systemtools"],
+      "color": "#9C27B0",
+      "examples": [
+        "Configuration loaded: production.json",
+        "Config updated: tcp_port=5001",
+        "System startup complete",
+        "Shutting down gracefully"
+      ]
+    },
+    {
+      "id": "STORAGE",
+      "description": "File operations, disk I/O, data persistence, archiving",
+      "domains": ["air-side", "ground-side", "systemtools"],
+      "color": "#795548",
+      "examples": [
+        "Writing image to SD card",
+        "Log file rotated: air-side.jsonl.1",
+        "Disk space low: 5% remaining",
+        "File transfer complete: IMG_0001.ARW"
+      ]
+    },
+    {
+      "id": "HEALTH",
+      "description": "Health snapshots, performance metrics, system monitoring",
+      "domains": ["air-side", "ground-side"],
+      "color": "#00BCD4",
+      "examples": [
+        "Health snapshot recorded",
+        "CPU usage: 75%",
+        "Memory warning threshold exceeded",
+        "Broadcasting health snapshot"
+      ]
+    },
+    {
+      "id": "SYNC",
+      "description": "Frame synchronization, timing coordination, trigger events",
+      "domains": ["air-side", "ground-side"],
+      "color": "#FFC107",
+      "examples": [
+        "Exposure sync signal received",
+        "Frame #1234 synchronized",
+        "Trigger delay: 5ms",
+        "Sync health: 5Hz"
+      ]
+    },
+    {
+      "id": "UI",
+      "description": "User interface events, screen transitions, user interactions",
+      "domains": ["ground-side"],
+      "color": "#E91E63",
+      "examples": [
+        "Screen transition: Main → Settings",
+        "Button clicked: Capture",
+        "Toast shown: Connection established",
+        "UI update: Battery 80%"
+      ]
+    }
+  ],
+
+  "levels": [
+    {
+      "id": "DEBUG",
+      "value": 0,
+      "description": "Detailed diagnostic information for development/debugging",
+      "enabled_in": ["development"],
+      "color": "#9E9E9E"
+    },
+    {
+      "id": "INFO",
+      "value": 1,
+      "description": "General informational messages about normal operations",
+      "enabled_in": ["development", "production"],
+      "color": "#2196F3"
+    },
+    {
+      "id": "WARNING",
+      "value": 2,
+      "description": "Warning conditions, potential issues that don't prevent operation",
+      "enabled_in": ["development", "production"],
+      "color": "#FF9800"
+    },
+    {
+      "id": "ERROR",
+      "value": 3,
+      "description": "Error conditions, operation failures requiring attention",
+      "enabled_in": ["development", "production"],
+      "color": "#F44336"
+    },
+    {
+      "id": "CRITICAL",
+      "value": 4,
+      "description": "Critical failures requiring immediate attention, system-threatening",
+      "enabled_in": ["development", "production"],
+      "color": "#B71C1C"
+    }
+  ],
+
+  "implementation_notes": {
+    "air-side": {
+      "file": "sbc/src/logging/structured_logger.h",
+      "enum": "LogContext",
+      "language": "C++",
+      "notes": "Generate enum from this file. Update contextToString() to match."
+    },
+    "ground-side": {
+      "file": "android/app/src/main/java/uk/unmannedsystems/dpm_android/logging/StructuredLogger.kt",
+      "enum": "LogContext",
+      "language": "Kotlin",
+      "notes": "Generate enum from this file. Keep existing fromString() companion."
+    },
+    "systemtools": {
+      "file": "SystemTools/utils/log_contexts.py",
+      "class": "LogContext",
+      "language": "Python",
+      "notes": "Load dynamically from this JSON file at runtime."
+    }
+  },
+
+  "change_workflow": [
+    "1. Update this file (protocol/log_contexts.json) with new context/level",
+    "2. Commit protocol change with [PROTOCOL] tag",
+    "3. Update Air-Side structured_logger.h enum",
+    "4. Update Ground-Side StructuredLogger.kt enum",
+    "5. SystemTools auto-loads from JSON (no code changes needed)",
+    "6. Test cross-domain filtering works",
+    "7. Update documentation if needed"
+  ]
+}
