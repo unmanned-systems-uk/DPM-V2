@@ -45,6 +45,7 @@ from utils.config import config
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from utils.log_contexts import LogContexts
 from utils.protocol_loader import protocol
+from utils.log_filter_manager import LogFilterManager
 
 # Import dashboard tabs from DPM Diagnostics Tool
 from gui.widgets import StatusIndicator, ScrolledTextLog
@@ -133,6 +134,12 @@ class DPMManagementSystem(tk.Tk):
         self.filter_level = tk.StringVar(value="ALL")
         self.filter_context = tk.StringVar(value="ALL")
         self.filter_search = tk.StringVar()
+
+        # Log Filter Manager (Issue #147 - Dynamic JSON-based filters)
+        self.log_filter_manager = LogFilterManager()
+        self.selected_filter_contexts = {}  # Track selected context checkboxes
+        self.selected_filter_levels = {}  # Track selected level checkboxes
+        self.filter_logic = tk.StringVar(value=self.log_filter_manager.get_ui_settings().get('default_logic', 'OR'))
 
         # GUI update thread
         self.gui_update_running = False
@@ -367,24 +374,87 @@ class DPMManagementSystem(tk.Tk):
         self.last_update_label = ttk.Label(filter_row2, text="Never", font=('Arial', 9, 'italic'))
         self.last_update_label.pack(side=tk.RIGHT, padx=5)
 
-        # Filter row 3: Custom Filter with Boolean Logic
+        # Filter row 3: Dynamic Multi-Select Context Filters (Issue #147)
         filter_row3 = ttk.Frame(filters_frame)
         filter_row3.pack(fill=tk.X, pady=5)
 
-        ttk.Label(filter_row3, text="Custom Filter:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
-        ttk.Label(filter_row3, text="Syntax: Use AND, OR, NOT. Example: (camera AND error) OR (network AND timeout)",
-                 font=('Arial', 8, 'italic'), foreground='gray').pack(side=tk.LEFT, padx=5)
+        ttk.Label(filter_row3, text="Log Contexts:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
 
+        # Generate context checkboxes from JSON
+        for ctx in self.log_filter_manager.get_log_contexts():
+            label = ctx['label']
+            var = tk.BooleanVar(value=False)
+            self.selected_filter_contexts[label] = var
+            cb = ttk.Checkbutton(filter_row3, text=label, variable=var,
+                                command=lambda: self._on_dynamic_filter_changed())
+            cb.pack(side=tk.LEFT, padx=3)
+
+        ttk.Separator(filter_row3, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+
+        ttk.Button(filter_row3, text="Select All", command=self._select_all_contexts, width=10).pack(side=tk.LEFT, padx=2)
+        ttk.Button(filter_row3, text="Clear All", command=self._clear_all_contexts, width=10).pack(side=tk.LEFT, padx=2)
+
+        # Filter row 4: Dynamic Multi-Select Level Filters
         filter_row4 = ttk.Frame(filters_frame)
         filter_row4.pack(fill=tk.X, pady=5)
 
-        ttk.Label(filter_row4, text="Expression:").pack(side=tk.LEFT, padx=5)
-        self.filter_custom = tk.StringVar()
-        custom_filter_entry = ttk.Entry(filter_row4, textvariable=self.filter_custom, width=70)
-        custom_filter_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        custom_filter_entry.bind("<KeyRelease>", self._on_filter_changed)
+        ttk.Label(filter_row4, text="Log Levels:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(filter_row4, text="Clear Custom", command=self._on_clear_custom_filter).pack(side=tk.LEFT, padx=5)
+        # Generate level checkboxes from JSON
+        for lvl in self.log_filter_manager.get_log_levels():
+            label = lvl['label']
+            var = tk.BooleanVar(value=False)
+            self.selected_filter_levels[label] = var
+            cb = ttk.Checkbutton(filter_row4, text=label, variable=var,
+                                command=lambda: self._on_dynamic_filter_changed())
+            cb.pack(side=tk.LEFT, padx=3)
+
+        ttk.Separator(filter_row4, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+
+        ttk.Button(filter_row4, text="Select All", command=self._select_all_levels, width=10).pack(side=tk.LEFT, padx=2)
+        ttk.Button(filter_row4, text="Clear All", command=self._clear_all_levels, width=10).pack(side=tk.LEFT, padx=2)
+
+        # Filter row 5: Filter Logic Toggle
+        filter_row5 = ttk.Frame(filters_frame)
+        filter_row5.pack(fill=tk.X, pady=5)
+
+        ttk.Label(filter_row5, text="Filter Logic:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(filter_row5, text="OR (show if ANY selected filter matches)",
+                       variable=self.filter_logic, value="OR",
+                       command=lambda: self._on_dynamic_filter_changed()).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(filter_row5, text="AND (show only if ALL selected filters match)",
+                       variable=self.filter_logic, value="AND",
+                       command=lambda: self._on_dynamic_filter_changed()).pack(side=tk.LEFT, padx=5)
+
+        ttk.Separator(filter_row5, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+
+        ttk.Button(filter_row5, text="🔄 Refresh Filters", command=self._refresh_filter_labels, width=15).pack(side=tk.LEFT, padx=5)
+
+        # Filter row 6: Preset Filters
+        filter_row6 = ttk.Frame(filters_frame)
+        filter_row6.pack(fill=tk.X, pady=5)
+
+        ttk.Label(filter_row6, text="Presets:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+
+        # Generate preset buttons from JSON
+        for preset in self.log_filter_manager.get_filter_presets():
+            preset_name = preset['name']
+            ttk.Button(filter_row6, text=preset_name,
+                      command=lambda p=preset_name: self._apply_preset(p),
+                      width=15).pack(side=tk.LEFT, padx=2)
+
+        # Filter row 7: Custom Expression (with Apply button - NO real-time filtering)
+        filter_row7 = ttk.Frame(filters_frame)
+        filter_row7.pack(fill=tk.X, pady=5)
+
+        ttk.Label(filter_row7, text="Custom Expression:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        self.filter_custom = tk.StringVar()
+        custom_filter_entry = ttk.Entry(filter_row7, textvariable=self.filter_custom, width=50)
+        custom_filter_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        # NOTE: NO KeyRelease binding! User must click Apply button (prevents Issue #146 freeze)
+
+        ttk.Button(filter_row7, text="Apply", command=self._apply_custom_expression, width=10).pack(side=tk.LEFT, padx=2)
+        ttk.Button(filter_row7, text="Clear", command=self._on_clear_custom_filter, width=10).pack(side=tk.LEFT, padx=2)
 
         # Log Display
         log_frame = ttk.LabelFrame(frame, text="Aggregated Logs (Air-Side + Ground-Side)", padding=5)
@@ -2188,7 +2258,7 @@ class DPMManagementSystem(tk.Tk):
         self.last_update_label.config(text=self.last_update_time.strftime("%H:%M:%S"))
 
     def _should_display(self, entry: Dict[str, Any]) -> bool:
-        """Check if log entry matches current filters"""
+        """Check if log entry matches current filters (Issue #147 - Dynamic filters)"""
         # Domain filter - checkbox multi-selection with OR logic
         # If all unchecked = show all; if any checked = show only matching domains
         air_checked = self.filter_air.get()
@@ -2211,12 +2281,48 @@ class DPMManagementSystem(tk.Tk):
                 return False
         # If all unchecked, show all domains (no filtering)
 
-        # Level filter
+        # ========== Issue #147: Dynamic Context/Level Filter with AND/OR Logic ==========
+        # Collect selected contexts and levels
+        selected_contexts = [ctx for ctx, var in self.selected_filter_contexts.items() if var.get()]
+        selected_levels = [lvl for lvl, var in self.selected_filter_levels.items() if var.get()]
+
+        # Get entry context and level
+        entry_context = entry.get('context', '').upper()
+        entry_level = entry.get('level', '').upper()
+
+        # Apply filter based on what's selected
+        if selected_contexts and selected_levels:
+            # Both contexts and levels selected - apply AND/OR logic
+            context_match = entry_context in selected_contexts
+            level_match = entry_level in selected_levels
+
+            logic = self.filter_logic.get()
+            if logic == "AND":
+                # Both must match
+                if not (context_match and level_match):
+                    return False
+            else:  # OR (default)
+                # At least one must match
+                if not (context_match or level_match):
+                    return False
+
+        elif selected_contexts:
+            # Only contexts selected - filter by contexts only
+            if entry_context not in selected_contexts:
+                return False
+
+        elif selected_levels:
+            # Only levels selected - filter by levels only
+            if entry_level not in selected_levels:
+                return False
+        # If neither selected, show all (no filtering)
+
+        # OLD Level filter (combobox) - still supported for backwards compatibility
         level_filter = self.filter_level.get()
         if level_filter != "ALL" and entry.get('level') != level_filter:
             return False
 
-        # Context filter
+        # OLD Context filter (combobox) - still supported for backwards compatibility
         context_filter = self.filter_context.get()
         if context_filter != "ALL":
             entry_context = entry.get('context', '').upper()
@@ -2287,6 +2393,96 @@ class DPMManagementSystem(tk.Tk):
         """Clear custom filter"""
         self.filter_custom.set("")
         self._on_filter_changed()
+
+    # ========== Issue #147: Dynamic Filter Handlers ==========
+
+    def _on_dynamic_filter_changed(self):
+        """Handle dynamic filter checkbox changes (context/level multi-select)"""
+        # Apply filters immediately when checkboxes change
+        self._on_filter_changed()
+
+    def _select_all_contexts(self):
+        """Select all context checkboxes"""
+        for var in self.selected_filter_contexts.values():
+            var.set(True)
+        self._on_dynamic_filter_changed()
+
+    def _clear_all_contexts(self):
+        """Clear all context checkboxes"""
+        for var in self.selected_filter_contexts.values():
+            var.set(False)
+        self._on_dynamic_filter_changed()
+
+    def _select_all_levels(self):
+        """Select all level checkboxes"""
+        for var in self.selected_filter_levels.values():
+            var.set(True)
+        self._on_dynamic_filter_changed()
+
+    def _clear_all_levels(self):
+        """Clear all level checkboxes"""
+        for var in self.selected_filter_levels.values():
+            var.set(False)
+        self._on_dynamic_filter_changed()
+
+    def _refresh_filter_labels(self):
+        """Refresh filter labels from JSON (reload configuration)"""
+        logger.info("Refreshing filter labels from JSON...")
+        success = self.log_filter_manager.refresh()
+        if success:
+            messagebox.showinfo("Filters Refreshed",
+                               "Filter configuration reloaded from JSON.\n\n"
+                               "Note: To see updated buttons, restart the application.")
+            logger.info("Filter labels refreshed successfully")
+        else:
+            messagebox.showerror("Refresh Failed",
+                                "Failed to reload filter configuration.\n"
+                                "Check logs for details.")
+
+    def _apply_preset(self, preset_name: str):
+        """Apply a preset filter configuration"""
+        logger.info(f"Applying preset filter: {preset_name}")
+        preset_config = self.log_filter_manager.apply_preset(preset_name)
+
+        if not preset_config:
+            messagebox.showwarning("Preset Not Found",
+                                  f"Preset '{preset_name}' not found in configuration.")
+            return
+
+        # Clear all current selections
+        self._clear_all_contexts()
+        self._clear_all_levels()
+
+        # Apply preset contexts
+        for context in preset_config.get('contexts', []):
+            if context in self.selected_filter_contexts:
+                self.selected_filter_contexts[context].set(True)
+
+        # Apply preset levels
+        for level in preset_config.get('levels', []):
+            if level in self.selected_filter_levels:
+                self.selected_filter_levels[level].set(True)
+
+        # Apply preset logic
+        logic = preset_config.get('logic', 'OR')
+        self.filter_logic.set(logic)
+
+        # Apply filter
+        self._on_dynamic_filter_changed()
+        logger.info(f"Preset '{preset_name}' applied: {len(preset_config.get('contexts', []))} contexts, "
+                   f"{len(preset_config.get('levels', []))} levels, logic={logic}")
+
+    def _apply_custom_expression(self):
+        """Apply custom filter expression (with Apply button - no real-time filtering)"""
+        expression = self.filter_custom.get().strip()
+        if expression:
+            logger.info(f"Applying custom filter expression: {expression}")
+            self._on_filter_changed()
+        else:
+            logger.info("Custom filter expression is empty, clearing filter")
+            self._on_filter_changed()
+
+    # ========== End Issue #147 Handlers ==========
 
     def _append_log_entry(self, entry: Dict[str, Any]):
         """Append a single log entry to display"""
