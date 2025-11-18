@@ -123,6 +123,15 @@ class NetworkClient(
                 startHeartbeatWatchdog()
                 addConnectionLog("Heartbeat watchdog started", LogLevel.SUCCESS)
 
+                // Enable Air-Side log streaming (Issue #99)
+                addConnectionLog("Requesting Air-Side log streaming...", LogLevel.INFO)
+                val streamingResult = enableLogStreaming()
+                if (streamingResult.isSuccess) {
+                    addConnectionLog("Air-Side log streaming enabled (UDP port 5005)", LogLevel.SUCCESS)
+                } else {
+                    addConnectionLog("Failed to enable Air-Side log streaming: ${streamingResult.exceptionOrNull()?.message}", LogLevel.WARNING)
+                }
+
                 // Set connection start time for heartbeat monitoring
                 val connectionStartTime = System.currentTimeMillis()
                 _connectionStatus.value = _connectionStatus.value.copy(
@@ -292,6 +301,22 @@ class NetworkClient(
         return sendCommand(
             "camera.auto_focus_hold",
             mapOf("state" to state)
+        )
+    }
+
+    /**
+     * Enable Air-Side log streaming to Ground-Side via UDP
+     *
+     * Requests Air-Side to start streaming logs to H16 on UDP port 5005.
+     * Part of Issue #99 - Full SystemTools observability
+     *
+     * @param durationSec How long to stream logs (default: 600 seconds = 10 minutes)
+     * @return Command response
+     */
+    suspend fun enableLogStreaming(durationSec: Int = 600): Result<ResponsePayload> {
+        return sendCommand(
+            "logging.enable_streaming",
+            mapOf("duration_sec" to durationSec)
         )
     }
 

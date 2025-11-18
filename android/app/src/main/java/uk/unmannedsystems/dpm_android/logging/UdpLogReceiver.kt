@@ -3,6 +3,7 @@ package uk.unmannedsystems.dpm_android.logging
 import android.util.Log
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import timber.log.Timber
 import uk.unmannedsystems.dpm_android.DPMApplication
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -150,8 +151,18 @@ class UdpLogReceiver(
                 fields = fields
             )
 
-            // Add to MemorySink
+            // Add to MemorySink (for local Log Viewer)
             DPMApplication.memorySink.write(logEntry)
+
+            // Also log via Timber for SystemTools relay (Issue #99, #113)
+            // This ensures Air-Side logs flow through StructuredLogger → NetworkSink → SystemTools
+            when (level) {
+                LogLevel.DEBUG -> Timber.tag("AIR-SIDE").d(message)
+                LogLevel.INFO -> Timber.tag("AIR-SIDE").i(message)
+                LogLevel.WARNING -> Timber.tag("AIR-SIDE").w(message)
+                LogLevel.ERROR -> Timber.tag("AIR-SIDE").e(message)
+                else -> Timber.tag("AIR-SIDE").i(message)
+            }
 
             Log.v(TAG, "Received Air-Side log: [$level] $message")
 

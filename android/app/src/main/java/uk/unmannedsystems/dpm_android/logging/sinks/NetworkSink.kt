@@ -11,17 +11,19 @@ import java.util.concurrent.ConcurrentLinkedQueue
 /**
  * Network Sink - Sends logs to SystemTools via TCP
  *
+ * Issue #99: Dynamic IP Configuration
+ * - Default: "localhost" with ADB reverse port forwarding
+ *   Setup: adb reverse tcp:5008 tcp:5008
+ *   This forwards H16's localhost:5008 to dev machine's port 5008
+ * - Fallback: User-configured IP (e.g., "10.0.1.83") when ADB reverse fails
+ *
  * Features:
- * - TCP connection to SystemTools (via ADB port forward)
+ * - TCP connection to SystemTools
  * - JSON Lines format
  * - Automatic reconnection on disconnect
- * - Buffered writes
+ * - Buffered writes with queue
  * - Non-blocking (uses coroutines)
- *
- * Usage:
- * - SystemTools listens on port 5008
- * - ADB port forward: adb forward tcp:5008 tcp:5008
- * - Ground-Side connects to localhost:5008
+ * - Enhanced logging for diagnostics
  */
 class NetworkSink(
     private val host: String = "localhost",
@@ -45,6 +47,9 @@ class NetworkSink(
 
     init {
         if (enabled) {
+            Log.i(TAG, "NetworkSink enabled: Connecting to SystemTools at $host:$port")
+            Log.i(TAG, "If using 'localhost', ensure ADB reverse is set up: adb reverse tcp:$port tcp:$port")
+
             // Start connection attempt
             reconnectJob = scope.launch {
                 attemptConnection()
@@ -54,6 +59,8 @@ class NetworkSink(
             sendJob = scope.launch {
                 processSendQueue()
             }
+        } else {
+            Log.i(TAG, "NetworkSink disabled (not in DEBUG build or explicitly disabled in settings)")
         }
     }
 
@@ -116,24 +123,44 @@ class NetworkSink(
      * Attempt to connect to SystemTools
      */
     private suspend fun attemptConnection() {
+        var attemptCount = 0
         while (scope.isActive) {
             try {
                 if (!isConnected) {
-                    Log.d(TAG, "Attempting connection to $host:$port")
+                    attemptCount++
+                    Log.d(TAG, "Connection attempt #$attemptCount to $host:$port (queue size: ${sendQueue.size})")
 
                     socket = Socket(host, port)
                     socket?.soTimeout = 5000  // 5 second read timeout
                     writer = BufferedWriter(OutputStreamWriter(socket?.getOutputStream()))
 
                     isConnected = true
-                    Log.i(TAG, "Connected to SystemTools at $host:$port")
+                    attemptCount = 0  // Reset counter on success
+                    Log.i(TAG, "✅ Connected to SystemTools at $host:$port")
+
+                    if (host == "localhost") {
+                        Log.i(TAG, "Using ADB reverse - ensure 'adb reverse tcp:$port tcp:$port' is active")
+                    }
                 }
 
                 // Wait before next check
                 delay(5000)
             } catch (e: Exception) {
                 isConnected = false
-                Log.w(TAG, "Connection failed, will retry: ${e.message}")
+
+                if (attemptCount == 1) {
+                    // First failure - provide helpful diagnostic
+                    Log.w(TAG, "❌ Connection failed to $host:$port: ${e.javaClass.simpleName} - ${e.message}")
+                    if (host == "localhost") {
+                        Log.w(TAG, "💡 Troubleshooting: Run 'adb reverse tcp:$port tcp:$port' and ensure SystemTools is running")
+                        Log.w(TAG, "💡 Alternative: Change host to dev machine IP (e.g., '10.0.1.83') in settings")
+                    } else {
+                        Log.w(TAG, "💡 Troubleshooting: Ensure SystemTools is running on $host and port $port is accessible")
+                    }
+                } else if (attemptCount % 6 == 0) {
+                    // Log every 6th attempt (every ~60 seconds) to avoid spam
+                    Log.w(TAG, "Still attempting connection to $host:$port (attempt #$attemptCount, queue: ${sendQueue.size} logs)")
+                }
 
                 // Clean up
                 try {
@@ -154,6 +181,9 @@ class NetworkSink(
      * Process send queue - sends buffered logs to SystemTools
      */
     private suspend fun processSendQueue() {
+        var logsSentCount = 0
+        var lastLogReportTime = System.currentTimeMillis()
+
         while (scope.isActive) {
             try {
                 if (isConnected && writer != null) {
@@ -162,6 +192,15 @@ class NetworkSink(
                         writer?.write(json)
                         writer?.newLine()
                         writer?.flush()
+
+                        logsSentCount++
+
+                        // Report stats every 100 logs or every 30 seconds
+                        val now = System.currentTimeMillis()
+                        if (logsSentCount % 100 == 0 || (now - lastLogReportTime) > 30000) {
+                            Log.d(TAG, "📤 Sent $logsSentCount logs to SystemTools (queue: ${sendQueue.size})")
+                            lastLogReportTime = now
+                        }
                     } else {
                         // Queue empty, wait briefly
                         delay(10)
@@ -171,7 +210,7 @@ class NetworkSink(
                     delay(100)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending log to SystemTools", e)
+                Log.e(TAG, "❌ Error sending log to SystemTools: ${e.javaClass.simpleName} - ${e.message}")
                 isConnected = false
 
                 // Clean up connection

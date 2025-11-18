@@ -1,6 +1,7 @@
 package uk.unmannedsystems.dpm_android.settings
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -51,6 +52,15 @@ class SettingsRepository(private val context: Context) {
         // Protocol settings keys
         private val CLIENT_ID = stringPreferencesKey("client_id")
 
+        // SystemTools logging settings keys
+        private val SYSTEMTOOLS_LOG_HOST = stringPreferencesKey("systemtools_log_host")
+        private val SYSTEMTOOLS_LOG_PORT = intPreferencesKey("systemtools_log_port")
+        private val SYSTEMTOOLS_LOG_ENABLED = booleanPreferencesKey("systemtools_log_enabled")
+
+        // Logging control settings keys
+        private val ANDROID_LOGCAT_ENABLED = booleanPreferencesKey("android_logcat_enabled")
+        private val STRUCTURED_LOGGING_ENABLED = booleanPreferencesKey("structured_logging_enabled")
+
         // Default values
         private val DEFAULT_SETTINGS = NetworkSettings()
         private val DEFAULT_VIDEO_SETTINGS = VideoStreamSettings()
@@ -60,6 +70,20 @@ class SettingsRepository(private val context: Context) {
         private const val DEFAULT_AUTO_RECONNECT_ENABLED = true
         private const val DEFAULT_AUTO_RECONNECT_INTERVAL_SECONDS = 5 // 5 seconds between reconnect attempts
         private const val DEFAULT_CLIENT_ID = "H16" // SkyDroid H16 Ground Station identifier
+
+        // SystemTools logging defaults
+        // Default: "localhost" with ADB reverse port forwarding (cleanest approach)
+        //   Setup: adb reverse tcp:5008 tcp:5008
+        //   This forwards H16's localhost:5008 to dev machine's port 5008
+        // Fallback: User can configure direct IP (e.g., "10.0.1.83") in Advanced Settings UI
+        private const val DEFAULT_SYSTEMTOOLS_LOG_HOST = "localhost"
+        private const val DEFAULT_SYSTEMTOOLS_LOG_PORT = 5008
+        private const val DEFAULT_SYSTEMTOOLS_LOG_ENABLED = true // Enable in DEBUG builds only (see DPMApplication)
+
+        // Logging control defaults
+        // Keep both enabled by default for safety - disable Log.d() only after Timber is proven reliable
+        private const val DEFAULT_ANDROID_LOGCAT_ENABLED = true // Android Log.d() - always safe
+        private const val DEFAULT_STRUCTURED_LOGGING_ENABLED = true // Timber → SystemTools
     }
 
     /**
@@ -272,4 +296,127 @@ class SettingsRepository(private val context: Context) {
      * Get default client ID
      */
     fun getDefaultClientId(): String = DEFAULT_CLIENT_ID
+
+    /**
+     * Flow of SystemTools log host setting
+     *
+     * Default is "localhost" which requires ADB reverse port forwarding:
+     *   adb reverse tcp:5008 tcp:5008
+     *
+     * For direct network connection (when ADB reverse fails), set to dev machine IP (e.g., "10.0.1.83")
+     */
+    val systemToolsLogHostFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            val host = preferences[SYSTEMTOOLS_LOG_HOST] ?: DEFAULT_SYSTEMTOOLS_LOG_HOST
+            Log.d("SettingsRepository", "SystemTools host flow emitting: $host")
+            host
+        }
+
+    /**
+     * Save SystemTools log host
+     */
+    suspend fun saveSystemToolsLogHost(host: String) {
+        Log.d("SettingsRepository", "Saving SystemTools host: $host")
+        context.dataStore.edit { preferences ->
+            preferences[SYSTEMTOOLS_LOG_HOST] = host
+        }
+        Log.d("SettingsRepository", "SystemTools host saved: $host")
+    }
+
+    /**
+     * Get default SystemTools log host
+     */
+    fun getDefaultSystemToolsLogHost(): String = DEFAULT_SYSTEMTOOLS_LOG_HOST
+
+    /**
+     * Flow of SystemTools log port setting
+     */
+    val systemToolsLogPortFlow: Flow<Int> = context.dataStore.data
+        .map { preferences ->
+            val port = preferences[SYSTEMTOOLS_LOG_PORT] ?: DEFAULT_SYSTEMTOOLS_LOG_PORT
+            Log.d("SettingsRepository", "SystemTools port flow emitting: $port")
+            port
+        }
+
+    /**
+     * Save SystemTools log port
+     */
+    suspend fun saveSystemToolsLogPort(port: Int) {
+        Log.d("SettingsRepository", "Saving SystemTools port: $port")
+        context.dataStore.edit { preferences ->
+            preferences[SYSTEMTOOLS_LOG_PORT] = port
+        }
+        Log.d("SettingsRepository", "SystemTools port saved: $port")
+    }
+
+    /**
+     * Get default SystemTools log port
+     */
+    fun getDefaultSystemToolsLogPort(): Int = DEFAULT_SYSTEMTOOLS_LOG_PORT
+
+    /**
+     * Flow of SystemTools logging enabled setting
+     */
+    val systemToolsLogEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[SYSTEMTOOLS_LOG_ENABLED] ?: DEFAULT_SYSTEMTOOLS_LOG_ENABLED
+        }
+
+    /**
+     * Save SystemTools logging enabled setting
+     */
+    suspend fun saveSystemToolsLogEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SYSTEMTOOLS_LOG_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default SystemTools logging enabled state
+     */
+    fun getDefaultSystemToolsLogEnabled(): Boolean = DEFAULT_SYSTEMTOOLS_LOG_ENABLED
+
+    /**
+     * Flow of Android logcat logging enabled state
+     */
+    val androidLogcatEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[ANDROID_LOGCAT_ENABLED] ?: DEFAULT_ANDROID_LOGCAT_ENABLED
+        }
+
+    /**
+     * Save Android logcat logging enabled setting
+     */
+    suspend fun saveAndroidLogcatEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ANDROID_LOGCAT_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default Android logcat enabled state
+     */
+    fun getDefaultAndroidLogcatEnabled(): Boolean = DEFAULT_ANDROID_LOGCAT_ENABLED
+
+    /**
+     * Flow of structured logging enabled state
+     */
+    val structuredLoggingEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[STRUCTURED_LOGGING_ENABLED] ?: DEFAULT_STRUCTURED_LOGGING_ENABLED
+        }
+
+    /**
+     * Save structured logging enabled setting
+     */
+    suspend fun saveStructuredLoggingEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[STRUCTURED_LOGGING_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Get default structured logging enabled state
+     */
+    fun getDefaultStructuredLoggingEnabled(): Boolean = DEFAULT_STRUCTURED_LOGGING_ENABLED
 }

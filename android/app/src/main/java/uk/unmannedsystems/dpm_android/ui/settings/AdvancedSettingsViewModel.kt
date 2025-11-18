@@ -101,11 +101,33 @@ class AdvancedSettingsViewModel : ViewModel() {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to fetch configuration: ${e.message}", e)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "Failed to fetch config: ${e.message}"
-                    )
+
+                // Check if command is not supported by Air-Side
+                val errorMsg = e.message ?: ""
+                val isCommandNotSupported = errorMsg.contains("Unknown command", ignoreCase = true) ||
+                                           errorMsg.contains("missing 'config' field", ignoreCase = true)
+
+                if (isCommandNotSupported) {
+                    // Gracefully handle unsupported command - use default config
+                    Log.w(TAG, "Air-Side does not support get_config command, using default config")
+                    val defaultConfig = AirSideConfig.createDefault()
+                    _uiState.update {
+                        it.copy(
+                            config = defaultConfig,
+                            originalConfig = defaultConfig,
+                            isLoading = false,
+                            hasUnsavedChanges = false,
+                            error = null // No error - just using defaults
+                        )
+                    }
+                } else {
+                    // Real error - show to user
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Failed to fetch config: ${e.message}"
+                        )
+                    }
                 }
             }
         }
