@@ -24,6 +24,9 @@ class ConnectionTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
 
+        # Main window reference for sharing clients
+        self.main_window = None
+
         # Connection clients
         self.tcp_client: TCPClient = None
         self.ssh_client: SSHClient = None
@@ -427,6 +430,12 @@ class ConnectionTab(ttk.Frame):
 
         self.tcp_client = TCPClient(host, port, timeout)
         self.set_tcp_client(self.tcp_client)
+
+        # Share TCP client with main window if available
+        if self.main_window:
+            self.main_window.tcp_client = self.tcp_client
+            logger.info("TCP client shared with main window")
+
         return True
 
     def _create_ssh_client(self) -> bool:
@@ -441,6 +450,12 @@ class ConnectionTab(ttk.Frame):
 
         self.ssh_client = SSHClient(host, username, password, port)
         self.set_ssh_client(self.ssh_client)
+
+        # Share SSH client with main window if available
+        if self.main_window:
+            self.main_window.ssh_client = self.ssh_client
+            logger.info("SSH client shared with main window")
+
         return True
 
     def _create_adb_client(self) -> bool:

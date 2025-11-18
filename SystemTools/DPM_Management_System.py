@@ -185,6 +185,7 @@ class DPMManagementSystem(tk.Tk):
 
         # Tab 4: Connection Monitor (Smart Connection Dashboard from DPM Diagnostics v1.12.1)
         self.connection_tab = ConnectionTab(self.notebook)
+        self.connection_tab.main_window = self  # Share main window for client sharing
         self.notebook.add(self.connection_tab, text="Connection Monitor")
 
         # Tab 5: Configuration (SystemTools settings management)

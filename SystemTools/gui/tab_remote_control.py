@@ -220,30 +220,30 @@ class RemoteControlTab(ttk.Frame):
         # Prevent multiple simultaneous auto-connects
         if self.auto_connecting:
             messagebox.showinfo("Connecting",
-                              "SSH connection in progress...\nPlease wait.")
+                              "Connection in progress...\nPlease wait.")
             return False
 
-        # Auto-connect
-        logger.info("[AIR-SIDE REMOTE] SSH connection required - initiating auto-connect")
+        # Auto-connect via Connection Monitor "Connect All"
+        logger.info("[AIR-SIDE REMOTE] SSH connection required - triggering Connect All")
         self.auto_connecting = True
 
         # Update status
         self.ssh_status_label.config(text="SSH: Auto-connecting...", foreground="orange")
         self.status_label.config(text="Connection required, auto-connecting...")
 
-        # Trigger SSH connection via main window
-        if self.main_window and hasattr(self.main_window, '_docker_connect_ssh'):
+        # Trigger Connection Monitor's "Connect All"
+        if self.main_window and hasattr(self.main_window, 'connection_tab'):
             try:
-                # Call the main window's SSH connect method
-                self.main_window._docker_connect_ssh()
+                # Call Connection Monitor's smart connect
+                self.main_window.connection_tab._on_smart_connect()
 
                 # Show info message
                 messagebox.showinfo("Auto-Connect",
-                                  "SSH connection initiated.\n\n"
+                                  "Connection initiated via Connection Monitor.\n\n"
                                   "Commands will execute once connection is established.\n"
                                   "Please wait for 'SSH: Connected' status.")
 
-                logger.info("[AIR-SIDE REMOTE] SSH auto-connect initiated successfully")
+                logger.info("[AIR-SIDE REMOTE] Auto-connect initiated successfully")
                 return False  # Not yet connected, command should wait
 
             except Exception as e:
@@ -252,16 +252,15 @@ class RemoteControlTab(ttk.Frame):
                 self.ssh_status_label.config(text="SSH: Connection Failed", foreground="red")
                 self.status_label.config(text="Auto-connect failed")
                 messagebox.showerror("Connection Failed",
-                                   f"Failed to auto-connect SSH:\n{e}\n\n"
+                                   f"Failed to auto-connect:\n{e}\n\n"
                                    "Please check network connection and credentials.")
                 return False
         else:
             # Fallback to manual connection message
             self.auto_connecting = False
             messagebox.showwarning("Not Connected",
-                                 "SSH connection required.\n\n"
-                                 "Please connect via the 'Docker Logs' tab first,\n"
-                                 "or check the Connection Monitor tab.")
+                                 "Connection required.\n\n"
+                                 "Please use 'Connection Monitor' tab > 'Connect All'")
             return False
 
     def _switch_to_sdk_mode(self):
@@ -479,12 +478,33 @@ class RemoteControlTab(ttk.Frame):
         except Exception as e:
             logger.error(f"Error accessing tcp_client: {e}")
 
+        # Check if TCP connected, auto-connect if needed
         if not tcp_client or not tcp_client.is_connected():
-            messagebox.showwarning(
-                "Not Connected",
-                "Air-Side TCP connection required.\n\n"
-                "Please connect to Air-Side via the Dashboard tab first."
-            )
+            logger.info("[AIR-SIDE REMOTE] TCP connection required - triggering Connect All")
+
+            if self.main_window and hasattr(self.main_window, 'connection_tab'):
+                try:
+                    # Trigger Connection Monitor's "Connect All"
+                    self.main_window.connection_tab._on_smart_connect()
+
+                    messagebox.showinfo(
+                        "Auto-Connect",
+                        "TCP connection initiated via Connection Monitor.\n\n"
+                        "Please wait for connection, then try again."
+                    )
+                except Exception as e:
+                    logger.error(f"[AIR-SIDE REMOTE] Auto-connect failed: {e}")
+                    messagebox.showerror(
+                        "Connection Failed",
+                        f"Failed to auto-connect:\n{e}\n\n"
+                        "Please use 'Connection Monitor' tab > 'Connect All'"
+                    )
+            else:
+                messagebox.showwarning(
+                    "Not Connected",
+                    "Air-Side TCP connection required.\n\n"
+                    "Please use 'Connection Monitor' tab > 'Connect All'"
+                )
             return
 
         # Clear output and show header
