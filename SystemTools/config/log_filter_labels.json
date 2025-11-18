@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-11-18T18:50:00Z",
+  "description": "Dynamic log filter label definitions for DPM_Management_System Log Viewer",
+
+  "log_contexts": [
+    {
+      "label": "COMMAND",
+      "description": "Command processing and execution",
+      "color": "#4CAF50",
+      "enabled": true,
+      "priority": 1
+    },
+    {
+      "label": "NETWORK",
+      "description": "Network communication and TCP/UDP events",
+      "color": "#2196F3",
+      "enabled": true,
+      "priority": 2
+    },
+    {
+      "label": "CAMERA",
+      "description": "Camera operations and Sony SDK events",
+      "color": "#9C27B0",
+      "enabled": true,
+      "priority": 3
+    },
+    {
+      "label": "HEALTH",
+      "description": "System health monitoring and metrics",
+      "color": "#FF9800",
+      "enabled": true,
+      "priority": 4
+    },
+    {
+      "label": "SYSTEM",
+      "description": "System-level operations and configuration",
+      "color": "#607D8B",
+      "enabled": true,
+      "priority": 5
+    },
+    {
+      "label": "CONFIG",
+      "description": "Configuration management",
+      "color": "#795548",
+      "enabled": true,
+      "priority": 6
+    },
+    {
+      "label": "DISCOVERY",
+      "description": "Service discovery and UDP broadcasts",
+      "color": "#00BCD4",
+      "enabled": true,
+      "priority": 7
+    }
+  ],
+
+  "log_levels": [
+    {
+      "label": "DEBUG",
+      "description": "Detailed diagnostic information",
+      "color": "#9E9E9E",
+      "enabled": true,
+      "priority": 4
+    },
+    {
+      "label": "INFO",
+      "description": "Informational messages",
+      "color": "#2196F3",
+      "enabled": true,
+      "priority": 3
+    },
+    {
+      "label": "WARNING",
+      "description": "Warning messages",
+      "color": "#FF9800",
+      "enabled": true,
+      "priority": 2
+    },
+    {
+      "label": "ERROR",
+      "description": "Error messages",
+      "color": "#F44336",
+      "enabled": true,
+      "priority": 1
+    }
+  ],
+
+  "filter_presets": [
+    {
+      "name": "Commands Only",
+      "description": "Show command processing only",
+      "contexts": ["COMMAND"],
+      "levels": [],
+      "logic": "AND"
+    },
+    {
+      "name": "Errors & Warnings",
+      "description": "Show all errors and warnings",
+      "contexts": [],
+      "levels": ["ERROR", "WARNING"],
+      "logic": "OR"
+    },
+    {
+      "name": "Commands + Errors",
+      "description": "Command processing and all errors",
+      "contexts": ["COMMAND"],
+      "levels": ["ERROR"],
+      "logic": "OR"
+    },
+    {
+      "name": "Network Activity",
+      "description": "All network-related logs",
+      "contexts": ["NETWORK", "DISCOVERY"],
+      "levels": [],
+      "logic": "OR"
+    },
+    {
+      "name": "Camera Operations",
+      "description": "Camera events and errors",
+      "contexts": ["CAMERA"],
+      "levels": [],
+      "logic": "AND"
+    },
+    {
+      "name": "System Health",
+      "description": "Health monitoring and metrics",
+      "contexts": ["HEALTH", "SYSTEM"],
+      "levels": ["WARNING", "ERROR"],
+      "logic": "OR"
+    },
+    {
+      "name": "Everything",
+      "description": "Show all log entries (no filter)",
+      "contexts": [],
+      "levels": [],
+      "logic": "OR"
+    }
+  ],
+
+  "ui_settings": {
+    "default_logic": "OR",
+    "auto_refresh_on_tab_open": true,
+    "show_count_badges": true,
+    "max_visible_buttons": 15,
+    "button_style": "pill",
+    "enable_tooltips": true
+  },
+
+  "refresh_triggers": {
+    "app_start": true,
+    "tab_open": true,
+    "user_button_click": true,
+    "file_watch": false,
+    "interval_seconds": 0
+  }
+}

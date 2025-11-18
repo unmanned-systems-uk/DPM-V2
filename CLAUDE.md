@@ -10,3 +10,4 @@
 - NEVER close GitHub issues before verifying git commits exist. Run git log --oneline --grep='#XXX' to confirm code is committed. Record commit hash in issue comment before closing.
 - Commit .claude/commands/, .claude/PM_*.md, and .claude/*_CRITICAL.md to git. DO NOT commit .claude/settings.local.json (user-specific).
 - Commit .claude/commands/, .claude/PM_*.md, and .claude/*_CRITICAL.md to git. DO NOT commit .claude/settings.local.json (user-specific).
+- current SystemTools is DPM_Management_System.py NOT main.py

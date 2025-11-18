@@ -48,9 +48,11 @@ tmux list-sessions
 - ✅ **AIR** - SSH to Pi 5 (10.0.1.53) running Claude Code - Air-Side C++ development
 - ✅ **GROUND** - Local Android H16 development session
 - ✅ **TOOLS** - Local SystemTools Python development session
+- ✅ **SYSTEM** - DPM_Management_System GUI and log aggregator (CRITICAL for local operations)
 - ✅ **PM** - Project Manager coordination session (this session)
-- ✅ **SYSTEM** - DPM_Management_System GUI and log aggregator
-- ✅ **PYTHON** - Additional Python development/testing session
+
+**Optional sessions:**
+- **PYTHON** - Additional Python development/testing session
 
 **If sessions missing:**
 ```markdown
@@ -58,7 +60,14 @@ tmux list-sessions
 
 Please set up the following tmux sessions:
 
-1. **AIR**:
+1. **SYSTEM** (CRITICAL - for local operations):
+   ```bash
+   tmux new-session -s SYSTEM
+   cd /home/anthony/DPM-V2/SystemTools
+   python3 DPM_Management_System.py
+   ```
+
+2. **AIR**:
    ```bash
    tmux new-session -s AIR
    ssh dpm@10.0.1.53
@@ -66,32 +75,25 @@ Please set up the following tmux sessions:
    claude-code
    ```
 
-2. **GROUND**:
+3. **GROUND**:
    ```bash
    tmux new-session -s GROUND
    cd /home/anthony/DPM-V2/android
    claude-code
    ```
 
-3. **TOOLS**:
+4. **TOOLS**:
    ```bash
    tmux new-session -s TOOLS
    cd /home/anthony/DPM-V2/SystemTools
    claude-code
    ```
 
-4. **PM** (optional - for coordination):
+5. **PM** (optional - for coordination):
    ```bash
    tmux new-session -s PM
    cd /home/anthony/DPM-V2
    claude-code
-   ```
-
-5. **SYSTEM** (optional - for GUI):
-   ```bash
-   tmux new-session -s SYSTEM
-   cd /home/anthony/DPM-V2/SystemTools
-   python3 DPM_Management_System.py
    ```
 
 6. **PYTHON** (optional - for testing):
@@ -101,7 +103,7 @@ Please set up the following tmux sessions:
    python3
    ```
 
-Once all required sessions (AIR, GROUND, TOOLS) are active, type "START PM" again.
+Once all required sessions (SYSTEM, AIR, GROUND, TOOLS) are active, type "START PM" again.
 ```
 
 ### Step 2: Verify Network Connectivity
@@ -148,6 +150,9 @@ git log origin/$(git branch --show-current)..HEAD
 ### Step 5: Real-Time Domain Status Check
 
 ```bash
+# SYSTEM session (local operations)
+tmux capture-pane -t SYSTEM -p | tail -30
+
 # Ground-Side progress
 tmux capture-pane -t GROUND -p | tail -30
 
@@ -166,15 +171,18 @@ tmux capture-pane -t TOOLS -p | tail -30
 
 ```bash
 # 1. Check all tmux sessions for activity
+tmux capture-pane -t SYSTEM -p | tail -10
 tmux capture-pane -t GROUND -p | tail -10
 tmux capture-pane -t AIR -p | tail -10
 tmux capture-pane -t TOOLS -p | tail -10
 
 # 2. Check for errors
+tmux capture-pane -t SYSTEM -p | grep -E "(ERROR|FAIL|✗)" | tail -5
 tmux capture-pane -t GROUND -p | grep -E "(ERROR|FAIL|✗)" | tail -5
 tmux capture-pane -t AIR -p | grep -E "(ERROR|FAIL|✗)" | tail -5
 
 # 3. Check for completions
+tmux capture-pane -t SYSTEM -p | grep -E "(✓|✅|Complete)" | tail -5
 tmux capture-pane -t GROUND -p | grep -E "(✓|✅|Complete)" | tail -5
 tmux capture-pane -t AIR -p | grep -E "(✓|✅|Complete)" | tail -5
 
@@ -442,7 +450,7 @@ adb connect 10.0.1.92:5555
 ---
 
 **PM is ready when:**
-✅ All tmux sessions active
+✅ All required tmux sessions active (SYSTEM, AIR, GROUND, TOOLS)
 ✅ Network connectivity verified
 ✅ Issue status checked
 ✅ Git status clean
