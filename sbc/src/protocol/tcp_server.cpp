@@ -271,6 +271,7 @@ json TCPServer::processCommand(const json& command) {
         // Validate message structure
         std::string error;
         if (!validateMessage(command, error)) {
+            LOG_ERROR(LogContext::COMMAND, "Message validation failed: " + error);
             return messages::createErrorResponse(
                 command.value("sequence_id", 0),
                 command.value("payload", json::object()).value("command", "unknown"),
@@ -320,12 +321,14 @@ json TCPServer::processCommand(const json& command) {
         } else {
             // Check if it's a Phase 2 command
             if (cmd.find("camera.") == 0 || cmd.find("gimbal.") == 0) {
+                LOG_WARNING(LogContext::COMMAND, "Command not implemented (Phase 2): " + cmd);
                 return messages::createErrorResponse(
                     seq_id, cmd,
                     messages::ErrorCode::COMMAND_NOT_IMPLEMENTED,
                     "This command will be implemented in Phase 2"
                 );
             } else {
+                LOG_ERROR(LogContext::COMMAND, "Unknown command received: " + cmd);
                 return messages::createErrorResponse(
                     seq_id, cmd,
                     messages::ErrorCode::UNKNOWN_COMMAND,
