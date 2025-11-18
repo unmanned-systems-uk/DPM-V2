@@ -1,35 +1,47 @@
 """
 DPM Diagnostic Tool - Version Information
 Centralized version, build date, and build information
+Loads from version.json
 """
 
+import json
 import datetime
 from pathlib import Path
 
-# Version Information
-VERSION = "1.11.0"
-VERSION_NAME = "DPM Management System - JSON Filters, Config Mgmt, Testing"
-BUILD_DATE = "2025-11-18"
+# Load version data from JSON
+_version_file = Path(__file__).parent / "version.json"
+try:
+    with open(_version_file, 'r') as f:
+        _version_data = json.load(f)
+except FileNotFoundError:
+    # Fallback if JSON doesn't exist
+    _version_data = {
+        "version": "1.0.0",
+        "version_name": "DPM Management System",
+        "build_date": "Unknown",
+        "python_required": "3.x",
+        "platform": "Linux",
+        "protocol_version": "1.0.0",
+        "phase_status": {}
+    }
 
-# Build metadata
+# Version Information (loaded from JSON)
+VERSION = _version_data["version"]
+VERSION_NAME = _version_data["version_name"]
+BUILD_DATE = _version_data["build_date"]
+
+# Build metadata (loaded from JSON)
 BUILD_INFO = {
     "version": VERSION,
     "version_name": VERSION_NAME,
     "build_date": BUILD_DATE,
-    "python_required": "3.x",
-    "platform": "Windows 11",
-    "protocol_version": "1.1.0",  # Heartbeat spec version
+    "python_required": _version_data.get("python_required", "3.x"),
+    "platform": _version_data.get("platform", "Linux"),
+    "protocol_version": _version_data.get("protocol_version", "1.0.0"),
 }
 
-# Phase completion status
-PHASE_STATUS = {
-    "phase_1": "Complete (100%) - Tri-Domain Log Aggregation",
-    "phase_2": "Complete (100%) - GUI Integration",
-    "phase_3": "Complete (100%) - Config Management (#115, #116)",
-    "phase_4": "Complete (100%) - JSON Filter System (#147)",
-    "phase_5": "Complete (100%) - Testing Enhancements (#149)",
-    "overall_completion": "100%"
-}
+# Phase completion status (loaded from JSON)
+PHASE_STATUS = _version_data.get("phase_status", {})
 
 
 def get_version_string() -> str:
