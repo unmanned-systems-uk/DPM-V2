@@ -78,7 +78,7 @@ jobs:
             // Add helpful recovery comment
             const recoveryComment = `**WHO:** GitHub Actions Bot
 
-⚠️ **Potential Context Compression Detected**
+**WARNING: Potential Context Compression Detected**
 
 It appears the Claude Code session may have experienced context compression.
 
