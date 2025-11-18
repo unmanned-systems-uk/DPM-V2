@@ -972,7 +972,12 @@ class DPMManagementSystem(tk.Tk):
         if 'logging' in config_data:
             log = config_data['logging']
             if 'level' in log:
-                self.config_widgets['logging.level'].set(log['level'])
+                level_value = log['level']
+                logger.debug(f"Setting logging.level combobox to: '{level_value}' (type: {type(level_value)})")
+                logger.debug(f"Combobox values: {self.config_widgets['logging.level']['values']}")
+                logger.debug(f"Combobox state: {self.config_widgets['logging.level']['state']}")
+                self.config_widgets['logging.level'].set(level_value)
+                logger.debug(f"After .set(), combobox get() returns: '{self.config_widgets['logging.level'].get()}'")
             if 'network_systemtools_enabled' in log:
                 self.config_widgets['logging.network_systemtools_enabled'].set(
                     log['network_systemtools_enabled'])
@@ -1026,7 +1031,7 @@ class DPMManagementSystem(tk.Tk):
             try:
                 # Use existing TCPClient backend
                 message = protocol_msg.create_command("system.update_config", {
-                    "config": updates,
+                    "updates": updates,
                     "persist": persist
                 })
                 success = self.tcp_client.send_message(message)
@@ -1074,7 +1079,7 @@ class DPMManagementSystem(tk.Tk):
         threading.Thread(target=apply_config, daemon=True).start()
 
     def _collect_config_changes(self):
-        """Collect changed values from UI"""
+        """Collect changed values from UI - returns flat dotted-key format per protocol/commands.json line 376"""
         if not self.original_config:
             # No original config to compare against, collect all values
             messagebox.showwarning("No Baseline", "Please click 'Get Config' first to establish a baseline")
@@ -1082,65 +1087,53 @@ class DPMManagementSystem(tk.Tk):
 
         updates = {}
 
-        # Network changes
+        # Network changes - use flat dotted keys
         if 'network' in self.original_config:
             net_orig = self.original_config['network']
-            net_updates = {}
 
             tcp_port = int(self.config_widgets['network.tcp_port'].get())
             if tcp_port != net_orig.get('tcp_port'):
-                net_updates['tcp_port'] = tcp_port
+                updates['network.tcp_port'] = tcp_port
 
             udp_port = int(self.config_widgets['network.udp_status_port'].get())
             if udp_port != net_orig.get('udp_status_port'):
-                net_updates['udp_status_port'] = udp_port
+                updates['network.udp_status_port'] = udp_port
 
             ground_ip = self.config_widgets['network.ground_ip'].get()
             if ground_ip != net_orig.get('ground_ip'):
-                net_updates['ground_ip'] = ground_ip
+                updates['network.ground_ip'] = ground_ip
 
-            if net_updates:
-                updates['network'] = net_updates
-
-        # Logging changes
+        # Logging changes - use flat dotted keys
         if 'logging' in self.original_config:
             log_orig = self.original_config['logging']
-            log_updates = {}
 
             level = self.config_widgets['logging.level'].get()
             if level and level != log_orig.get('level'):
-                log_updates['level'] = level
+                updates['logging.level'] = level
 
             systemtools_enabled = self.config_widgets['logging.network_systemtools_enabled'].get()
             if systemtools_enabled != log_orig.get('network_systemtools_enabled'):
-                log_updates['network_systemtools_enabled'] = systemtools_enabled
+                updates['logging.network_systemtools_enabled'] = systemtools_enabled
 
             ground_enabled = self.config_widgets['logging.network_ground_enabled'].get()
             if ground_enabled != log_orig.get('network_ground_enabled'):
-                log_updates['network_ground_enabled'] = ground_enabled
+                updates['logging.network_ground_enabled'] = ground_enabled
 
             file_enabled = self.config_widgets['logging.file_enabled'].get()
             if file_enabled != log_orig.get('file_enabled'):
-                log_updates['file_enabled'] = file_enabled
+                updates['logging.file_enabled'] = file_enabled
 
-            if log_updates:
-                updates['logging'] = log_updates
-
-        # Health changes
+        # Health changes - use flat dotted keys
         if 'health' in self.original_config:
             health_orig = self.original_config['health']
-            health_updates = {}
 
             broadcast_enabled = self.config_widgets['health.broadcast_enabled'].get()
             if broadcast_enabled != health_orig.get('broadcast_enabled'):
-                health_updates['broadcast_enabled'] = broadcast_enabled
+                updates['health.broadcast_enabled'] = broadcast_enabled
 
             interval = int(self.config_widgets['health.broadcast_interval_sec'].get())
             if interval != health_orig.get('broadcast_interval_sec'):
-                health_updates['broadcast_interval_sec'] = interval
-
-            if health_updates:
-                updates['health'] = health_updates
+                updates['health.broadcast_interval_sec'] = interval
 
         return updates
 
