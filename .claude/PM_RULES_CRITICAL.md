@@ -49,7 +49,50 @@ PM Response:
 
 ---
 
-## 🎯 RULE 2: ALWAYS Use Carriage Return in tmux Commands
+## 🎯 RULE 2: Tmux Communication Protocol (MANDATORY)
+
+### **CRITICAL:** Read `.claude/TMUX_COMMUNICATION_PROTOCOL.md` for complete protocol
+
+**All tmux cross-domain communication MUST follow these rules:**
+
+1. **WHO Tag Format (NEW - 2025-11-16):**
+   ```
+   WHO: {Sender} To {Recipient}
+
+   {Message content}
+   ```
+   - Example: "WHO: PM To Air-Side\n\nWork on Issue #118" C-m
+   - **NEVER** use # prefix (it's a Claude API command, not a comment!)
+
+2. **ALWAYS Use Carriage Return:**
+   - MUST include `C-m` or `Enter` at end
+   - Forgetting C-m means command typed but NOT executed
+
+3. **Verification:**
+   - Always check session after sending: `tmux capture-pane -t {session} -p | tail -20`
+   - Verify command is being processed, not stuck at prompt
+
+### **Quick Reference - Correct Format:**
+```bash
+tmux send-keys -t Air "WHO: PM To Air-Side
+
+Work on Issue #118 - implement universal logging.
+See /tmp/pm_design_recommendation.md for spec." C-m
+
+# Then verify
+sleep 2 && tmux capture-pane -t Air -p | tail -20
+```
+
+**See `.claude/TMUX_COMMUNICATION_PROTOCOL.md` for:**
+- Complete message format specification
+- Examples by scenario
+- Common mistakes to avoid
+- Best practices
+- Verification protocol
+
+---
+
+## 🎯 RULE 2.1: Carriage Return Details (Subset of Rule 2)
 
 ### **CRITICAL:** `tmux send-keys` Requires C-m or Enter
 
@@ -207,33 +250,39 @@ Always monitor token usage at end of each response
 
 ---
 
-## 🎯 RULE 6: Efficient tmux Communication
+## 🎯 RULE 6: Efficient tmux Communication (Deprecated - See Rule 2)
 
-### **Best Practices:**
+### **IMPORTANT:** This section has been superseded by comprehensive protocol.
 
-1. **Be Specific and Complete:**
+**See `.claude/TMUX_COMMUNICATION_PROTOCOL.md` for complete specification.**
+
+**Quick reminders (full details in protocol doc):**
+
+1. **Use WHO Tag Format:**
    ```bash
-   ✅ "Please work on Issue #74 - Air-Side UDP log streaming. Check if StructuredLogger has UDP output capability. If not, implement UDP streaming to 10.0.1.83:5007 when log streaming is enabled." C-m
+   ✅ "WHO: PM To Air-Side
 
-   ❌ "Work on #74" C-m
-   # Too vague - domain needs to ask for clarification
+   Work on Issue #74 - Air-Side UDP log streaming..." C-m
    ```
 
-2. **Include Context:**
-   ```bash
-   ✅ "Ground-Side → SystemTools integration is complete. Now implement Air-Side → SystemTools for Issue #74." C-m
+2. **Be Specific and Complete:**
+   - Include issue numbers
+   - Provide context
+   - Define success criteria
+   - Link to documentation
 
-   ❌ "Do Air-Side now" C-m
-   # No context - what about Air-Side?
+3. **Always Verify Receipt:**
+   ```bash
+   tmux send-keys -t Air "..." C-m
+   sleep 2
+   tmux capture-pane -t Air -p | tail -20
    ```
 
-3. **Provide Issue Numbers:**
-   ```bash
-   ✅ "Please work on Issue #99 - Fix Dynamic IP Connection" C-m
-
-   ❌ "Fix the IP thing" C-m
-   # Domain can't find relevant issue
-   ```
+**See `.claude/TMUX_COMMUNICATION_PROTOCOL.md` for:**
+- Complete message templates
+- Scenario-based examples
+- Common mistakes
+- Verification protocol
 
 ---
 

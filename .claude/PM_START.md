@@ -45,9 +45,12 @@ tmux list-sessions
 ```
 
 **Required sessions:**
-- ✅ **Air-Side-PI** - SSH to Pi 5 (10.0.1.53) running Claude Code
-- ✅ **Ground-Side** - Local Android development session
-- ✅ **SystemTools** - Local Python tools session
+- ✅ **AIR** - SSH to Pi 5 (10.0.1.53) running Claude Code - Air-Side C++ development
+- ✅ **GROUND** - Local Android H16 development session
+- ✅ **TOOLS** - Local SystemTools Python development session
+- ✅ **PM** - Project Manager coordination session (this session)
+- ✅ **SYSTEM** - DPM_Management_System GUI and log aggregator
+- ✅ **PYTHON** - Additional Python development/testing session
 
 **If sessions missing:**
 ```markdown
@@ -55,29 +58,50 @@ tmux list-sessions
 
 Please set up the following tmux sessions:
 
-1. **Air-Side-PI**:
+1. **AIR**:
    ```bash
-   tmux new-session -s Air-Side-PI
+   tmux new-session -s AIR
    ssh dpm@10.0.1.53
    cd ~/DPM-V2/sbc
    claude-code
    ```
 
-2. **Ground-Side**:
+2. **GROUND**:
    ```bash
-   tmux new-session -s Ground-Side
+   tmux new-session -s GROUND
    cd /home/anthony/DPM-V2/android
    claude-code
    ```
 
-3. **SystemTools**:
+3. **TOOLS**:
    ```bash
-   tmux new-session -s SystemTools
+   tmux new-session -s TOOLS
    cd /home/anthony/DPM-V2/SystemTools
    claude-code
    ```
 
-Once all sessions are active, type "START PM" again.
+4. **PM** (optional - for coordination):
+   ```bash
+   tmux new-session -s PM
+   cd /home/anthony/DPM-V2
+   claude-code
+   ```
+
+5. **SYSTEM** (optional - for GUI):
+   ```bash
+   tmux new-session -s SYSTEM
+   cd /home/anthony/DPM-V2/SystemTools
+   python3 DPM_Management_System.py
+   ```
+
+6. **PYTHON** (optional - for testing):
+   ```bash
+   tmux new-session -s PYTHON
+   cd /home/anthony/DPM-V2
+   python3
+   ```
+
+Once all required sessions (AIR, GROUND, TOOLS) are active, type "START PM" again.
 ```
 
 ### Step 2: Verify Network Connectivity
@@ -125,13 +149,13 @@ git log origin/$(git branch --show-current)..HEAD
 
 ```bash
 # Ground-Side progress
-tmux capture-pane -t Ground-Side -p | tail -30
+tmux capture-pane -t GROUND -p | tail -30
 
 # Air-Side progress
-tmux capture-pane -t Air-Side-PI -p | tail -30
+tmux capture-pane -t AIR -p | tail -30
 
 # SystemTools progress
-tmux capture-pane -t SystemTools -p | tail -30
+tmux capture-pane -t TOOLS -p | tail -30
 ```
 
 ---
@@ -142,17 +166,17 @@ tmux capture-pane -t SystemTools -p | tail -30
 
 ```bash
 # 1. Check all tmux sessions for activity
-tmux capture-pane -t Ground-Side -p | tail -10
-tmux capture-pane -t Air-Side-PI -p | tail -10
-tmux capture-pane -t SystemTools -p | tail -10
+tmux capture-pane -t GROUND -p | tail -10
+tmux capture-pane -t AIR -p | tail -10
+tmux capture-pane -t TOOLS -p | tail -10
 
 # 2. Check for errors
-tmux capture-pane -t Ground-Side -p | grep -E "(ERROR|FAIL|✗)" | tail -5
-tmux capture-pane -t Air-Side-PI -p | grep -E "(ERROR|FAIL|✗)" | tail -5
+tmux capture-pane -t GROUND -p | grep -E "(ERROR|FAIL|✗)" | tail -5
+tmux capture-pane -t AIR -p | grep -E "(ERROR|FAIL|✗)" | tail -5
 
 # 3. Check for completions
-tmux capture-pane -t Ground-Side -p | grep -E "(✓|✅|Complete)" | tail -5
-tmux capture-pane -t Air-Side-PI -p | grep -E "(✓|✅|Complete)" | tail -5
+tmux capture-pane -t GROUND -p | grep -E "(✓|✅|Complete)" | tail -5
+tmux capture-pane -t AIR -p | grep -E "(✓|✅|Complete)" | tail -5
 
 # 4. Check issue updates
 gh issue list --label status:in-progress --state open --json number,title,updatedAt
@@ -196,19 +220,19 @@ gh issue list --label status:in-progress --state open --json number,title,update
 
 ```bash
 # See what Ground-Side is currently doing
-tmux capture-pane -t Ground-Side -p | tail -50
+tmux capture-pane -t GROUND -p | tail -50
 
 # Check if Air-Side has errors
-tmux capture-pane -t Air-Side-PI -p | grep -B5 -A5 "ERROR"
+tmux capture-pane -t AIR -p | grep -B5 -A5 "ERROR"
 
 # See SystemTools test results
-tmux capture-pane -t SystemTools -p | grep -E "(PASS|FAIL|✓|✗)"
+tmux capture-pane -t TOOLS -p | grep -E "(PASS|FAIL|✓|✗)"
 
 # Monitor Ground-Side compilation
-tmux capture-pane -t Ground-Side -p | grep -E "(gradlew|Build|Compil)"
+tmux capture-pane -t GROUND -p | grep -E "(gradlew|Build|Compil)"
 
 # Watch for Git activity
-tmux capture-pane -t Ground-Side -p | grep -E "(git add|git commit|git push)"
+tmux capture-pane -t GROUND -p | grep -E "(git add|git commit|git push)"
 ```
 
 ---
