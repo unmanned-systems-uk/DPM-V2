@@ -7,6 +7,7 @@ import socket
 import threading
 import time
 import queue
+import json
 from typing import Optional, Callable, Dict, Any
 
 from utils.logger import logger
@@ -99,10 +100,34 @@ class TCPClient:
     def send_message(self, message: str) -> bool:
         """Send JSON message to Air-Side"""
         if not self.connected or not self.socket:
-            logger.error("Not connected")
+            logger.error("[COMMAND] Not connected - cannot send message")
             return False
 
         try:
+            # Parse message to extract command details for logging
+            try:
+                msg_dict = json.loads(message)
+                msg_type = msg_dict.get("message_type", "unknown")
+
+                # Log command details with [COMMAND] context
+                if msg_type == "command":
+                    payload = msg_dict.get("payload", {})
+                    command_name = payload.get("command", "unknown")
+                    parameters = payload.get("parameters", {})
+
+                    # Sanitize parameters (avoid logging sensitive data)
+                    sanitized_params = self._sanitize_parameters(parameters)
+
+                    logger.info(f"[COMMAND] Sending command to {self.host}:{self.port}")
+                    logger.info(f"[COMMAND]   Command: {command_name}")
+                    logger.info(f"[COMMAND]   Parameters: {sanitized_params}")
+                    logger.info(f"[COMMAND]   Sequence ID: {msg_dict.get('sequence_id', 'N/A')}")
+                else:
+                    logger.debug(f"[COMMAND] Sending {msg_type} message to {self.host}:{self.port}")
+
+            except json.JSONDecodeError:
+                logger.warning(f"[COMMAND] Sending non-JSON message to {self.host}:{self.port}")
+
             # Add newline delimiter
             data = message.encode() + b'\n'
             self.socket.sendall(data)
@@ -110,7 +135,7 @@ class TCPClient:
             return True
 
         except Exception as e:
-            logger.error(f"Send error: {e}")
+            logger.error(f"[COMMAND] Send error: {e}")
             if self.on_error:
                 self.on_error(f"Send error: {e}")
             self.disconnect()
@@ -178,6 +203,25 @@ class TCPClient:
 
             logger.debug(f"Received: {message_str[:100]}...")
 
+            # Log response details with [COMMAND] context
+            msg_type = message.get("message_type", "unknown")
+            if msg_type == "response":
+                payload = message.get("payload", {})
+                status = payload.get("status", "unknown")
+                original_command = payload.get("command", "unknown")
+
+                logger.info(f"[COMMAND] Received response from {self.host}:{self.port}")
+                logger.info(f"[COMMAND]   Original Command: {original_command}")
+                logger.info(f"[COMMAND]   Status: {status}")
+                logger.info(f"[COMMAND]   Sequence ID: {message.get('sequence_id', 'N/A')}")
+
+                # Log error details if present
+                if status == "error":
+                    error_code = payload.get("error_code", "N/A")
+                    error_msg = payload.get("message", "No error message")
+                    logger.error(f"[COMMAND]   Error Code: {error_code}")
+                    logger.error(f"[COMMAND]   Error Message: {error_msg}")
+
             # Add to response queue
             self.response_queue.put(message)
 
@@ -186,8 +230,29 @@ class TCPClient:
                 self.on_message_received(message)
 
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
+            logger.error(f"[COMMAND] Error handling message: {e}")
 
     def is_connected(self) -> bool:
         """Check if connected"""
         return self.connected
+
+    def _sanitize_parameters(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize parameters for logging (remove sensitive data)"""
+        if not parameters:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['password', 'token', 'api_key', 'secret', 'auth']
+
+        for key, value in parameters.items():
+            # Check if key contains sensitive keywords
+            if any(sensitive in key.lower() for sensitive in sensitive_keys):
+                sanitized[key] = "***REDACTED***"
+            else:
+                # Limit long values to prevent log spam
+                if isinstance(value, str) and len(value) > 100:
+                    sanitized[key] = f"{value[:100]}... (truncated)"
+                else:
+                    sanitized[key] = value
+
+        return sanitized

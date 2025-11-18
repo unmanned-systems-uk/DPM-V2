@@ -7,9 +7,9 @@ import datetime
 from pathlib import Path
 
 # Version Information
-VERSION = "1.15.1"
-VERSION_NAME = "Fix Window Scaling - Scrollable Camera Dashboard"
-BUILD_DATE = "2025-11-10"
+VERSION = "1.11.0"
+VERSION_NAME = "DPM Management System - JSON Filters, Config Mgmt, Testing"
+BUILD_DATE = "2025-11-18"
 
 # Build metadata
 BUILD_INFO = {
@@ -23,12 +23,12 @@ BUILD_INFO = {
 
 # Phase completion status
 PHASE_STATUS = {
-    "phase_1": "Complete (100%)",
-    "phase_2": "Complete (100%)",
-    "phase_3": "Not Started (0%)",
-    "phase_4": "Not Started (0%)",
-    "phase_5": "Not Started (0%)",
-    "overall_completion": "60%"
+    "phase_1": "Complete (100%) - Tri-Domain Log Aggregation",
+    "phase_2": "Complete (100%) - GUI Integration",
+    "phase_3": "Complete (100%) - Config Management (#115, #116)",
+    "phase_4": "Complete (100%) - JSON Filter System (#147)",
+    "phase_5": "Complete (100%) - Testing Enhancements (#149)",
+    "overall_completion": "100%"
 }
 
 

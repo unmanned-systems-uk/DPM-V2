@@ -46,10 +46,12 @@ from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from utils.log_contexts import LogContexts
 from utils.protocol_loader import protocol
 from utils.log_filter_manager import LogFilterManager
+from version import get_version_string, get_build_info_string
 
 # Import dashboard tabs from DPM Diagnostics Tool
 from gui.widgets import StatusIndicator, ScrolledTextLog
 from gui.tab_connection import ConnectionTab
+from gui.tab_config import ConfigTab
 from gui.tab_remote_control import RemoteControlTab
 from gui.tab_camera import CameraDashboardTab
 from gui.tab_analytics import PerformanceAnalyticsTab
@@ -185,19 +187,23 @@ class DPMManagementSystem(tk.Tk):
         self.connection_tab = ConnectionTab(self.notebook)
         self.notebook.add(self.connection_tab, text="Connection Monitor")
 
-        # Tab 5: Camera Dashboard (from DPM Diagnostics v1.12.1)
+        # Tab 5: Configuration (SystemTools settings management)
+        self.config_tab = ConfigTab(self.notebook)
+        self.notebook.add(self.config_tab, text="⚙️ Configuration")
+
+        # Tab 6: Camera Dashboard (from DPM Diagnostics v1.12.1)
         self.camera_tab = CameraDashboardTab(self.notebook)
         self.notebook.add(self.camera_tab, text="Camera Dashboard")
 
-        # Tab 6: Performance Analytics (Deep Statistical Analysis - Issue #130)
+        # Tab 7: Performance Analytics (Deep Statistical Analysis - Issue #130)
         self.analytics_tab = PerformanceAnalyticsTab(self.notebook)
         self.notebook.add(self.analytics_tab, text="Performance Analytics")
 
-        # Tab 7: File Browser (SFTP file transfer - Issue #133)
+        # Tab 8: File Browser (SFTP file transfer - Issue #133)
         self.file_browser_tab = FileBrowserTab(self.notebook)
         self.notebook.add(self.file_browser_tab.frame, text="📁 File Browser")
 
-        # Tab 8: Remote Control (SSH command execution panel)
+        # Tab 9: Remote Control (SSH command execution panel)
         # Create a simple SSH client accessor for RemoteControlTab
         class SSHClientAccessor:
             """Simple wrapper to provide ssh_client attribute for RemoteControlTab"""
@@ -210,14 +216,15 @@ class DPMManagementSystem(tk.Tk):
 
         self.ssh_accessor = SSHClientAccessor(self)
         self.remote_control_tab = RemoteControlTab(self.notebook, self.ssh_accessor)
-        self.notebook.add(self.remote_control_tab, text="🎮 Remote Control")
+        self.remote_control_tab.main_window = self  # Set main window reference for auto-connect
+        self.notebook.add(self.remote_control_tab, text="🎮 Air-Side Remote")
 
         # Wire up clients to dashboard tabs
         self._wire_dashboard_clients()
 
         # Future tabs:
-        # Tab 8: H16 Diagnostics (Issue #XXX)
-        # Tab 9: Command Sender (future)
+        # Tab 10: H16 Diagnostics (Issue #XXX)
+        # Tab 11: Command Sender (future)
         # etc. - add incrementally
 
     def _create_log_viewer_tab(self):
@@ -3335,6 +3342,11 @@ class DPMManagementSystem(tk.Tk):
 
 def main():
     """Main entry point"""
+    logger.info("=" * 60)
+    logger.info(f"DPM Management System {get_version_string()} Starting...")
+    logger.info(f"Build: {get_build_info_string()}")
+    logger.info("=" * 60)
+
     app = DPMManagementSystem()
     app.mainloop()
 

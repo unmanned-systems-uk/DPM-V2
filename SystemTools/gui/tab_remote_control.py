@@ -20,6 +20,8 @@ class RemoteControlTab(ttk.Frame):
         super().__init__(parent)
 
         self.log_inspector_tab = log_inspector_tab  # Reference to Log Inspector tab to access SSH client
+        self.main_window = None  # Will be set by main window for auto-connect functionality
+        self.auto_connecting = False  # Track auto-connect state
 
         self._create_ui()
 
@@ -153,6 +155,17 @@ class RemoteControlTab(ttk.Frame):
                   command=lambda: self._execute_command("ss -tuln",
                                                        "Checking listening ports...")).pack(side=tk.LEFT, padx=5, pady=5)
 
+        # Testing & Debugging
+        testing_frame = ttk.LabelFrame(self, text="Testing & Debugging", padding=10)
+        testing_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Button(testing_frame, text="🧪 Send Invalid Command (Test Error Response)",
+                  command=self._test_invalid_command,
+                  width=40).pack(side=tk.LEFT, padx=5, pady=5)
+
+        ttk.Label(testing_frame, text="Sends bad command to Air-Side to verify error log response",
+                 font=('Arial', 8, 'italic'), foreground="gray").pack(side=tk.LEFT, padx=10)
+
         # Output display
         output_frame = ttk.LabelFrame(self, text="Command Output", padding=5)
         output_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -192,17 +205,72 @@ class RemoteControlTab(ttk.Frame):
         """Update SSH connection status indicator"""
         if connected:
             self.ssh_status_label.config(text="SSH: Connected", foreground="green")
+            self.auto_connecting = False
         else:
             self.ssh_status_label.config(text="SSH: Not Connected", foreground="gray")
 
-    def _switch_to_sdk_mode(self):
-        """Switch to SDK Test Mode - Stop payload-manager, start remotecli-v2"""
+    def _ensure_ssh_connected(self) -> bool:
+        """Ensure SSH is connected, auto-connect if needed"""
         ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
 
-        if not ssh_client or not ssh_client.is_connected():
+        # Already connected
+        if ssh_client and ssh_client.is_connected():
+            return True
+
+        # Prevent multiple simultaneous auto-connects
+        if self.auto_connecting:
+            messagebox.showinfo("Connecting",
+                              "SSH connection in progress...\nPlease wait.")
+            return False
+
+        # Auto-connect
+        logger.info("[AIR-SIDE REMOTE] SSH connection required - initiating auto-connect")
+        self.auto_connecting = True
+
+        # Update status
+        self.ssh_status_label.config(text="SSH: Auto-connecting...", foreground="orange")
+        self.status_label.config(text="Connection required, auto-connecting...")
+
+        # Trigger SSH connection via main window
+        if self.main_window and hasattr(self.main_window, '_docker_connect_ssh'):
+            try:
+                # Call the main window's SSH connect method
+                self.main_window._docker_connect_ssh()
+
+                # Show info message
+                messagebox.showinfo("Auto-Connect",
+                                  "SSH connection initiated.\n\n"
+                                  "Commands will execute once connection is established.\n"
+                                  "Please wait for 'SSH: Connected' status.")
+
+                logger.info("[AIR-SIDE REMOTE] SSH auto-connect initiated successfully")
+                return False  # Not yet connected, command should wait
+
+            except Exception as e:
+                logger.error(f"[AIR-SIDE REMOTE] Auto-connect failed: {e}")
+                self.auto_connecting = False
+                self.ssh_status_label.config(text="SSH: Connection Failed", foreground="red")
+                self.status_label.config(text="Auto-connect failed")
+                messagebox.showerror("Connection Failed",
+                                   f"Failed to auto-connect SSH:\n{e}\n\n"
+                                   "Please check network connection and credentials.")
+                return False
+        else:
+            # Fallback to manual connection message
+            self.auto_connecting = False
             messagebox.showwarning("Not Connected",
-                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+                                 "SSH connection required.\n\n"
+                                 "Please connect via the 'Docker Logs' tab first,\n"
+                                 "or check the Connection Monitor tab.")
+            return False
+
+    def _switch_to_sdk_mode(self):
+        """Switch to SDK Test Mode - Stop payload-manager, start remotecli-v2"""
+        # Ensure SSH connection (auto-connect if needed)
+        if not self._ensure_ssh_connected():
             return
+
+        ssh_client = self.log_inspector_tab.ssh_client
 
         # Confirm switch
         result = messagebox.askyesno(
@@ -268,12 +336,11 @@ class RemoteControlTab(ttk.Frame):
 
     def _switch_to_production_mode(self):
         """Switch to Production Mode - Stop remotecli-v2, start payload-manager"""
-        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
-
-        if not ssh_client or not ssh_client.is_connected():
-            messagebox.showwarning("Not Connected",
-                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+        # Ensure SSH connection (auto-connect if needed)
+        if not self._ensure_ssh_connected():
             return
+
+        ssh_client = self.log_inspector_tab.ssh_client
 
         # Confirm switch
         result = messagebox.askyesno(
@@ -339,12 +406,11 @@ class RemoteControlTab(ttk.Frame):
 
     def _check_current_mode(self):
         """Check which mode is currently active"""
-        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
-
-        if not ssh_client or not ssh_client.is_connected():
-            messagebox.showwarning("Not Connected",
-                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+        # Ensure SSH connection (auto-connect if needed)
+        if not self._ensure_ssh_connected():
             return
+
+        ssh_client = self.log_inspector_tab.ssh_client
 
         self.status_label.config(text="Checking current mode...")
 
@@ -400,6 +466,91 @@ class RemoteControlTab(ttk.Frame):
 
         threading.Thread(target=check_mode, daemon=True).start()
 
+    def _test_invalid_command(self):
+        """Send invalid command to Air-Side to test error response"""
+        import json
+
+        # Get reference to the main window to access tcp_client
+        tcp_client = None
+        try:
+            main_window = self.master.master  # notebook -> main window
+            if hasattr(main_window, 'tcp_client'):
+                tcp_client = main_window.tcp_client
+        except Exception as e:
+            logger.error(f"Error accessing tcp_client: {e}")
+
+        if not tcp_client or not tcp_client.is_connected():
+            messagebox.showwarning(
+                "Not Connected",
+                "Air-Side TCP connection required.\n\n"
+                "Please connect to Air-Side via the Dashboard tab first."
+            )
+            return
+
+        # Clear output and show header
+        self._clear_output()
+        self._append_output("=" * 80 + "\n", "info")
+        self._append_output("  TESTING INVALID COMMAND - ERROR RESPONSE VERIFICATION\n", "command")
+        self._append_output("=" * 80 + "\n\n", "info")
+
+        self.status_label.config(text="Sending invalid command to Air-Side...")
+
+        def send_invalid_command():
+            try:
+                command_name = "invalid.test.command"
+                parameters = {"test_param": "this_should_fail"}
+
+                self.after(0, lambda: self._append_output(
+                    f"Sending invalid command: '{command_name}'\n", "command"))
+                self.after(0, lambda: self._append_output(
+                    f"\nCommand Parameters:\n{json.dumps(parameters, indent=2)}\n\n", "info"))
+
+                # Send command and wait for response
+                self.after(0, lambda: self._append_output("Waiting for Air-Side response...\n", "info"))
+
+                # Send via TCP client using send_command() for consistent logging
+                success = tcp_client.send_command(command_name, parameters)
+                if not success:
+                    self.after(0, lambda: self._append_output("\n❌ Failed to send command\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Test failed - Send error"))
+                    return
+
+                response = tcp_client.wait_for_response(timeout=5.0)
+
+                if response:
+                    self.after(0, lambda: self._append_output("\n✅ Response received from Air-Side:\n", "success"))
+
+                    # Parse response
+                    response_json = json.dumps(response, indent=2)
+                    self.after(0, lambda r=response_json: self._append_output(f"{r}\n\n", "info"))
+
+                    # Analyze response
+                    if response.get("status") == "error":
+                        error_code = response.get("payload", {}).get("error_code", "unknown")
+                        error_message = response.get("payload", {}).get("error_message", "No message")
+
+                        self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+                        self.after(0, lambda: self._append_output("✅ TEST PASSED - Error response received as expected:\n", "success"))
+                        self.after(0, lambda code=error_code: self._append_output(f"  • Error Code: {code}\n", "success"))
+                        self.after(0, lambda msg=error_message: self._append_output(f"  • Error Message: {msg}\n", "success"))
+                        self.after(0, lambda: self._append_output("\n💡 This confirms Air-Side properly logs and responds to invalid commands.\n", "info"))
+                        self.after(0, lambda: self._append_output("=" * 80 + "\n", "info"))
+
+                        self.after(0, lambda: self.status_label.config(text="Test passed - Error response verified"))
+                    else:
+                        self.after(0, lambda: self._append_output("⚠️  WARNING: Expected error response but got success status\n", "info"))
+                        self.after(0, lambda: self.status_label.config(text="Test completed - Unexpected response"))
+                else:
+                    self.after(0, lambda: self._append_output("\n❌ No response received from Air-Side (timeout)\n", "error"))
+                    self.after(0, lambda: self.status_label.config(text="Test failed - No response"))
+
+            except Exception as e:
+                logger.exception(f"Error testing invalid command: {e}")
+                self.after(0, lambda e=e: self._append_output(f"\n❌ Error during test: {str(e)}\n", "error"))
+                self.after(0, lambda: self.status_label.config(text="Test failed"))
+
+        threading.Thread(target=send_invalid_command, daemon=True).start()
+
     def _confirm_reboot(self):
         """Confirm before rebooting SBC"""
         result = messagebox.askyesno(
@@ -414,13 +565,11 @@ class RemoteControlTab(ttk.Frame):
 
     def _run_smart_diagnostic(self):
         """Run comprehensive automated diagnostic checks"""
-        # Get current SSH client
-        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
-
-        if not ssh_client or not ssh_client.is_connected():
-            messagebox.showwarning("Not Connected",
-                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+        # Ensure SSH connection (auto-connect if needed)
+        if not self._ensure_ssh_connected():
             return
+
+        ssh_client = self.log_inspector_tab.ssh_client
 
         # Clear output and show header
         self._clear_output()
@@ -711,13 +860,11 @@ class RemoteControlTab(ttk.Frame):
 
     def _execute_command(self, command: str, status_msg: str):
         """Execute SSH command in background thread"""
-        # Get current SSH client from Log Inspector tab
-        ssh_client = self.log_inspector_tab.ssh_client if self.log_inspector_tab else None
-
-        if not ssh_client or not ssh_client.is_connected():
-            messagebox.showwarning("Not Connected",
-                                  "SSH connection required.\nPlease connect in Log Inspector tab first.")
+        # Ensure SSH connection (auto-connect if needed)
+        if not self._ensure_ssh_connected():
             return
+
+        ssh_client = self.log_inspector_tab.ssh_client
 
         # Update status
         self.status_label.config(text=status_msg)
