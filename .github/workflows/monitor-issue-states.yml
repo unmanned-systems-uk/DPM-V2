@@ -43,7 +43,7 @@ jobs:
                   owner,
                   repo,
                   issue_number: issue.number,
-                  body: `**WHO:** GitHub Actions Bot\n\n⚠️ **Stale Issue Alert**\n\nThis issue has been in [FIXING] state for ${staleDays}+ days without updates.\n\nPlease either:\n1. Provide an update on progress\n2. Move to [FIXED] if complete\n3. Remove [FIXING] if work is paused\n\ncc @${issue.assignee?.login || 'team'}`
+                  body: `**WHO:** GitHub Actions Bot\n\n**WARNING: Stale Issue Alert**\n\nThis issue has been in [FIXING] state for ${staleDays}+ days without updates.\n\nPlease either:\n1. Provide an update on progress\n2. Move to [FIXED] if complete\n3. Remove [FIXING] if work is paused\n\ncc @${issue.assignee?.login || 'team'}`
                 });
 
                 // Add stale label
@@ -119,7 +119,7 @@ jobs:
               core.setFailed(`${violationCount} comments missing WHO tags - workflow compliance issue`);
             }
           } else {
-            console.log('All recent comments have proper WHO tags ✅');
+            console.log('All recent comments have proper WHO tags - OK');
           }
 
   check-cross-domain-handoffs:
@@ -173,12 +173,12 @@ jobs:
                   owner,
                   repo,
                   issue_number: issue.number,
-                  body: `**WHO:** GitHub Actions Bot\n\n📋 **Cross-Domain Handoff Reminder**\n\nThis issue is waiting for ${issue.needs} implementation for ${warnDays}+ days.\n\n${issue.needs} team: Please review and update status.`
+                  body: `**WHO:** GitHub Actions Bot\n\n**Cross-Domain Handoff Reminder**\n\nThis issue is waiting for ${issue.needs} implementation for ${warnDays}+ days.\n\n${issue.needs} team: Please review and update status.`
                 });
               }
             }
           } else {
-            console.log('No pending cross-domain handoffs ✅');
+            console.log('No pending cross-domain handoffs - OK');
           }
 
   create-summary-report:
@@ -203,7 +203,7 @@ jobs:
               owner,
               repo,
               title: `[WORKFLOW][ALERT] Monitoring detected compliance issues - ${new Date().toISOString().split('T')[0]}`,
-              body: `**WHO:** GitHub Actions Bot\n\n## Workflow Monitoring Alert\n\nThe automated monitoring workflow has detected potential compliance issues.\n\n**Run Details:** [View Workflow Run](${runUrl})\n\n**Checks Performed:**\n- ✅ Stale [FIXING] issues\n- ✅ Missing WHO tags\n- ✅ Cross-domain handoffs\n\n**Action Required:**\nPlease review the workflow run for details and address any identified issues.\n\n---\n*This is an automated message from the workflow monitoring system.*`,
+              body: `**WHO:** GitHub Actions Bot\n\n## Workflow Monitoring Alert\n\nThe automated monitoring workflow has detected potential compliance issues.\n\n**Run Details:** [View Workflow Run](${runUrl})\n\n**Checks Performed:**\n- Stale [FIXING] issues\n- Missing WHO tags\n- Cross-domain handoffs\n\n**Action Required:**\nPlease review the workflow run for details and address any identified issues.\n\n---\n*This is an automated message from the workflow monitoring system.*`,
               labels: ['workflow', 'automated']
             });
           }
