@@ -274,6 +274,129 @@
         "ground_side": false,
         "version": "1.3.0"
       }
+    },
+
+    "system.get_config": {
+      "description": "Retrieve Air-Side configuration (merged default + environment overrides)",
+      "parameters": {},
+      "response": {
+        "success": {
+          "config": {
+            "version": "string",
+            "environment": "string",
+            "network": {
+              "tcp_port": "integer",
+              "udp_status_port": "integer",
+              "udp_heartbeat_port": "integer",
+              "udp_logs_port": "integer",
+              "udp_health_port": "integer",
+              "udp_discovery_port": "integer",
+              "ground_ip": "string",
+              "air_ip": "string"
+            },
+            "discovery": {
+              "enabled": "boolean",
+              "port": "integer",
+              "broadcast_interval_ms": "integer"
+            },
+            "timing": {
+              "tcp_timeout_ms": "integer",
+              "health_interval_ms": "integer",
+              "status_interval_ms": "integer",
+              "heartbeat_interval_ms": "integer",
+              "sync_interval_ms": "integer"
+            },
+            "logging": {
+              "level": "string",
+              "console_enabled": "boolean",
+              "file_enabled": "boolean",
+              "file_path": "string",
+              "file_max_size_mb": "integer",
+              "file_max_count": "integer",
+              "network_ground_enabled": "boolean",
+              "network_systemtools_enabled": "boolean",
+              "network_systemtools_ip": "string",
+              "network_systemtools_port": "integer"
+            },
+            "health": {
+              "monitor_enabled": "boolean",
+              "interval_ms": "integer",
+              "broadcast_enabled": "boolean",
+              "ram_buffer_size": "integer",
+              "disk_retention_days": "integer",
+              "summary_retention_years": "integer"
+            },
+            "sync": {
+              "enabled": "boolean",
+              "master_device": "string",
+              "slave_device": "string",
+              "exposure_interval_ms": "integer"
+            },
+            "camera": {
+              "auto_connect": "boolean",
+              "reconnect_enabled": "boolean",
+              "property_cache_enabled": "boolean",
+              "property_refresh_interval_ms": "integer"
+            },
+            "buffers": {
+              "tcp_receive_size": "integer",
+              "tcp_send_size": "integer",
+              "command_queue_size": "integer",
+              "health_queue_size": "integer"
+            },
+            "protocol": {
+              "version": "string",
+              "max_message_size_bytes": "integer",
+              "command_timeout_ms": "integer"
+            }
+          }
+        },
+        "errors": [5000]
+      },
+      "notes": [
+        "Returns complete merged configuration (default.json + production.json)",
+        "Config is READ-ONLY via this command (use system.update_config to modify)",
+        "Response format matches Issue #115 specification",
+        "Part of Phase 1: Configuration Management (Gap 3)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "systemtools": true,
+        "version": "1.4.0"
+      }
+    },
+
+    "system.update_config": {
+      "description": "Update Air-Side configuration at runtime (persisted to development.json)",
+      "parameters": {
+        "updates": {
+          "type": "object",
+          "required": true,
+          "description": "Configuration updates in nested key format: {'network.tcp_port': 5001, 'logging.level': 'DEBUG'}"
+        }
+      },
+      "response": {
+        "success": {
+          "updated": "array of strings",
+          "failed": "array of objects",
+          "config_file": "string",
+          "restart_required": "boolean"
+        },
+        "errors": [5000, 5001, 5002]
+      },
+      "notes": [
+        "Updates are written to development.json and applied immediately where possible",
+        "Some changes require container restart (e.g., tcp_port, udp_*_port)",
+        "Validates updates against config schema before applying",
+        "Part of Phase 1: Configuration Management (Gap 3)"
+      ],
+      "implemented": {
+        "air_side": true,
+        "ground_side": true,
+        "systemtools": true,
+        "version": "1.4.0"
+      }
     }
   }
 }
