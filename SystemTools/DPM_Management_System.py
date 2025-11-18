@@ -100,7 +100,7 @@ class DPMManagementSystem(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("DPM System Management Tool")
+        self.title(f"DPM Management System - {get_version_string()}")
         self.geometry("1600x900")
 
         # Backend components (reuse existing classes)
