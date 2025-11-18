@@ -78,88 +78,82 @@ class AirSideListener:
 
 
 class GroundSideListener:
-    """TCP client for Ground-Side logs (port 5008, via ADB forward)
+    """TCP server for Ground-Side logs (port 5008)
 
-    ARCHITECTURE (Fixed for Issue #105):
-    - ADB forward listens on 127.0.0.1:5008 (server side)
-    - This listener CONNECTS to 127.0.0.1:5008 (client side)
-    - ADB forward bridges to H16:5008 where Ground-Side app sends logs
+    ARCHITECTURE (Fixed for Issue #99):
+    - This listener is a TCP SERVER listening on 0.0.0.0:5008
+    - Ground-Side NetworkSink (H16) CONNECTS to 10.0.1.83:5008 (this machine)
+    - Accepts incoming connections from Ground-Side and receives logs
+    - Direct network connection (no ADB required for this architecture)
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 5008, buffer_size: int = 4096):
+    def __init__(self, host: str = "0.0.0.0", port: int = 5008, buffer_size: int = 4096):
         self.host = host
         self.port = port
         self.buffer_size = buffer_size
-        self.sock = None
+        self.server_sock = None
         self.running = False
         self.thread = None
-        self.reconnect_delay = 5.0  # Seconds between reconnection attempts
 
     def start(self, log_queue: deque):
-        """Start the TCP client in a separate thread"""
+        """Start the TCP server in a separate thread"""
         self.running = True
-        self.thread = threading.Thread(target=self._connect_and_listen, args=(log_queue,), daemon=True)
+        self.thread = threading.Thread(target=self._accept_connections, args=(log_queue,), daemon=True)
         self.thread.start()
-        logger.info(f"GroundSideListener starting, will connect to TCP {self.host}:{self.port}")
+        logger.info(f"GroundSideListener starting TCP server on {self.host}:{self.port}")
 
-    def _connect_and_listen(self, log_queue: deque):
-        """Connect to ADB forward port and listen for logs"""
-        logger.info(f"[GroundSideListener] Connecting to TCP {self.host}:{self.port}")
-        print(f"[GroundSideListener] Connecting to TCP {self.host}:{self.port}")
-        print(f"[GroundSideListener] Ensure ADB forward is active: adb forward tcp:5008 tcp:5008")
+    def _accept_connections(self, log_queue: deque):
+        """Start TCP server and accept incoming connections from Ground-Side"""
+        try:
+            # Create server socket
+            self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_sock.bind((self.host, self.port))
+            self.server_sock.listen(5)
+            self.server_sock.settimeout(1.0)  # Accept timeout for clean shutdown
 
-        while self.running:
-            try:
-                # Create socket and connect
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.settimeout(5.0)  # Connection timeout
+            logger.info(f"[GroundSideListener] TCP server listening on {self.host}:{self.port}")
+            print(f"[GroundSideListener] TCP server listening on {self.host}:{self.port}")
+            print(f"[GroundSideListener] Waiting for Ground-Side (H16) to connect...")
 
-                logger.info(f"[GroundSideListener] Attempting connection to {self.host}:{self.port}...")
-                print(f"[GroundSideListener] Attempting connection to {self.host}:{self.port}...")
+            while self.running:
+                try:
+                    # Accept incoming connection
+                    client_sock, client_addr = self.server_sock.accept()
+                    logger.info(f"[GroundSideListener] Client connected from {client_addr}")
+                    print(f"[GroundSideListener] Client connected from {client_addr}")
 
-                self.sock.connect((self.host, self.port))
+                    # Handle client in current thread (single client at a time)
+                    self._handle_client(client_sock, client_addr, log_queue)
 
-                logger.info(f"[GroundSideListener] Connected to {self.host}:{self.port}")
-                print(f"[GroundSideListener] Connected to {self.host}:{self.port}")
+                except socket.timeout:
+                    # Normal timeout, continue accepting
+                    continue
+                except Exception as e:
+                    if self.running:
+                        logger.error(f"[GroundSideListener] Accept error: {e}")
+                        print(f"[GroundSideListener] Accept error: {e}")
 
-                # Set socket to blocking mode with 1 second timeout for clean shutdown
-                self.sock.settimeout(1.0)
+        except Exception as e:
+            logger.error(f"[GroundSideListener] Server error: {e}")
+            print(f"[GroundSideListener] Server error: {e}")
+        finally:
+            if self.server_sock:
+                self.server_sock.close()
+            logger.info("[GroundSideListener] Server stopped")
 
-                # Handle incoming data
-                self._handle_connection(log_queue)
-
-            except socket.timeout:
-                logger.warning(f"[GroundSideListener] Connection timeout to {self.host}:{self.port}")
-                print(f"[GroundSideListener] Connection timeout")
-            except ConnectionRefusedError:
-                logger.warning(f"[GroundSideListener] Connection refused on {self.host}:{self.port} (ADB forward not active?)")
-                print(f"[GroundSideListener] Connection refused (check ADB forward)")
-            except Exception as e:
-                if self.running:
-                    logger.error(f"[GroundSideListener] Connection error: {e}")
-                    print(f"[GroundSideListener] Connection error: {e}")
-            finally:
-                if self.sock:
-                    self.sock.close()
-                    self.sock = None
-
-            # Wait before reconnecting
-            if self.running:
-                logger.info(f"[GroundSideListener] Will retry in {self.reconnect_delay}s...")
-                print(f"[GroundSideListener] Retrying in {self.reconnect_delay}s...")
-                import time
-                time.sleep(self.reconnect_delay)
-
-    def _handle_connection(self, log_queue: deque):
-        """Handle the TCP connection and receive logs"""
+    def _handle_client(self, client_sock: socket.socket, client_addr: tuple, log_queue: deque):
+        """Handle a connected Ground-Side client and receive logs"""
         buffer = ""
+        client_sock.settimeout(1.0)  # Read timeout for clean shutdown
+
         try:
             while self.running:
                 try:
-                    data = self.sock.recv(self.buffer_size)
+                    data = client_sock.recv(self.buffer_size)
                     if not data:
-                        logger.warning("[GroundSideListener] Connection closed by remote")
-                        print("[GroundSideListener] Connection closed by remote")
+                        logger.info(f"[GroundSideListener] Client {client_addr} disconnected")
+                        print(f"[GroundSideListener] Client {client_addr} disconnected")
                         break
 
                     buffer += data.decode('utf-8')
@@ -171,7 +165,7 @@ class GroundSideListener:
                             try:
                                 log_entry = json.loads(line)
                                 log_entry['domain'] = 'GROUND'
-                                log_entry['source_addr'] = f"{self.host}:{self.port}"
+                                log_entry['source_addr'] = f"{client_addr[0]}:{client_addr[1]}"
                                 log_queue.append(log_entry)
                             except json.JSONDecodeError as e:
                                 logger.warning(f"[GroundSideListener] JSON decode error: {e}")
@@ -180,18 +174,19 @@ class GroundSideListener:
                     continue
                 except Exception as e:
                     if self.running:
-                        logger.error(f"[GroundSideListener] Error receiving data: {e}")
-                        print(f"[GroundSideListener] Error receiving data: {e}")
+                        logger.error(f"[GroundSideListener] Client error: {e}")
+                        print(f"[GroundSideListener] Client error: {e}")
                     break
         finally:
-            logger.info("[GroundSideListener] Connection handler stopped")
+            client_sock.close()
+            logger.info(f"[GroundSideListener] Client {client_addr} handler stopped")
 
     def stop(self):
         """Stop the listener"""
         self.running = False
-        if self.sock:
+        if self.server_sock:
             try:
-                self.sock.close()
+                self.server_sock.close()
             except:
                 pass
         if self.thread:

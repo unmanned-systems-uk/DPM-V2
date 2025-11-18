@@ -51,5 +51,25 @@
   "export": {
     "default_format": "json",
     "output_dir": "logs/exports"
+  },
+  "analytics": {
+    "enabled": true,
+    "database_path": "data/performance.db",
+    "data_retention_days": 7,
+    "update_interval_sec": 5,
+    "alert_thresholds": {
+      "cpu_warn": 70,
+      "cpu_critical": 90,
+      "memory_warn_mb": 6000,
+      "memory_critical_mb": 7000,
+      "camera_latency_warn_ms": 40,
+      "camera_latency_critical_ms": 100,
+      "queue_depth_warn": 10,
+      "queue_depth_critical": 50
+    },
+    "anomaly_detection": {
+      "z_score_threshold": 3.0,
+      "rate_of_change_threshold_percent": 30
+    }
   }
 }

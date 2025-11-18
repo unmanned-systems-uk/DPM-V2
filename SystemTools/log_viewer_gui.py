@@ -31,6 +31,7 @@ from network.log_listeners import AirSideListener, GroundSideListener
 from network.udp_discovery import UDPDiscoverySender, load_discovery_config
 from utils.logger import logger
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
+from utils.log_contexts import LogContexts
 
 
 class LogViewerGUI(tk.Tk):
@@ -148,16 +149,20 @@ class LogViewerGUI(tk.Tk):
         ttk.Separator(filter_row1, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
 
         ttk.Label(filter_row1, text="Level:").pack(side=tk.LEFT, padx=5)
+        # Load levels dynamically from protocol
+        level_values = LogContexts.get_levels_for_ui(include_all=True)
         level_combo = ttk.Combobox(filter_row1, textvariable=self.filter_level,
-                                   values=["ALL", "DEBUG", "INFO", "WARNING", "ERROR"], state="readonly", width=10)
+                                   values=level_values, state="readonly", width=10)
         level_combo.pack(side=tk.LEFT, padx=5)
         level_combo.bind("<<ComboboxSelected>>", self._on_filter_changed)
 
         ttk.Separator(filter_row1, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
 
         ttk.Label(filter_row1, text="Context:").pack(side=tk.LEFT, padx=5)
+        # Load contexts dynamically from protocol
+        context_values = LogContexts.get_contexts_for_ui(include_all=True)
         context_combo = ttk.Combobox(filter_row1, textvariable=self.filter_context,
-                                     values=["ALL", "CAMERA", "NETWORK", "COMMAND", "UI", "SYSTEM"], state="readonly", width=12)
+                                     values=context_values, state="readonly", width=12)
         context_combo.pack(side=tk.LEFT, padx=5)
         context_combo.bind("<<ComboboxSelected>>", self._on_filter_changed)
 
@@ -242,7 +247,7 @@ class LogViewerGUI(tk.Tk):
 
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
-        self.ground_listener = GroundSideListener(host="127.0.0.1", port=5008)
+        self.ground_listener = GroundSideListener(host="0.0.0.0", port=5008)  # TCP server on all interfaces
 
         # Start listeners
         self.air_listener.start(self.log_queue)
@@ -370,6 +375,13 @@ class LogViewerGUI(tk.Tk):
                 entry = self.log_queue.popleft()
                 entries_to_process.append(entry)
                 self.display_buffer.append(entry)  # Keep in buffer for filtering
+
+                # Also print to console for real-time visibility
+                domain = entry.get('domain', 'UNKNOWN')
+                level = entry.get('level', 'INFO')
+                category = entry.get('category', '')
+                message = entry.get('message', '')
+                print(f"[{domain}] [{level}] [{category}] {message}")
 
         if not entries_to_process:
             return

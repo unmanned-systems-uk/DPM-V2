@@ -45,6 +45,10 @@ class LogInspectorTab(ttk.Frame):
         self.subtab_update_scheduled = False
         self.subtab_update_interval = 1000  # Update sub-tabs every 1 second
 
+        # Pop-out window
+        self.popup_window = None
+        self.popup_text = None
+
         self._create_ui()
 
         logger.debug("Log Inspector tab initialized")
@@ -66,6 +70,12 @@ class LogInspectorTab(ttk.Frame):
 
         self.ssh_status_label = ttk.Label(status_row, text="Disconnected", font=('Arial', 9, 'bold'))
         self.ssh_status_label.pack(side=tk.LEFT, padx=5)
+
+        # Docker Image ID display
+        ttk.Separator(status_row, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
+        ttk.Label(status_row, text="Image ID:").pack(side=tk.LEFT, padx=5)
+        self.docker_image_id_label = ttk.Label(status_row, text="N/A", font=('Arial', 9))
+        self.docker_image_id_label.pack(side=tk.LEFT, padx=5)
 
         # Connect/Disconnect buttons
         button_row = ttk.Frame(connection_frame)
@@ -181,6 +191,7 @@ class LogInspectorTab(ttk.Frame):
         ttk.Button(bottom_frame, text="Save to File...", command=self._save_logs).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="Download Log File...", command=self._download_log_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="Copy All", command=self._copy_all).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="🗗 Pop Out", command=self._pop_out_logs).pack(side=tk.LEFT, padx=5)
 
         # Line count label
         self.line_count_label = ttk.Label(bottom_frame, text="Lines: 0")
@@ -293,6 +304,9 @@ class LogInspectorTab(ttk.Frame):
         self.ssh_status_label.config(text="Connected", foreground="green")
         self.connect_btn.config(state=tk.DISABLED, text="Connect SSH")
         self.disconnect_btn.config(state=tk.NORMAL)
+
+        # Fetch Docker Image ID
+        self._fetch_docker_image_id()
 
         logger.info("SSH connected - fetching initial logs")
         self._refresh_logs()
@@ -806,3 +820,220 @@ class LogInspectorTab(ttk.Frame):
         # Cleanup Tri-Domain Aggregation tab
         if hasattr(self, 'tri_domain_tab') and self.tri_domain_tab:
             self.tri_domain_tab.cleanup()
+
+    def _fetch_docker_image_id(self):
+        """Fetch Docker container image ID and display it"""
+        try:
+            if not self.ssh_client or not self.ssh_client.is_connected():
+                return
+
+            # Get Docker image ID from payload-manager container
+            exit_code, stdout, stderr = self.ssh_client.execute_command(
+                "docker inspect payload-manager --format '{{.Image}}'"
+            )
+
+            if exit_code == 0 and stdout.strip():
+                # Extract image ID (format: sha256:abcdef123456...)
+                full_id = stdout.strip()
+
+                # Remove 'sha256:' prefix if present
+                if full_id.startswith('sha256:'):
+                    full_id = full_id[7:]
+
+                # Return first 12 characters (standard Docker short ID)
+                short_id = full_id[:12]
+
+                # Update label
+                self.docker_image_id_label.config(text=short_id, foreground="blue")
+                logger.info(f"Docker Image ID: {short_id}")
+            else:
+                self.docker_image_id_label.config(text="N/A", foreground="gray")
+                logger.warning(f"Failed to get Docker image ID: {stderr}")
+
+        except Exception as e:
+            logger.error(f"Error fetching Docker image ID: {e}")
+            self.docker_image_id_label.config(text="Error", foreground="red")
+
+    def _pop_out_logs(self):
+        """Pop out live log viewer into a separate window"""
+        # If window already exists, bring it to front
+        if self.popup_window and self.popup_window.winfo_exists():
+            self.popup_window.lift()
+            self.popup_window.focus_force()
+            logger.debug("Pop-out window brought to front")
+            return
+
+        # Create new popup window
+        self.popup_window = tk.Toplevel(self)
+        self.popup_window.title("DPM SystemTools - Live Docker Logs Viewer")
+        self.popup_window.geometry("1400x900")
+
+        # Create main frame
+        main_frame = ttk.Frame(self.popup_window, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title label
+        title_label = ttk.Label(main_frame,
+                               text="📋 Live Docker Logs - payload-manager",
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 10))
+
+        # Info frame with Docker Image ID
+        info_frame = ttk.Frame(main_frame)
+        info_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(info_frame, text="Status:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        popup_status_label = ttk.Label(info_frame,
+                                       text=self.ssh_status_label.cget("text"),
+                                       font=('Arial', 9),
+                                       foreground=self.ssh_status_label.cget("foreground"))
+        popup_status_label.pack(side=tk.LEFT, padx=5)
+
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
+
+        ttk.Label(info_frame, text="Image ID:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=5)
+        popup_image_id_label = ttk.Label(info_frame,
+                                         text=self.docker_image_id_label.cget("text"),
+                                         font=('Arial', 9),
+                                         foreground=self.docker_image_id_label.cget("foreground"))
+        popup_image_id_label.pack(side=tk.LEFT, padx=5)
+
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=15, fill=tk.Y)
+
+        popup_line_count = ttk.Label(info_frame, text=self.line_count_label.cget("text"))
+        popup_line_count.pack(side=tk.LEFT, padx=5)
+
+        # Log display area (scrolled text)
+        import tkinter.scrolledtext as scrolledtext
+        self.popup_text = scrolledtext.ScrolledText(main_frame,
+                                                    font=('Courier New', 9),
+                                                    wrap=tk.NONE,
+                                                    state='normal',
+                                                    bg='#FFFFFF',
+                                                    fg='#000000')
+        self.popup_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Configure color tags for different log levels
+        self.popup_text.tag_config("error", foreground="#FF0000", font=('Courier New', 9, 'bold'))
+        self.popup_text.tag_config("warning", foreground="#FF8C00", font=('Courier New', 9))
+        self.popup_text.tag_config("info", foreground="#0000FF")
+        self.popup_text.tag_config("debug", foreground="#808080")
+        self.popup_text.tag_config("air", foreground="#00008B", font=('Courier New', 9, 'bold'))
+        self.popup_text.tag_config("ground", foreground="#006400", font=('Courier New', 9, 'bold'))
+        self.popup_text.tag_config("highlight", background="#FFFF00")
+
+        # Copy current log content to popup
+        current_content = self.log_text.get(1.0, tk.END)
+        self.popup_text.insert(1.0, current_content)
+
+        # Re-apply all tags from main log display
+        for tag_name in ["error", "warning", "debug", "info", "air", "ground", "highlight"]:
+            try:
+                ranges = self.log_text.tag_ranges(tag_name)
+                for i in range(0, len(ranges), 2):
+                    start = ranges[i]
+                    end = ranges[i+1]
+                    self.popup_text.tag_add(tag_name, start, end)
+            except:
+                pass
+
+        # Bottom button bar
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(button_frame, text="🔄 Refresh",
+                  command=lambda: self._refresh_popup(popup_line_count)).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="📋 Copy All",
+                  command=lambda: self._copy_popup_content()).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="💾 Save to File",
+                  command=lambda: self._save_popup_to_file()).pack(side=tk.LEFT, padx=5)
+
+        # Auto-sync toggle
+        popup_autosync_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(button_frame, text="Auto-sync with main window",
+                       variable=popup_autosync_var).pack(side=tk.LEFT, padx=20)
+        self.popup_autosync_var = popup_autosync_var
+
+        ttk.Button(button_frame, text="❌ Close",
+                  command=self.popup_window.destroy).pack(side=tk.RIGHT, padx=5)
+
+        logger.info("Pop-out live logs window created")
+
+    def _refresh_popup(self, line_count_label):
+        """Refresh popup window content from main log display"""
+        try:
+            if not self.popup_text:
+                return
+
+            # Get current content from main window
+            current_content = self.log_text.get(1.0, tk.END)
+
+            # Update popup
+            self.popup_text.delete(1.0, tk.END)
+            self.popup_text.insert(1.0, current_content)
+
+            # Re-apply tags
+            for tag_name in ["error", "warning", "debug", "info", "air", "ground", "highlight"]:
+                try:
+                    ranges = self.log_text.tag_ranges(tag_name)
+                    for i in range(0, len(ranges), 2):
+                        start = ranges[i]
+                        end = ranges[i+1]
+                        self.popup_text.tag_add(tag_name, start, end)
+                except:
+                    pass
+
+            # Update line count
+            line_count_label.config(text=self.line_count_label.cget("text"))
+
+            logger.debug("Pop-out window refreshed")
+
+        except Exception as e:
+            logger.error(f"Failed to refresh popup: {e}")
+
+    def _copy_popup_content(self):
+        """Copy all popup content to clipboard"""
+        try:
+            if not self.popup_text:
+                return
+
+            content = self.popup_text.get(1.0, tk.END)
+            self.popup_window.clipboard_clear()
+            self.popup_window.clipboard_append(content)
+            logger.info("Popup content copied to clipboard")
+            messagebox.showinfo("Copied", "Log content copied to clipboard", parent=self.popup_window)
+        except Exception as e:
+            logger.error(f"Error copying popup content: {e}")
+            messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.popup_window)
+
+    def _save_popup_to_file(self):
+        """Save popup content to a file"""
+        try:
+            if not self.popup_text:
+                return
+
+            filename = filedialog.asksaveasfilename(
+                parent=self.popup_window,
+                title="Save Log File",
+                defaultextension=".log",
+                filetypes=[
+                    ("Log files", "*.log"),
+                    ("JSON Lines", "*.jsonl"),
+                    ("Text files", "*.txt"),
+                    ("All files", "*.*")
+                ]
+            )
+
+            if filename:
+                content = self.popup_text.get(1.0, tk.END)
+                with open(filename, 'w') as f:
+                    f.write(content)
+
+                logger.info(f"Popup content saved to: {filename}")
+                messagebox.showinfo("Saved", f"Log saved to:\n{filename}", parent=self.popup_window)
+
+        except Exception as e:
+            logger.error(f"Error saving popup content: {e}")
+            messagebox.showerror("Error", f"Failed to save:\n{e}", parent=self.popup_window)

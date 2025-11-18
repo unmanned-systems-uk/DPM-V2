@@ -1,0 +1,55 @@
+===============================================================================
+SYSTEM LOGS SOURCE - QUICK REFERENCE (Issue #136 Enhancement)
+===============================================================================
+
+NEW FEATURE: 4th Log Source Added to Docker Logs Tab
+
+WHERE: DPM Management System → File Browser Tab → Docker Logs Sub-tab
+
+DROPDOWN NOW HAS 4 SOURCES:
+  1. Host Logs         - /home/dpm/DPM-V2/sbc/logs/
+  2. Container Logs    - /var/log/dpm/ (in container)
+  3. Docker Output     - docker logs stream
+  4. System Logs       - /var/log/ (NEW!)
+
+SYSTEM LOGS FILES:
+  ✓ syslog*     - System-wide messages
+  ✓ kern.log*   - Kernel/USB events (CAMERA DEBUGGING!)
+  ✓ auth.log*   - SSH access logs
+  ✓ dmesg*      - Boot/hardware messages
+
+WHY IT MATTERS:
+  → Debug camera connection issues (#127, #102, #129)
+  → See USB device detection/disconnection
+  → Get system-level context
+  → Check kernel messages
+
+HOW TO USE:
+  1. python3 DPM_Management_System.py
+  2. Go to File Browser tab
+  3. Click Docker Logs sub-tab
+  4. Connect to Air-Side
+  5. Select "System Logs" from dropdown
+  6. Refresh to see available logs
+  7. Download kern.log for camera debugging
+
+EXAMPLE USE CASE - Camera Not Detected:
+  1. Select "System Logs"
+  2. Download "kern.log"
+  3. Search for "usb" or "Sony"
+  4. Look for device enumeration messages
+  5. Check for errors or disconnects
+
+FILES MODIFIED:
+  - gui/tab_file_browser.py (added SOURCE 4)
+
+TESTS:
+  ✅ Unit tests passed (test_system_logs_source.py)
+  ⏳ Ready for live Air-Side testing
+
+DOCUMENTATION:
+  - SYSTEM_LOGS_ADDITION.md (full details)
+  - TESTING_FILE_BROWSER_ISSUE_136.md (test plan)
+  - FILE_BROWSER_SUMMARY.md (updated)
+
+===============================================================================

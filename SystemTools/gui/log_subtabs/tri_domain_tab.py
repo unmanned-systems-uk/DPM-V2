@@ -22,6 +22,7 @@ import sys
 from utils.logger import logger
 from utils.config import config
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
+from utils.log_contexts import LogContexts
 from network.log_listeners import AirSideListener, GroundSideListener
 
 
@@ -143,10 +144,11 @@ class TriDomainAggregationTab(ttk.Frame):
 
         ttk.Separator(filter_row1, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
 
-        # Context filter
+        # Context filter - load dynamically from protocol
         ttk.Label(filter_row1, text="Context:").pack(side=tk.LEFT, padx=5)
+        context_values = LogContexts.get_contexts_for_ui(include_all=True)
         context_combo = ttk.Combobox(filter_row1, textvariable=self.filter_context,
-                                     values=["ALL", "CAMERA", "NETWORK", "COMMAND", "UI"], state="readonly", width=12)
+                                     values=context_values, state="readonly", width=12)
         context_combo.pack(side=tk.LEFT, padx=5)
         context_combo.bind("<<ComboboxSelected>>", self._on_filter_changed)
 
