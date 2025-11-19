@@ -20,12 +20,54 @@ Usage:
 
 import sys
 import json
+import socket
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from api import DPMController
+
+
+def _get_camera_status_from_broadcast(timeout=3.0):
+    """
+    Listen for Air-Side UDP status broadcast to get real camera status
+
+    Args:
+        timeout: Seconds to wait for broadcast (default 3s, Air-Side broadcasts every 1s)
+
+    Returns:
+        dict: Camera status {'connected': bool, 'model': str} or None if no broadcast received
+    """
+    try:
+        # Create UDP socket and bind to status port (5001)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('0.0.0.0', 5001))
+        sock.settimeout(timeout)
+
+        # Wait for one status broadcast
+        data, addr = sock.recvfrom(65536)
+        sock.close()
+
+        # Parse JSON message
+        message = json.loads(data.decode('utf-8'))
+
+        # Extract camera status from payload
+        if 'payload' in message and 'camera' in message['payload']:
+            camera = message['payload']['camera']
+            return {
+                'connected': camera.get('connected', False),
+                'model': camera.get('model', 'Unknown')
+            }
+
+        return None
+
+    except socket.timeout:
+        return None
+    except Exception as e:
+        print(f"    Warning: Could not get camera status from broadcast: {e}")
+        return None
 
 
 def pm_health_check(include_ground_side=False):
@@ -54,21 +96,20 @@ def pm_health_check(include_ground_side=False):
         data = result.data
         overall_healthy = data.get('overall_healthy', False)
 
-        # Check camera status on Air-Side
+        # Check camera status on Air-Side via UDP status broadcast
         camera_status = {'connected': False, 'model': 'Unknown'}
         if data.get('domains', {}).get('air_side', {}).get('connected'):
-            print("\n  Checking camera status...")
-            try:
-                # Send camera.get_properties to check if camera is connected
-                camera_result = dpm.air_side.send_command('camera.get_properties', {})
-                if camera_result.success:
-                    camera_status['connected'] = True
-                    camera_status['model'] = 'Sony ILCE-1'  # Could parse from response
-                    print(f"    ✓ Camera connected")
+            print("\n  Checking camera status (listening for broadcast)...")
+            broadcast_status = _get_camera_status_from_broadcast(timeout=3.0)
+
+            if broadcast_status:
+                camera_status = broadcast_status
+                if camera_status['connected']:
+                    print(f"    ✓ Camera connected: {camera_status['model']}")
                 else:
-                    print(f"    ✗ Camera not responding")
-            except Exception as e:
-                print(f"    ✗ Camera check error: {e}")
+                    print(f"    ✗ Camera disconnected")
+            else:
+                print(f"    ⚠ No status broadcast received (Air-Side may not be running)")
 
         # Add camera status to air_side domain data
         if 'air_side' in data.get('domains', {}):
