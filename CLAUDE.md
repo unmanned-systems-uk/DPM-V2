@@ -1,4 +1,7 @@
 - always use carriage return to submit tmux messages
+- EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
+- EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
+- EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
 - CRITICAL: protocol/*.json files are SINGLE SOURCE OF TRUTH for ALL cross-domain standards. ALL domains MUST enforce protocol compliance at runtime. NEVER allow hardcoded values that should be in protocol files.
 - CRITICAL: protocol/*.json files are SINGLE SOURCE OF TRUTH for ALL cross-domain standards. ALL domains MUST enforce protocol compliance at runtime. NEVER allow hardcoded values that should be in protocol files.
 - CRITICAL: protocol/*.json files are SINGLE SOURCE OF TRUTH for ALL cross-domain standards. ALL domains MUST enforce protocol compliance at runtime. NEVER allow hardcoded values that should be in protocol files.

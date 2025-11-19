@@ -43,9 +43,11 @@
 - ✅ Set up branching strategy
 - ✅ Create monitoring checkpoints
 - ✅ Prepare integration test plan
+- ✅ **Use Task agents for complex setup** (compliance checks, issue analysis)
 
 ### In-Flight (Execution Phase)
 - 🔄 **Monitor tmux sessions for real-time progress** (every 15-30 min)
+- 🔄 **Use Task agents for monitoring** (domain progress checks, log analysis)
 - 🔄 Monitor issue updates from all domains
 - 🔄 Check for merge conflicts
 - 🔄 Coordinate dependency handoffs
@@ -430,5 +432,21 @@ gh pr list --label "phase-1" --state open
 - ✅ User monitoring only
 - ✅ Clean Git workflow
 - ✅ Reduced context switching
+
+---
+
+## 🚀 Efficiency Multipliers
+
+**All domains should exploit Task agents aggressively!**
+
+See **`docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md`** for:
+- When to spawn Task agents (multi-step work, parallel opportunities, >5k token operations)
+- Domain-specific examples (Air-Side C++, Ground-Side Kotlin, SystemTools Python, PM)
+- Parallel execution strategies
+- Context preservation techniques
+
+**Key principle:** Default to "Should I use a Task agent?" not "Can I do this manually?"
+
+---
 
 **Ready to implement for Phase 1 completion and all future multi-domain work!**
