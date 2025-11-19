@@ -1,6 +1,6 @@
 {
-  "version": "1.12.0",
-  "version_name": "DPM Management System - Protocol-Compliant Logger",
+  "version": "1.13.0",
+  "version_name": "DPM Management System - PM Automation Dashboard",
   "build_date": "2025-11-19",
   "python_required": "3.x",
   "platform": "Linux",

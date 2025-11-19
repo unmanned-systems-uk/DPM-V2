@@ -57,6 +57,7 @@ from gui.tab_camera import CameraDashboardTab
 from gui.tab_analytics import PerformanceAnalyticsTab
 from gui.tab_file_browser import FileBrowserTab
 from gui.tab_air_side import AirSideTab
+from gui.tab_pm_automation import PMAutomationTab
 
 
 class SystemToolsLogHandler(logging.Handler):
@@ -237,6 +238,10 @@ class DPMManagementSystem(tk.Tk):
         # Tab 6: File Browser (SFTP file transfer - Issue #133)
         self.file_browser_tab = FileBrowserTab(self.notebook)
         self.notebook.add(self.file_browser_tab.frame, text="📁 File Browser")
+
+        # Tab 7: PM Automation Dashboard (Automation workflows monitoring & control)
+        self.pm_automation_tab = PMAutomationTab(self.notebook)
+        self.notebook.add(self.pm_automation_tab.frame, text="🤖 PM Automation")
 
         # Wire up clients to dashboard tabs
         self._wire_dashboard_clients()
