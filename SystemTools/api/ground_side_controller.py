@@ -76,9 +76,10 @@ class GroundSideController:
             # Use config defaults if not provided
             host = host or config.get('ground_side_ip', '10.0.1.92')
 
-            # Create ADB client if not exists
+            # Create ADB client if not exists (device_id format: "host:port")
+            device_id = f"{host}:{port}"
             if not self.adb_client:
-                self.adb_client = ADBClient(host, port)
+                self.adb_client = ADBClient(device_id)
 
             # Connect ADB
             if self.adb_client.connect():

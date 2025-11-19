@@ -87,7 +87,7 @@ class AirSideController:
                 self.tcp_client = TCPClient(host, tcp_port)
 
             # Connect TCP
-            if not self.tcp_client.connect(host, tcp_port):
+            if not self.tcp_client.connect():
                 return APIResponse.error_response(
                     error="Failed to establish TCP connection",
                     domain="air-side",
