@@ -13,7 +13,7 @@ Usage:
 
     # Access domain-specific controllers
     air_side = controller.air_side
-    ground_side = controller.ground_side  # Future
+    ground_side = controller.ground_side
     system = controller.system
 
     # Perform operations
@@ -24,7 +24,14 @@ Usage:
 
 from .controller import DPMController
 from .air_side_controller import AirSideController
+from .ground_side_controller import GroundSideController
 from .system_controller import SystemController
 from .response import APIResponse
 
-__all__ = ['DPMController', 'AirSideController', 'SystemController', 'APIResponse']
+__all__ = [
+    'DPMController',
+    'AirSideController',
+    'GroundSideController',
+    'SystemController',
+    'APIResponse'
+]

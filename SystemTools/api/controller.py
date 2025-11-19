@@ -16,11 +16,12 @@ Usage:
         status = dpm.air_side.get_status()
         print(status.data)
 
-    # Access Ground-Side (future)
-    # result = dpm.ground_side.connect()
+    # Access Ground-Side
+    result = dpm.ground_side.connect()
+    diagnostics = dpm.ground_side.get_diagnostics()
 
-    # Access SystemTools operations (future)
-    # logs = dpm.system.export_logs()
+    # Access SystemTools operations
+    logs = dpm.system.query_logs(domain='air-side', limit=50)
 """
 
 from typing import Optional
@@ -33,6 +34,7 @@ from network.ssh_client import SSHClient
 from network.adb_client import ADBClient
 from .air_side_controller import AirSideController
 from .system_controller import SystemController
+from .ground_side_controller import GroundSideController
 from .response import APIResponse
 
 
@@ -42,8 +44,8 @@ class DPMController:
 
     Provides programmatic access to all DPM domains:
     - Air-Side (Raspberry Pi 5 + PayloadManager)
-    - Ground-Side (Android H16) - future
-    - SystemTools (log aggregation, analytics) - future
+    - Ground-Side (Android H16)
+    - SystemTools (log aggregation, analytics)
 
     Example:
         dpm = DPMController()
@@ -58,11 +60,13 @@ class DPMController:
         else:
             print(f"Error: {result.error}")
 
-        # Get status
-        status = dpm.air_side.get_status()
+        # Connect to Ground-Side
+        dpm.ground_side.connect()
+        diagnostics = dpm.ground_side.get_diagnostics()
 
         # Disconnect
         dpm.air_side.disconnect()
+        dpm.ground_side.disconnect()
     """
 
     def __init__(
@@ -100,8 +104,8 @@ class DPMController:
             data_storage=data_storage
         )
 
-        # Future: Ground-Side controller (Phase 3)
-        # self._ground_side = GroundSideController(adb_client=self._adb_client)
+        # Ground-Side controller (Phase 3)
+        self._ground_side = GroundSideController(adb_client=self._adb_client)
 
         logger.info("SYSTEM", "DPMController initialized (API Mode)")
 
@@ -115,11 +119,10 @@ class DPMController:
         """Get SystemTools controller"""
         return self._system
 
-    # Future properties:
-    # @property
-    # def ground_side(self) -> GroundSideController:
-    #     """Get Ground-Side controller"""
-    #     return self._ground_side
+    @property
+    def ground_side(self) -> GroundSideController:
+        """Get Ground-Side controller"""
+        return self._ground_side
 
     def connect_all(
         self,
@@ -142,12 +145,12 @@ class DPMController:
         air_result = self._air_side.connect(host=air_side_ip)
         results['air_side'] = air_result.to_dict()
 
-        # Future: Connect Ground-Side
-        # ground_result = self._ground_side.connect(host=ground_side_ip)
-        # results['ground_side'] = ground_result.to_dict()
+        # Connect Ground-Side
+        ground_result = self._ground_side.connect(host=ground_side_ip)
+        results['ground_side'] = ground_result.to_dict()
 
         # Check overall success
-        all_success = air_result.success  # and ground_result.success
+        all_success = air_result.success and ground_result.success
 
         if all_success:
             return APIResponse.success_response(
@@ -176,9 +179,9 @@ class DPMController:
         air_result = self._air_side.disconnect()
         results['air_side'] = air_result.to_dict()
 
-        # Future: Disconnect Ground-Side
-        # ground_result = self._ground_side.disconnect()
-        # results['ground_side'] = ground_result.to_dict()
+        # Disconnect Ground-Side
+        ground_result = self._ground_side.disconnect()
+        results['ground_side'] = ground_result.to_dict()
 
         return APIResponse.success_response(
             data=results,
@@ -196,8 +199,14 @@ class DPMController:
         results = {
             'air_side': {
                 'connected': self._air_side.is_connected()
+            },
+            'ground_side': {
+                'connected': self._ground_side.is_connected()
+            },
+            'system_tools': {
+                'log_queue_size': len(self._system.log_queue) if self._system.log_queue else 0,
+                'data_storage_available': self._system.data_storage is not None
             }
-            # Future: Add Ground-Side and SystemTools status
         }
 
         return APIResponse.success_response(
