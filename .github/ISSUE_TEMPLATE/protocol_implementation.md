@@ -24,12 +24,24 @@ assignees: ''
 **Related historical issues:**
 - Issue #___ - [Brief description of relevance]
 
+## ⚠️ Protocol Compliance Requirements (PM RULE 11)
+
+**CRITICAL: Before ANY implementation, verify:**
+- [ ] **Protocol file updated FIRST** (update protocol/*.json BEFORE writing code)
+- [ ] **All domains enforce at runtime** (no hardcoded values)
+- [ ] **Cross-domain compatibility verified** (all domains use same protocol)
+
+**See:** `.claude/PM_RULES_CRITICAL.md` - PM RULE 11: Protocol Enforcement & Cross-Domain Compliance
+
+---
+
 ## Protocol Specification
 **Protocol file:**
 - [ ] `protocol/commands.json`
 - [ ] `protocol/camera_properties.json`
+- [ ] `protocol/log_contexts.json` *(if adding/modifying log contexts)*
 
-**Command/Property name:** `___`
+**Command/Property/Context name:** `___`
 
 **Current specification:**
 ```json
@@ -47,6 +59,12 @@ cat protocol/commands.json | jq '.commands.COMMAND_NAME.implemented'
 #   "ground_side": false
 # }
 ```
+
+**Protocol Change Workflow:**
+1. [ ] **STEP 1:** Update protocol/*.json file FIRST
+2. [ ] **STEP 2:** Create [PROTOCOL] tagged commit
+3. [ ] **STEP 3:** Update ALL domains to match protocol
+4. [ ] **STEP 4:** Test cross-domain compatibility
 
 ## Implementation Requirements
 
@@ -186,6 +204,42 @@ cat protocol/commands.json | jq '.commands | to_entries[] | select(.value.implem
 - [ ] Integration test: End-to-end workflow verified
 - [ ] Documentation: PROGRESS_AND_TODO.md updated in relevant domains
 - [ ] Logs: Proper error handling and logging in place
+
+### ✅ Protocol Compliance Verification (PM RULE 11)
+**Run these checks BEFORE closing issue:**
+
+```bash
+# 1. Verify no hardcoded protocol values
+# Check Air-Side uses LogContext enum (if log-related)
+ssh dpm@10.0.1.53 "grep -r 'LOG_' ~/DPM-V2/sbc/src | grep -v 'LogContext::' | wc -l"
+# Expected: 0
+
+# 2. Verify SystemTools uses protocol loader (if log-related)
+grep -r 'logger\.\(debug\|info\)(' SystemTools/ --include="*.py" | \
+  grep -v '\[COMMAND\]' | grep -v '\[NETWORK\]' | grep -v '\[DISCOVERY\]' | \
+  grep -v '\[CONFIG\]' | grep -v '\[SYSTEM\]' | grep -v '\[HEALTH\]' | \
+  grep -v '\[CAMERA\]' | grep -v '\[STORAGE\]' | grep -v '\[SYNC\]' | \
+  grep -v '\[UI\]' | wc -l
+# Expected: 0 (after Issue #162 fixed)
+
+# 3. Verify Ground-Side uses StructuredLogger (if log-related)
+grep -r 'Log\.\(d\|i\|w\|e\)(' android/app/src --include="*.kt" | \
+  grep -v "StructuredLogger.kt" | grep -v "DPMApplication.kt" | \
+  grep -v "logging/" | wc -l
+# Expected: 0 (after Issue #164 fixed)
+
+# 4. Verify cross-domain protocol sync
+# All domains should have matching protocol definitions
+diff <(ssh dpm@10.0.1.53 "cat ~/DPM-V2/protocol/log_contexts.json | jq -S .contexts") \
+     <(cat protocol/log_contexts.json | jq -S .contexts)
+# Expected: No differences
+```
+
+**Checklist:**
+- [ ] No hardcoded protocol values found
+- [ ] All domains enforce protocol at runtime
+- [ ] Cross-domain compatibility verified
+- [ ] Protocol compliance checks pass (0 violations)
 
 ## Known Issues / Edge Cases
 **Potential problems:**
