@@ -74,7 +74,7 @@ class GroundSideController:
         """
         try:
             # Use config defaults if not provided
-            host = host or config.get('ground_side_ip', '10.0.1.92')
+            host = host or config.get('network', 'h16_ip', '10.0.1.92')
 
             # Create ADB client if not exists (device_id format: "host:port")
             device_id = f"{host}:{port}"
@@ -159,19 +159,28 @@ class GroundSideController:
             )
 
         try:
-            output = self.adb_client.execute_command(command, timeout=timeout)
+            # execute_command returns tuple (exit_code, stdout, stderr)
+            exit_code, stdout, stderr = self.adb_client.execute_command(command, timeout=timeout)
 
-            logger.info("SYSTEM", f"API: Executed ADB command: {command}")
+            if exit_code == 0:
+                logger.info("SYSTEM", f"API: Executed ADB command: {command}")
 
-            return APIResponse.success_response(
-                data={
-                    "command": command,
-                    "output": output,
-                    "success": True
-                },
-                domain="ground-side",
-                operation="execute_adb_command"
-            )
+                return APIResponse.success_response(
+                    data={
+                        "command": command,
+                        "output": stdout,
+                        "exit_code": exit_code
+                    },
+                    domain="ground-side",
+                    operation="execute_adb_command"
+                )
+            else:
+                return APIResponse.error_response(
+                    error=stderr or f"Command failed with exit code {exit_code}",
+                    domain="ground-side",
+                    operation="execute_adb_command",
+                    data={"command": command, "exit_code": exit_code}
+                )
 
         except Exception as e:
             logger.error("SYSTEM", f"API: ADB command failed: {e}")

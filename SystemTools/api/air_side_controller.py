@@ -78,8 +78,8 @@ class AirSideController:
         """
         try:
             # Use config defaults if not provided
-            host = host or config.get('air_side_ip', '10.0.1.53')
-            tcp_port = tcp_port or config.get('tcp_port', 5001)
+            host = host or config.get('network', 'air_side_ip', '10.0.1.53')
+            tcp_port = tcp_port or config.get('network', 'tcp_port', 5000)
             ssh_port = ssh_port or 22
 
             # Create TCP client if not exists
@@ -168,7 +168,7 @@ class AirSideController:
 
         try:
             # Send status.get command
-            command_msg = protocol_msg("status.get", {})
+            command_msg = protocol_msg.create_command("status.get", {})
             self.tcp_client.send_command(command_msg)
 
             # Wait for response (simplified - in production would use proper response handling)
@@ -224,7 +224,7 @@ class AirSideController:
             parameters = parameters or {}
 
             # Build protocol message
-            command_msg = protocol_msg(command, parameters)
+            command_msg = protocol_msg.create_command(command, parameters)
 
             # Send command
             success = self.tcp_client.send_command(command_msg)
