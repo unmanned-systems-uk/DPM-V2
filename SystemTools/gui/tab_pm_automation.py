@@ -386,7 +386,30 @@ class PMAutomationTab:
                 self.air_last_check.config(text=f"Last check: {dt.strftime('%H:%M:%S')}")
 
         # Update Ground-Side status
-        if self.last_diagnostics:
+        # Check health check first, then diagnostics
+        ground_status_updated = False
+
+        if self.last_health_check:
+            domains = self.last_health_check.get('domains', {})
+            ground = domains.get('ground_side', {})
+
+            if ground:  # If ground_side data exists in health check
+                if ground.get('healthy'):
+                    self.ground_status_label.config(text="✓ HEALTHY", foreground="green")
+                else:
+                    self.ground_status_label.config(text="✗ UNHEALTHY", foreground="red")
+                ground_status_updated = True
+
+                # Try to get battery from diagnostics if available
+                if ground.get('diagnostics'):
+                    diag = ground.get('diagnostics', {})
+                    battery = diag.get('battery', 'N/A')
+                    if 'level:' in battery:
+                        battery = battery.split('level:')[1].strip()
+                    self.ground_battery_label.config(text=f"Battery: {battery}")
+
+        # Fall back to diagnostics if health check didn't update status
+        if not ground_status_updated and self.last_diagnostics:
             ground = self.last_diagnostics.get('ground_side', {})
 
             if ground.get('connected'):
