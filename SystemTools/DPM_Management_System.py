@@ -189,7 +189,7 @@ class DPMManagementSystem(tk.Tk):
         self.notebook.add(self.log_tab, text="Log Viewer")
 
         # Tab 2: Air-Side Multi-Tab (consolidates Air-Side Config, Docker Logs, Camera, Remote Control)
-        self.air_side_tab = AirSideTab(self.notebook, on_log_control_change=self._on_log_control_change)
+        self.air_side_tab = AirSideTab(self.notebook)
 
         # Create Air-Side sub-tabs
         self.airside_config_tab = self._create_airside_config_tab()
