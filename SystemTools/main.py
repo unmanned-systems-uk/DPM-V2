@@ -112,7 +112,7 @@ check_and_install_dependencies()
 # Import DevTools configuration first
 from devtools_config import devtools_config, parse_args
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from utils.protocol_loader import protocol
 from version import get_version_string, get_build_info_string
@@ -168,54 +168,54 @@ class DiagnosticApp:
 
     def initialize(self):
         """Initialize all components"""
-        logger.info("=" * 60)
-        logger.info(f"DPM Diagnostic Tool {get_version_string()} Starting...")
-        logger.info(f"Build: {get_build_info_string()}")
-        logger.info("=" * 60)
+        logger.info("SYSTEM", "=" * 60)
+        logger.info("SYSTEM", f"DPM Diagnostic Tool {get_version_string()} Starting...")
+        logger.info("SYSTEM", f"Build: {get_build_info_string()}")
+        logger.info("SYSTEM", "=" * 60)
 
         # Load protocol definitions
-        logger.info("Loading protocol definitions...")
+        logger.info("CONFIG", "Loading protocol definitions...")
         if protocol.load():
-            logger.info(f"  - Loaded {len(protocol.get_all_commands())} commands")
-            logger.info(f"  - Loaded {len(protocol.get_all_properties())} properties")
+            logger.info("CONFIG", f"  - Loaded {len(protocol.get_all_commands())} commands")
+            logger.info("CONFIG", f"  - Loaded {len(protocol.get_all_properties())} properties")
         else:
-            logger.warning("  - Failed to load some protocol definitions")
+            logger.warning("CONFIG", "  - Failed to load some protocol definitions")
 
         # Load configuration
-        logger.info("Loading configuration...")
+        logger.info("CONFIG", "Loading configuration...")
         config.load()
         air_side_ip = config.get('network', 'air_side_ip')
         tcp_port = config.get('network', 'tcp_port')
         status_port = config.get('network', 'udp_status_port', 5001)
         heartbeat_port = config.get('network', 'udp_heartbeat_port', 5002)
 
-        logger.info(f"  - Air-Side IP: {air_side_ip}")
-        logger.info(f"  - TCP Port: {tcp_port}")
-        logger.info(f"  - UDP Status Port: {status_port}")
-        logger.info(f"  - UDP Heartbeat Port: {heartbeat_port}")
+        logger.info("CONFIG", f"  - Air-Side IP: {air_side_ip}")
+        logger.info("CONFIG", f"  - TCP Port: {tcp_port}")
+        logger.info("CONFIG", f"  - UDP Status Port: {status_port}")
+        logger.info("CONFIG", f"  - UDP Heartbeat Port: {heartbeat_port}")
 
         # Create network components
-        logger.info("Creating network components...")
+        logger.info("NETWORK", "Creating network components...")
         self._create_network_components(air_side_ip, tcp_port, status_port, heartbeat_port)
 
         # Create main window with cleanup callback
-        logger.info("Creating main window...")
+        logger.info("SYSTEM", "Creating main window...")
         self.window = MainWindow(cleanup_callback=self.cleanup)
 
         # Create tabs
-        logger.info("Creating tabs...")
+        logger.info("SYSTEM", "Creating tabs...")
         self._create_tabs()
 
         # Wire everything together
-        logger.info("Wiring components...")
+        logger.info("SYSTEM", "Wiring components...")
         self._wire_components()
 
         # Update status bar
         self.window.update_status_bar(False, f"Air-Side: {air_side_ip}:{tcp_port}")
 
-        logger.info("=" * 60)
-        logger.info("Application ready!")
-        logger.info("=" * 60)
+        logger.info("SYSTEM", "=" * 60)
+        logger.info("SYSTEM", "Application ready!")
+        logger.info("SYSTEM", "=" * 60)
 
     def _create_network_components(self, air_side_ip, tcp_port, status_port, heartbeat_port):
         """Create network components"""
@@ -331,13 +331,13 @@ class DiagnosticApp:
                 try:
                     command_tab_on_message(message)
                 except Exception as e:
-                    logger.error(f"Error in command tab callback: {e}")
+                    logger.error("SYSTEM", f"Error in command tab callback: {e}")
 
             # Call camera tab's response handler (Issue #55 - show responses in debug panel)
             try:
                 self.camera_tab.handle_response(message)
             except Exception as e:
-                logger.error(f"Error in camera tab response handler: {e}")
+                logger.error("SYSTEM", f"Error in camera tab response handler: {e}")
 
             # Add to protocol inspector
             self.protocol_tab.add_message(message, "received")
@@ -353,7 +353,7 @@ class DiagnosticApp:
             if connection_tab_on_connected:
                 connection_tab_on_connected()
 
-            logger.info("TCP connected - starting UDP listeners and heartbeat sender")
+            logger.info("NETWORK", "TCP connected - starting UDP listeners and heartbeat sender")
 
             air_side_ip = config.get('network', 'air_side_ip')
             tcp_port = config.get('network', 'tcp_port')
@@ -382,7 +382,7 @@ class DiagnosticApp:
             if connection_tab_on_disconnected:
                 connection_tab_on_disconnected()
 
-            logger.info("TCP disconnected - stopping UDP listeners and heartbeat sender")
+            logger.info("NETWORK", "TCP disconnected - stopping UDP listeners and heartbeat sender")
 
             air_side_ip = config.get('network', 'air_side_ip')
             tcp_port = config.get('network', 'tcp_port')
@@ -441,7 +441,7 @@ class DiagnosticApp:
 
             if camera_data:
                 camera_connected = camera_data.get("connected", False)
-                logger.debug(f"Camera status from UDP: {camera_connected}")
+                logger.debug("NETWORK", f"Camera status from UDP: {camera_connected}")
 
                 # Log camera status changes to activity log
                 status_str = "connected" if camera_connected else "disconnected"
@@ -451,7 +451,7 @@ class DiagnosticApp:
                 try:
                     self.window.root.after_idle(lambda conn=camera_connected: self.log_tab.update_udp_camera_status(conn))
                 except Exception as e:
-                    logger.error(f"Error updating log inspector camera status: {e}")
+                    logger.error("SYSTEM", f"Error updating log inspector camera status: {e}")
 
         self.status_listener.on_message_received = on_status_message
 
@@ -507,10 +507,10 @@ class DiagnosticApp:
         try:
             self.window.run()
         except KeyboardInterrupt:
-            logger.info("Interrupted by user")
+            logger.info("SYSTEM", "Interrupted by user")
             self.cleanup()  # Cleanup on Ctrl+C
         except Exception as e:
-            logger.exception(f"Fatal error: {e}")
+            logger.exception("SYSTEM", f"Fatal error: {e}")
             self.cleanup()  # Cleanup on fatal error
 
     def cleanup(self):
@@ -519,41 +519,41 @@ class DiagnosticApp:
             return  # Already cleaned up
 
         self._cleanup_done = True
-        logger.info("Cleaning up...")
+        logger.info("SYSTEM", "Cleaning up...")
 
         # Stop network components
         if self.tcp_client and self.tcp_client.is_connected():
             try:
                 self.tcp_client.disconnect()
             except Exception as e:
-                logger.error(f"Error disconnecting TCP: {e}")
+                logger.error("NETWORK", f"Error disconnecting TCP: {e}")
 
         if self.status_listener and self.status_listener.is_running():
             try:
                 self.status_listener.stop()
             except Exception as e:
-                logger.error(f"Error stopping status listener: {e}")
+                logger.error("NETWORK", f"Error stopping status listener: {e}")
 
         if self.heartbeat_listener and self.heartbeat_listener.is_running():
             try:
                 self.heartbeat_listener.stop()
             except Exception as e:
-                logger.error(f"Error stopping heartbeat listener: {e}")
+                logger.error("NETWORK", f"Error stopping heartbeat listener: {e}")
 
         if self.heartbeat_sender and self.heartbeat_sender.is_running():
             try:
                 self.heartbeat_sender.stop()
             except Exception as e:
-                logger.error(f"Error stopping heartbeat sender: {e}")
+                logger.error("NETWORK", f"Error stopping heartbeat sender: {e}")
 
         # Cleanup SSH connection in Log Inspector
         if self.log_tab:
             try:
                 self.log_tab.cleanup()
             except Exception as e:
-                logger.error(f"Error cleaning up SSH: {e}")
+                logger.error("NETWORK", f"Error cleaning up SSH: {e}")
 
-        logger.info("Application shutdown complete")
+        logger.info("SYSTEM", "Application shutdown complete")
 
 
 def main():
@@ -568,23 +568,23 @@ def main():
     logging.basicConfig(level=log_level)
 
     # Show configuration
-    logger.info("=" * 60)
-    logger.info(f"DPM DevTools {get_version_string()} Starting...")
-    logger.info(f"Mode: {devtools_config.current_mode.value}")
-    logger.info(f"UI: {devtools_config.ui_mode.value}")
-    logger.info(f"Build: {get_build_info_string()}")
-    logger.info("=" * 60)
+    logger.info("SYSTEM", "=" * 60)
+    logger.info("SYSTEM", f"DPM DevTools {get_version_string()} Starting...")
+    logger.info("SYSTEM", f"Mode: {devtools_config.current_mode.value}")
+    logger.info("SYSTEM", f"UI: {devtools_config.ui_mode.value}")
+    logger.info("SYSTEM", f"Build: {get_build_info_string()}")
+    logger.info("SYSTEM", "=" * 60)
 
     # Determine which interface to use
     if devtools_config.should_use_gui():
         # Run GUI mode
-        logger.info("Starting GUI interface...")
+        logger.info("SYSTEM", "Starting GUI interface...")
         app = DiagnosticApp()
         app.initialize()
         app.run()
     else:
         # Run CLI mode
-        logger.info("Starting CLI interface...")
+        logger.info("SYSTEM", "Starting CLI interface...")
         from cli_interface import CLIInterface
         cli = CLIInterface()
         cli.run()
@@ -597,5 +597,5 @@ if __name__ == "__main__":
         print("\nInterrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error("SYSTEM", f"Fatal error: {e}")
         sys.exit(1)

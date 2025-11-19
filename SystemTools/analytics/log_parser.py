@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class AirSideLogParser:
@@ -46,10 +46,10 @@ class AirSideLogParser:
             path = Path(file_path)
 
             if not path.exists():
-                logger.error(f"File not found: {file_path}")
+                logger.error("SYSTEM", f"File not found: {file_path}")
                 return ([], 0, 1)
 
-            logger.info(f"Parsing {path.name}...")
+            logger.info("SYSTEM", f"Parsing {path.name}...")
 
             with open(path, 'r', encoding='utf-8') as f:
                 for line_num, line in enumerate(f, 1):
@@ -71,15 +71,15 @@ class AirSideLogParser:
 
                     except json.JSONDecodeError as e:
                         parse_errors += 1
-                        logger.warning(f"JSON parse error in {path.name} line {line_num}: {e}")
+                        logger.warning("SYSTEM", f"JSON parse error in {path.name} line {line_num}: {e}")
                     except Exception as e:
                         parse_errors += 1
-                        logger.warning(f"Error processing line {line_num} in {path.name}: {e}")
+                        logger.warning("SYSTEM", f"Error processing line {line_num} in {path.name}: {e}")
 
-            logger.info(f"Parsed {path.name}: {len(health_snapshots)} health snapshots from {total_lines} lines ({parse_errors} errors)")
+            logger.info("SYSTEM", f"Parsed {path.name}: {len(health_snapshots)} health snapshots from {total_lines} lines ({parse_errors} errors)")
 
         except Exception as e:
-            logger.error(f"Failed to parse file {file_path}: {e}")
+            logger.error("SYSTEM", f"Failed to parse file {file_path}: {e}")
             parse_errors += 1
 
         return (health_snapshots, total_lines, parse_errors)
@@ -140,7 +140,7 @@ class AirSideLogParser:
             timestamp_str = log_entry.get('timestamp')
 
             if not timestamp_str:
-                logger.warning("Health entry missing timestamp, skipping")
+                logger.warning("SYSTEM", "Health entry missing timestamp, skipping")
                 return None
 
             # Build snapshot dict compatible with PerformanceDatabase.insert_snapshot()
@@ -198,7 +198,7 @@ class AirSideLogParser:
             return snapshot
 
         except Exception as e:
-            logger.warning(f"Failed to extract health snapshot from log entry: {e}")
+            logger.warning("SYSTEM", f"Failed to extract health snapshot from log entry: {e}")
             return None
 
     def parse_multiple_files(self, file_paths: List[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -240,7 +240,7 @@ class AirSideLogParser:
 
         stats['duplicates_removed'] = len(all_snapshots) - len(merged_snapshots)
 
-        logger.info(f"Parsed {stats['files_processed']} files: {len(merged_snapshots)} unique snapshots")
+        logger.info("SYSTEM", f"Parsed {stats['files_processed']} files: {len(merged_snapshots)} unique snapshots")
 
         return (merged_snapshots, stats)
 
@@ -284,7 +284,7 @@ class AirSideLogParser:
         try:
             merged.sort(key=lambda s: s.get('timestamp', ''))
         except Exception as e:
-            logger.warning(f"Failed to sort snapshots by timestamp: {e}")
+            logger.warning("SYSTEM", f"Failed to sort snapshots by timestamp: {e}")
 
         return merged
 

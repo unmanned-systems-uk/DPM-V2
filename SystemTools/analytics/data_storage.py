@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class PerformanceDatabase:
@@ -33,16 +33,16 @@ class PerformanceDatabase:
         self._connect()
         self.create_tables()
 
-        logger.info(f"PerformanceDatabase initialized: {db_path}")
+        logger.info("SYSTEM", f"PerformanceDatabase initialized: {db_path}")
 
     def _connect(self):
         """Establish database connection"""
         try:
             self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row  # Access columns by name
-            logger.debug(f"Connected to database: {self.db_path}")
+            logger.debug("SYSTEM", f"Connected to database: {self.db_path}")
         except Exception as e:
-            logger.error(f"Failed to connect to database: {e}")
+            logger.error("SYSTEM", f"Failed to connect to database: {e}")
             raise
 
     def create_tables(self):
@@ -92,10 +92,10 @@ class PerformanceDatabase:
                 ''')
 
                 self.conn.commit()
-                logger.debug("Database tables created/verified")
+                logger.debug("SYSTEM", "Database tables created/verified")
 
             except Exception as e:
-                logger.error(f"Failed to create tables: {e}")
+                logger.error("SYSTEM", f"Failed to create tables: {e}")
                 raise
 
     def insert_snapshot(self, snapshot: Dict[str, Any]) -> bool:
@@ -164,11 +164,11 @@ class PerformanceDatabase:
                 ))
 
                 self.conn.commit()
-                logger.debug(f"Inserted snapshot at {timestamp}")
+                logger.debug("SYSTEM", f"Inserted snapshot at {timestamp}")
                 return True
 
             except Exception as e:
-                logger.error(f"Failed to insert snapshot: {e}")
+                logger.error("SYSTEM", f"Failed to insert snapshot: {e}")
                 return False
 
     def query_time_range(self, start: datetime, end: datetime) -> List[Dict[str, Any]]:
@@ -200,11 +200,11 @@ class PerformanceDatabase:
                     snapshot = dict(row)
                     snapshots.append(snapshot)
 
-                logger.debug(f"Queried {len(snapshots)} snapshots from {start} to {end}")
+                logger.debug("SYSTEM", f"Queried {len(snapshots)} snapshots from {start} to {end}")
                 return snapshots
 
             except Exception as e:
-                logger.error(f"Failed to query time range: {e}")
+                logger.error("SYSTEM", f"Failed to query time range: {e}")
                 return []
 
     def query_latest(self, limit: int = 360) -> List[Dict[str, Any]]:
@@ -235,11 +235,11 @@ class PerformanceDatabase:
                     snapshot = dict(row)
                     snapshots.append(snapshot)
 
-                logger.debug(f"Queried latest {len(snapshots)} snapshots")
+                logger.debug("SYSTEM", f"Queried latest {len(snapshots)} snapshots")
                 return snapshots
 
             except Exception as e:
-                logger.error(f"Failed to query latest snapshots: {e}")
+                logger.error("SYSTEM", f"Failed to query latest snapshots: {e}")
                 return []
 
     def cleanup_old_data(self, retention_days: int = 7) -> int:
@@ -266,11 +266,11 @@ class PerformanceDatabase:
                 deleted_count = cursor.rowcount
                 self.conn.commit()
 
-                logger.info(f"Cleaned up {deleted_count} old snapshots (retention: {retention_days} days)")
+                logger.info("SYSTEM", f"Cleaned up {deleted_count} old snapshots (retention: {retention_days} days)")
                 return deleted_count
 
             except Exception as e:
-                logger.error(f"Failed to cleanup old data: {e}")
+                logger.error("SYSTEM", f"Failed to cleanup old data: {e}")
                 return 0
 
     def get_record_count(self) -> int:
@@ -282,7 +282,7 @@ class PerformanceDatabase:
                 count = cursor.fetchone()[0]
                 return count
             except Exception as e:
-                logger.error(f"Failed to get record count: {e}")
+                logger.error("SYSTEM", f"Failed to get record count: {e}")
                 return 0
 
     def get_date_range(self) -> tuple[Optional[datetime], Optional[datetime]]:
@@ -311,7 +311,7 @@ class PerformanceDatabase:
                 return (oldest, newest)
 
             except Exception as e:
-                logger.error(f"Failed to get date range: {e}")
+                logger.error("SYSTEM", f"Failed to get date range: {e}")
                 return (None, None)
 
     def clear_all_snapshots(self) -> int:
@@ -333,11 +333,11 @@ class PerformanceDatabase:
                 cursor.execute('DELETE FROM health_snapshots')
                 self.conn.commit()
 
-                logger.info(f"Cleared {count} snapshots from database")
+                logger.info("SYSTEM", f"Cleared {count} snapshots from database")
                 return count
 
             except Exception as e:
-                logger.error(f"Failed to clear snapshots: {e}")
+                logger.error("SYSTEM", f"Failed to clear snapshots: {e}")
                 return 0
 
     def close(self):
@@ -345,4 +345,4 @@ class PerformanceDatabase:
         with self.lock:
             if self.conn:
                 self.conn.close()
-                logger.info("Database connection closed")
+                logger.info("SYSTEM", "Database connection closed")

@@ -12,7 +12,7 @@ import json
 import threading
 from collections import deque
 from typing import Callable, Optional
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class AirSideListener:
@@ -31,7 +31,7 @@ class AirSideListener:
         self.running = True
         self.thread = threading.Thread(target=self._listen, args=(log_queue,), daemon=True)
         self.thread.start()
-        logger.info(f"AirSideListener starting on UDP {self.host}:{self.port}")
+        logger.info("NETWORK", f"AirSideListener starting on UDP {self.host}:{self.port}")
 
     def _listen(self, log_queue: deque):
         """Listen for UDP packets and add to queue"""
@@ -53,17 +53,17 @@ class AirSideListener:
                         log_entry['source_addr'] = f"{addr[0]}:{addr[1]}"
                         log_queue.append(log_entry)
                     except json.JSONDecodeError as e:
-                        logger.warning(f"[AirSideListener] JSON decode error: {e}")
+                        logger.warning("NETWORK", f"[AirSideListener] JSON decode error: {e}")
                         print(f"[AirSideListener] JSON decode error: {e}")
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        logger.error(f"[AirSideListener] Error: {e}")
+                        logger.error("NETWORK", f"[AirSideListener] Error: {e}")
                         print(f"[AirSideListener] Error: {e}")
 
         except Exception as e:
-            logger.error(f"[AirSideListener] Failed to start: {e}")
+            logger.error("NETWORK", f"[AirSideListener] Failed to start: {e}")
             print(f"[AirSideListener] Failed to start: {e}")
         finally:
             if self.sock:
@@ -74,7 +74,7 @@ class AirSideListener:
         self.running = False
         if self.thread:
             self.thread.join(timeout=2.0)
-        logger.info("[AirSideListener] Stopped")
+        logger.info("NETWORK", "[AirSideListener] Stopped")
 
 
 class GroundSideListener:
@@ -100,7 +100,7 @@ class GroundSideListener:
         self.running = True
         self.thread = threading.Thread(target=self._accept_connections, args=(log_queue,), daemon=True)
         self.thread.start()
-        logger.info(f"GroundSideListener starting TCP server on {self.host}:{self.port}")
+        logger.info("NETWORK", f"GroundSideListener starting TCP server on {self.host}:{self.port}")
 
     def _accept_connections(self, log_queue: deque):
         """Start TCP server and accept incoming connections from Ground-Side"""
@@ -120,7 +120,7 @@ class GroundSideListener:
                 try:
                     # Accept incoming connection
                     client_sock, client_addr = self.server_sock.accept()
-                    logger.info(f"[GroundSideListener] Client connected from {client_addr}")
+                    logger.info("NETWORK", f"[GroundSideListener] Client connected from {client_addr}")
                     print(f"[GroundSideListener] Client connected from {client_addr}")
 
                     # Handle client in current thread (single client at a time)
@@ -131,16 +131,16 @@ class GroundSideListener:
                     continue
                 except Exception as e:
                     if self.running:
-                        logger.error(f"[GroundSideListener] Accept error: {e}")
+                        logger.error("NETWORK", f"[GroundSideListener] Accept error: {e}")
                         print(f"[GroundSideListener] Accept error: {e}")
 
         except Exception as e:
-            logger.error(f"[GroundSideListener] Server error: {e}")
+            logger.error("NETWORK", f"[GroundSideListener] Server error: {e}")
             print(f"[GroundSideListener] Server error: {e}")
         finally:
             if self.server_sock:
                 self.server_sock.close()
-            logger.info("[GroundSideListener] Server stopped")
+            logger.info("NETWORK", "[GroundSideListener] Server stopped")
 
     def _handle_client(self, client_sock: socket.socket, client_addr: tuple, log_queue: deque):
         """Handle a connected Ground-Side client and receive logs"""
@@ -152,7 +152,7 @@ class GroundSideListener:
                 try:
                     data = client_sock.recv(self.buffer_size)
                     if not data:
-                        logger.info(f"[GroundSideListener] Client {client_addr} disconnected")
+                        logger.info("NETWORK", f"[GroundSideListener] Client {client_addr} disconnected")
                         print(f"[GroundSideListener] Client {client_addr} disconnected")
                         break
 
@@ -168,18 +168,18 @@ class GroundSideListener:
                                 log_entry['source_addr'] = f"{client_addr[0]}:{client_addr[1]}"
                                 log_queue.append(log_entry)
                             except json.JSONDecodeError as e:
-                                logger.warning(f"[GroundSideListener] JSON decode error: {e}")
+                                logger.warning("NETWORK", f"[GroundSideListener] JSON decode error: {e}")
                                 print(f"[GroundSideListener] JSON decode error: {e}")
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        logger.error(f"[GroundSideListener] Client error: {e}")
+                        logger.error("NETWORK", f"[GroundSideListener] Client error: {e}")
                         print(f"[GroundSideListener] Client error: {e}")
                     break
         finally:
             client_sock.close()
-            logger.info(f"[GroundSideListener] Client {client_addr} handler stopped")
+            logger.info("NETWORK", f"[GroundSideListener] Client {client_addr} handler stopped")
 
     def stop(self):
         """Stop the listener"""
@@ -191,4 +191,4 @@ class GroundSideListener:
                 pass
         if self.thread:
             self.thread.join(timeout=3.0)
-        logger.info("[GroundSideListener] Stopped")
+        logger.info("NETWORK", "[GroundSideListener] Stopped")

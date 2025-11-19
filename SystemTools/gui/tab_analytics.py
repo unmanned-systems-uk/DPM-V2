@@ -17,7 +17,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from analytics import PerformanceDatabase, StatisticsEngine, AnomalyDetector, AirSideLogParser
 from analytics.anomaly_detection import Alert, AlertSeverity
 import json
@@ -36,9 +36,9 @@ class PerformanceAnalyticsTab(ttk.Frame):
             with open(config_path, 'r') as f:
                 full_config = json.load(f)
             self.config = full_config.get('analytics', {})
-            logger.debug(f"Loaded analytics config from {config_path}")
+            logger.debug("HEALTH", f"Loaded analytics config from {config_path}")
         except Exception as e:
-            logger.warning(f"Failed to load analytics config, using defaults: {e}")
+            logger.warning("HEALTH", f"Failed to load analytics config, using defaults: {e}")
             self.config = {
                 'database_path': 'data/performance.db',
                 'data_retention_days': 7,
@@ -90,7 +90,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.info("PerformanceAnalyticsTab initialized")
+        logger.info("HEALTH", "PerformanceAnalyticsTab initialized")
 
     def _create_ui(self):
         """Create UI layout"""
@@ -225,7 +225,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        logger.debug("Graphs tab created with 5 subplots")
+        logger.debug("HEALTH", "Graphs tab created with 5 subplots")
 
     def _create_statistics_tab(self):
         """Create statistics tab with descriptive stats"""
@@ -405,11 +405,11 @@ class PerformanceAnalyticsTab(ttk.Frame):
         """
         try:
             # Debug: Log what fields we're receiving
-            logger.debug(f"Received snapshot with keys: {list(snapshot.keys())}")
+            logger.debug("HEALTH", f"Received snapshot with keys: {list(snapshot.keys())}")
 
             # Normalize field names to match our database schema
             normalized = self._normalize_snapshot(snapshot)
-            logger.debug(f"Normalized snapshot: {normalized}")
+            logger.debug("HEALTH", f"Normalized snapshot: {normalized}")
 
             # Add timestamp if not present
             if 'timestamp' not in normalized:
@@ -417,7 +417,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
             # Store in database
             self.db.insert_snapshot(normalized)
-            logger.debug(f"Inserted snapshot at {normalized['timestamp']}")
+            logger.debug("SYSTEM", f"Inserted snapshot at {normalized['timestamp']}")
 
             # Add to in-memory buffer (use normalized version)
             self.data_buffer.append(normalized)
@@ -445,7 +445,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self._update_db_status()
 
         except Exception as e:
-            logger.error(f"Failed to update with snapshot: {e}")
+            logger.error("HEALTH", f"Failed to update with snapshot: {e}")
 
     def _update_graphs(self):
         """Update all graphs with current data"""
@@ -458,7 +458,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             filtered_data = [s for s in self.data_buffer if s.get('timestamp') and s.get('timestamp') >= cutoff_time]
 
             if len(filtered_data) == 0:
-                logger.debug("No data in current time window")
+                logger.debug("HEALTH", "No data in current time window")
                 return
 
             # Extract timestamps and metrics
@@ -558,10 +558,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
             # Redraw canvas
             self.canvas.draw()
 
-            logger.debug(f"Graphs updated with {len(filtered_data)} data points")
+            logger.debug("HEALTH", f"Graphs updated with {len(filtered_data)} data points")
 
         except Exception as e:
-            logger.error(f"Failed to update graphs: {e}")
+            logger.error("HEALTH", f"Failed to update graphs: {e}")
 
     def _update_statistics(self):
         """Update statistics display"""
@@ -626,10 +626,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
                     if warn_threshold and perc['p95'] >= warn_threshold * 0.9:  # Within 90% of threshold
                         self.stats_text.insert(tk.END, f"  ⚠️  P95 approaching warn threshold ({warn_threshold}{unit})\n", "warning")
 
-            logger.debug("Statistics updated")
+            logger.debug("HEALTH", "Statistics updated")
 
         except Exception as e:
-            logger.error(f"Failed to update statistics: {e}")
+            logger.error("HEALTH", f"Failed to update statistics: {e}")
 
     def _display_alerts(self, alerts: List[Alert]):
         """Display new alerts in alerts tab"""
@@ -663,7 +663,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self._update_alert_summary()
 
         except Exception as e:
-            logger.error(f"Failed to display alerts: {e}")
+            logger.error("HEALTH", f"Failed to display alerts: {e}")
 
     def _update_alert_summary(self):
         """Update alert count summary"""
@@ -672,22 +672,22 @@ class PerformanceAnalyticsTab(ttk.Frame):
             text = f"Total: {summary['total']}  |  🔴 Critical: {summary['critical']}  |  🟡 Warning: {summary['warning']}  |  🔵 Info: {summary['info']}"
             self.alert_summary_label.config(text=text)
         except Exception as e:
-            logger.error(f"Failed to update alert summary: {e}")
+            logger.error("HEALTH", f"Failed to update alert summary: {e}")
 
     def _change_time_window(self, window: str):
         """Change time window and refresh graphs"""
         self.current_time_window = window
-        logger.info(f"Time window changed to: {window}")
+        logger.info("HEALTH", f"Time window changed to: {window}")
         self._manual_refresh()
 
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""
         if self.auto_refresh.get():
             self._start_auto_refresh()
-            logger.info("Auto-refresh enabled")
+            logger.info("HEALTH", "Auto-refresh enabled")
         else:
             self._stop_auto_refresh()
-            logger.info("Auto-refresh disabled")
+            logger.info("HEALTH", "Auto-refresh disabled")
 
     def _start_auto_refresh(self):
         """Start periodic auto-refresh"""
@@ -717,11 +717,11 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self._schedule_next_refresh()
 
         except Exception as e:
-            logger.error(f"Failed to refresh UI: {e}")
+            logger.error("HEALTH", f"Failed to refresh UI: {e}")
 
     def _manual_refresh(self):
         """Manual refresh button handler - refresh display without loading from database"""
-        logger.debug("Manual refresh triggered")
+        logger.debug("HEALTH", "Manual refresh triggered")
         self._update_graphs()
         self._update_statistics()
         self._update_status()
@@ -742,16 +742,16 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
         # Clear buffer
         self.data_buffer.clear()
-        logger.info("Cleared data buffer")
+        logger.info("HEALTH", "Cleared data buffer")
 
         # Clear database if user chose "Yes"
         if result is True:
             try:
                 count = self.db.clear_all_snapshots()
-                logger.info(f"Cleared {count} snapshots from database")
+                logger.info("HEALTH", f"Cleared {count} snapshots from database")
                 messagebox.showinfo("Data Cleared", f"Cleared buffer and {count} snapshots from database")
             except Exception as e:
-                logger.error(f"Failed to clear database: {e}")
+                logger.error("HEALTH", f"Failed to clear database: {e}")
                 messagebox.showerror("Error", f"Failed to clear database:\n{e}")
         else:
             messagebox.showinfo("Data Cleared", "Cleared buffer only")
@@ -773,7 +773,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             snapshots = self.db.query_latest(limit=self.max_buffer_size)
 
             if not snapshots:
-                logger.debug("No data in database to load")
+                logger.debug("HEALTH", "No data in database to load")
                 return
 
             # Clear current buffer
@@ -787,10 +787,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
                 self.data_buffer.append(snapshot)
 
-            logger.info(f"Loaded {len(self.data_buffer)} snapshots from database into buffer")
+            logger.info("HEALTH", f"Loaded {len(self.data_buffer)} snapshots from database into buffer")
 
         except Exception as e:
-            logger.error(f"Failed to load data from database: {e}")
+            logger.error("HEALTH", f"Failed to load data from database: {e}")
 
     def _update_status(self):
         """Update status bar"""
@@ -811,7 +811,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
                 self.status_label.config(text="Waiting for data...")
 
         except Exception as e:
-            logger.error(f"Failed to update status: {e}")
+            logger.error("HEALTH", f"Failed to update status: {e}")
 
     def _update_db_status(self):
         """Update database status label"""
@@ -819,7 +819,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             count = self.db.get_record_count()
             self.db_status_label.config(text=f"Database: {count} records")
         except Exception as e:
-            logger.error(f"Failed to update database status: {e}")
+            logger.error("HEALTH", f"Failed to update database status: {e}")
 
     def _clear_alerts(self):
         """Clear all alerts"""
@@ -827,7 +827,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self.detector.clear_alerts()
             self.alerts_text.delete('1.0', tk.END)
             self._update_alert_summary()
-            logger.info("Alerts cleared by user")
+            logger.info("HEALTH", "Alerts cleared by user")
 
     def _export_statistics(self):
         """Export statistics to file"""
@@ -844,10 +844,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
                     f.write(stats_content)
 
                 messagebox.showinfo("Export Complete", f"Statistics exported to:\n{filename}")
-                logger.info(f"Statistics exported to: {filename}")
+                logger.info("HEALTH", f"Statistics exported to: {filename}")
 
         except Exception as e:
-            logger.error(f"Failed to export statistics: {e}")
+            logger.error("HEALTH", f"Failed to export statistics: {e}")
             messagebox.showerror("Export Failed", f"Failed to export statistics:\n{e}")
 
     def _export_alerts(self):
@@ -865,10 +865,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
                     f.write(alerts_content)
 
                 messagebox.showinfo("Export Complete", f"Alerts exported to:\n{filename}")
-                logger.info(f"Alerts exported to: {filename}")
+                logger.info("HEALTH", f"Alerts exported to: {filename}")
 
         except Exception as e:
-            logger.error(f"Failed to export alerts: {e}")
+            logger.error("HEALTH", f"Failed to export alerts: {e}")
             messagebox.showerror("Export Failed", f"Failed to export alerts:\n{e}")
 
     def _import_logs(self):
@@ -1002,13 +1002,13 @@ class PerformanceAnalyticsTab(ttk.Frame):
                     # Update database status
                     self._update_db_status()
 
-                    logger.info(f"Imported {imported_count} health snapshots from {file_count} files")
+                    logger.info("HEALTH", f"Imported {imported_count} health snapshots from {file_count} files")
 
                     # Auto-close after 2 seconds
                     progress_window.after(2000, progress_window.destroy)
 
                 except Exception as e:
-                    logger.error(f"Import failed: {e}")
+                    logger.error("HEALTH", f"Import failed: {e}")
                     progress_text.insert(tk.END, f"\n❌ Import failed: {e}\n")
                     progress_label.config(text="Import failed")
                     progress_text.see(tk.END)
@@ -1018,7 +1018,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             thread.start()
 
         except Exception as e:
-            logger.error(f"Failed to initiate import: {e}")
+            logger.error("HEALTH", f"Failed to initiate import: {e}")
             messagebox.showerror("Import Error", f"Failed to import logs:\n{e}")
 
     def cleanup(self):
@@ -1031,7 +1031,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             if self.db:
                 self.db.close()
 
-            logger.info("PerformanceAnalyticsTab cleanup complete")
+            logger.info("HEALTH", "PerformanceAnalyticsTab cleanup complete")
 
         except Exception as e:
-            logger.error(f"Failed to cleanup PerformanceAnalyticsTab: {e}")
+            logger.error("HEALTH", f"Failed to cleanup PerformanceAnalyticsTab: {e}")

@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class GitHelperTab(ttk.Frame):
@@ -55,7 +55,7 @@ class GitHelperTab(ttk.Frame):
         self._create_ui()
         self._refresh_status()
 
-        logger.debug("Git Helper tab initialized")
+        logger.debug("SYSTEM", "Git Helper tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -297,7 +297,7 @@ class GitHelperTab(ttk.Frame):
 
         except Exception as e:
             self._append_output(f"❌ Error: {str(e)}", "error")
-            logger.error(f"Git command failed: {e}")
+            logger.error("SYSTEM", f"Git command failed: {e}")
             return False, str(e)
 
     def _refresh_status(self):
@@ -373,7 +373,7 @@ class GitHelperTab(ttk.Frame):
 
             except Exception as e:
                 self._append_output(f"❌ Error refreshing status: {str(e)}", "error")
-                logger.error(f"Status refresh failed: {e}")
+                logger.error("SYSTEM", f"Status refresh failed: {e}")
 
         threading.Thread(target=refresh_thread, daemon=True).start()
 
@@ -402,7 +402,7 @@ class GitHelperTab(ttk.Frame):
 
             except Exception as e:
                 self._append_output(f"❌ Error pulling: {str(e)}", "error")
-                logger.error(f"Pull failed: {e}")
+                logger.error("SYSTEM", f"Pull failed: {e}")
 
         threading.Thread(target=pull_thread, daemon=True).start()
 
@@ -481,6 +481,6 @@ class GitHelperTab(ttk.Frame):
 
             except Exception as e:
                 self._append_output(f"❌ Error in commit/push workflow: {str(e)}", "error")
-                logger.error(f"Commit/push failed: {e}")
+                logger.error("SYSTEM", f"Commit/push failed: {e}")
 
         threading.Thread(target=commit_push_thread, daemon=True).start()

@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Dict, Any
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from version import get_version_string, get_full_version_info
 
 
@@ -23,7 +23,7 @@ class SystemMonitorTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("System Monitor tab initialized")
+        logger.debug("SYSTEM", "System Monitor tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -281,7 +281,7 @@ class SystemMonitorTab(ttk.Frame):
 
     def _manual_refresh(self):
         """Manual refresh triggered by button"""
-        logger.info("Manual system refresh requested")
+        logger.info("SYSTEM", "Manual system refresh requested")
         # TODO: Send system.get_status command via TCP client
         # This will be connected when integrating with main_window
 
@@ -290,15 +290,15 @@ class SystemMonitorTab(ttk.Frame):
         self.auto_refresh_enabled = self.auto_refresh_var.get()
 
         if self.auto_refresh_enabled:
-            logger.info(f"System auto-refresh enabled ({self.interval_var.get()}s)")
+            logger.info("SYSTEM", f"System auto-refresh enabled ({self.interval_var.get()}s)")
             self._schedule_refresh()
         else:
-            logger.info("System auto-refresh disabled")
+            logger.info("SYSTEM", "System auto-refresh disabled")
 
     def _update_refresh_interval(self):
         """Update refresh interval"""
         self.refresh_interval = self.interval_var.get() * 1000  # Convert to ms
-        logger.debug(f"System refresh interval set to {self.interval_var.get()}s")
+        logger.debug("SYSTEM", f"System refresh interval set to {self.interval_var.get()}s")
 
     def _schedule_refresh(self):
         """Schedule next auto-refresh"""

@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 import stat
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class AirSideSFTPClient:
@@ -38,7 +38,7 @@ class AirSideSFTPClient:
         self.transport: Optional[paramiko.Transport] = None
         self.sftp: Optional[paramiko.SFTPClient] = None
 
-        logger.info(f"AirSideSFTPClient initialized for {username}@{host}:{port}")
+        logger.info("NETWORK", f"AirSideSFTPClient initialized for {username}@{host}:{port}")
 
     def connect(self) -> bool:
         """
@@ -56,22 +56,22 @@ class AirSideSFTPClient:
                 # Use SSH key authentication
                 private_key = paramiko.RSAKey.from_private_key_file(self.key_filename)
                 self.transport.connect(username=self.username, pkey=private_key)
-                logger.info(f"Connected to {self.host} using key authentication")
+                logger.info("NETWORK", f"Connected to {self.host} using key authentication")
             elif self.password:
                 # Use password authentication
                 self.transport.connect(username=self.username, password=self.password)
-                logger.info(f"Connected to {self.host} using password authentication")
+                logger.info("NETWORK", f"Connected to {self.host} using password authentication")
             else:
-                logger.error("No authentication method provided (password or key)")
+                logger.error("NETWORK", "No authentication method provided (password or key)")
                 return False
 
             # Create SFTP client
             self.sftp = paramiko.SFTPClient.from_transport(self.transport)
-            logger.info("SFTP connection established")
+            logger.info("NETWORK", "SFTP connection established")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect via SFTP: {e}")
+            logger.error("NETWORK", f"Failed to connect via SFTP: {e}")
             return False
 
     def disconnect(self):
@@ -79,12 +79,12 @@ class AirSideSFTPClient:
         try:
             if self.sftp:
                 self.sftp.close()
-                logger.debug("SFTP client closed")
+                logger.debug("NETWORK", "SFTP client closed")
             if self.transport:
                 self.transport.close()
-                logger.debug("SSH transport closed")
+                logger.debug("NETWORK", "SSH transport closed")
         except Exception as e:
-            logger.error(f"Error during disconnect: {e}")
+            logger.error("NETWORK", f"Error during disconnect: {e}")
 
     def list_files(self, remote_directory: str,
                    file_extension: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -109,7 +109,7 @@ class AirSideSFTPClient:
             ]
         """
         if not self.sftp:
-            logger.error("SFTP not connected. Call connect() first.")
+            logger.error("NETWORK", "SFTP not connected. Call connect() first.")
             return []
 
         try:
@@ -142,11 +142,11 @@ class AirSideSFTPClient:
             # Sort by modification time (newest first)
             files.sort(key=lambda x: x['modified'], reverse=True)
 
-            logger.info(f"Listed {len(files)} files from {remote_directory}")
+            logger.info("NETWORK", f"Listed {len(files)} files from {remote_directory}")
             return files
 
         except Exception as e:
-            logger.error(f"Failed to list files in {remote_directory}: {e}")
+            logger.error("NETWORK", f"Failed to list files in {remote_directory}: {e}")
             return []
 
     def download_file(self, remote_path: str, local_path: str,
@@ -163,7 +163,7 @@ class AirSideSFTPClient:
             True if download successful, False otherwise
         """
         if not self.sftp:
-            logger.error("SFTP not connected. Call connect() first.")
+            logger.error("NETWORK", "SFTP not connected. Call connect() first.")
             return False
 
         try:
@@ -182,11 +182,11 @@ class AirSideSFTPClient:
             else:
                 self.sftp.get(remote_path, local_path)
 
-            logger.info(f"Downloaded {remote_path} → {local_path}")
+            logger.info("NETWORK", f"Downloaded {remote_path} → {local_path}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to download {remote_path}: {e}")
+            logger.error("NETWORK", f"Failed to download {remote_path}: {e}")
             return False
 
     def get_file_info(self, remote_path: str) -> Optional[Dict[str, Any]]:
@@ -200,7 +200,7 @@ class AirSideSFTPClient:
             File info dictionary or None if file not found
         """
         if not self.sftp:
-            logger.error("SFTP not connected. Call connect() first.")
+            logger.error("NETWORK", "SFTP not connected. Call connect() first.")
             return None
 
         try:
@@ -214,11 +214,11 @@ class AirSideSFTPClient:
                 'is_directory': stat.S_ISDIR(stat_info.st_mode)
             }
 
-            logger.debug(f"Got file info for {remote_path}: {file_info}")
+            logger.debug("NETWORK", f"Got file info for {remote_path}: {file_info}")
             return file_info
 
         except Exception as e:
-            logger.error(f"Failed to get file info for {remote_path}: {e}")
+            logger.error("NETWORK", f"Failed to get file info for {remote_path}: {e}")
             return None
 
     def file_exists(self, remote_path: str) -> bool:

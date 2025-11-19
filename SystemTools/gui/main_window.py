@@ -6,7 +6,7 @@ Tabbed interface for all diagnostic functions
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from gui.widgets import ConnectionStatusBar
 from version import get_version_string, VERSION, VERSION_NAME, BUILD_DATE
@@ -35,7 +35,7 @@ class MainWindow:
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        logger.info("Main window initialized")
+        logger.info("SYSTEM", "Main window initialized")
 
     def _create_menu(self):
         """Create menu bar"""
@@ -58,14 +58,14 @@ class MainWindow:
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Tabs will be added by set_tabs() method
-        logger.debug("Notebook created")
+        logger.debug("SYSTEM", "Notebook created")
 
     def _create_status_bar(self):
         """Create status bar"""
         self.status_bar = ConnectionStatusBar(self.root)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=2)
 
-        logger.debug("Status bar created")
+        logger.debug("SYSTEM", "Status bar created")
 
     def set_tabs(self, tabs_dict: dict):
         """Set tabs from dictionary {name: frame}"""
@@ -74,7 +74,7 @@ class MainWindow:
         for name, frame in tabs_dict.items():
             self.notebook.add(frame, text=name)
 
-        logger.info(f"Added {len(tabs_dict)} tabs")
+        logger.info("SYSTEM", f"Added {len(tabs_dict)} tabs")
 
     def update_status_bar(self, connected: bool, info: str = ""):
         """Update status bar"""
@@ -98,18 +98,18 @@ class MainWindow:
     def on_closing(self):
         """Handle window close"""
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            logger.info("Application closing...")
+            logger.info("SYSTEM", "Application closing...")
 
             # Call cleanup callback BEFORE destroying window to avoid GUI access errors
             if self.cleanup_callback:
                 try:
                     self.cleanup_callback()
                 except Exception as e:
-                    logger.error(f"Error during cleanup: {e}")
+                    logger.error("SYSTEM", f"Error during cleanup: {e}")
 
             self.root.destroy()
 
     def run(self):
         """Start the GUI event loop"""
-        logger.info("Starting GUI event loop")
+        logger.info("SYSTEM", "Starting GUI event loop")
         self.root.mainloop()

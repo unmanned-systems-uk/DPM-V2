@@ -29,7 +29,7 @@ import threading
 
 from network.log_listeners import AirSideListener, GroundSideListener
 from network.udp_discovery import UDPDiscoverySender, load_discovery_config
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from utils.log_contexts import LogContexts
 
@@ -78,7 +78,7 @@ class LogViewerGUI(tk.Tk):
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
-        logger.info("Tri-Domain Log Viewer GUI initialized")
+        logger.info("SYSTEM", "Tri-Domain Log Viewer GUI initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -227,7 +227,7 @@ class LogViewerGUI(tk.Tk):
         if self.stream_running:
             return
 
-        logger.info("Starting Tri-Domain log streaming...")
+        logger.info("SYSTEM", "Starting Tri-Domain log streaming...")
 
         # Clear queue and buffer
         self.log_queue.clear()
@@ -248,7 +248,7 @@ class LogViewerGUI(tk.Tk):
                 payload=discovery_config.get('payload', {"type": "discovery", "source": "systemtools"})
             )
             self.discovery_sender.start()
-            logger.info(f"[DISCOVERY] UDP discovery sender started → {air_side_ip}:5009")
+            logger.info("DISCOVERY", f"UDP discovery sender started → {air_side_ip}:5009")
 
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
@@ -272,7 +272,7 @@ class LogViewerGUI(tk.Tk):
         self.pause_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.NORMAL)
 
-        logger.info("Tri-Domain log streaming started")
+        logger.info("SYSTEM", "Tri-Domain log streaming started")
 
     def _on_pause(self):
         """Pause/resume display updates"""
@@ -285,19 +285,19 @@ class LogViewerGUI(tk.Tk):
             self._update_status_indicator("paused")
             self.status_label.config(text="Paused", foreground="orange")
             self.pause_btn.config(text="▶ Resume")
-            logger.info("Display paused (buffering logs)")
+            logger.info("SYSTEM", "Display paused (buffering logs)")
         else:
             self._update_status_indicator("running")
             self.status_label.config(text="Running", foreground="green")
             self.pause_btn.config(text="⏸ Pause")
-            logger.info("Display resumed")
+            logger.info("SYSTEM", "Display resumed")
 
     def _on_stop(self):
         """Stop streaming"""
         if not self.stream_running:
             return
 
-        logger.info("Stopping Tri-Domain log streaming...")
+        logger.info("SYSTEM", "Stopping Tri-Domain log streaming...")
 
         # Stop GUI update thread
         self.gui_update_running = False
@@ -330,7 +330,7 @@ class LogViewerGUI(tk.Tk):
         self.pause_btn.config(state=tk.DISABLED, text="⏸ Pause")
         self.stop_btn.config(state=tk.DISABLED)
 
-        logger.info("Tri-Domain log streaming stopped")
+        logger.info("SYSTEM", "Tri-Domain log streaming stopped")
 
     def _on_clear(self):
         """Clear log display"""
@@ -366,7 +366,7 @@ class LogViewerGUI(tk.Tk):
                 time.sleep(0.1)
 
             except Exception as e:
-                logger.error(f"Error in GUI update worker: {e}")
+                logger.error("SYSTEM", f"Error in GUI update worker: {e}")
 
     def _process_queue(self):
         """Process all pending log entries from queue"""
@@ -553,11 +553,11 @@ class LogViewerGUI(tk.Tk):
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.write(content)
 
-                logger.info(f"Logs exported to: {filepath}")
+                logger.info("SYSTEM", f"Logs exported to: {filepath}")
                 messagebox.showinfo("Success", f"Logs saved!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error exporting logs: {e}")
+                logger.error("SYSTEM", f"Error exporting logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def _on_copy_all(self):
@@ -573,7 +573,7 @@ class LogViewerGUI(tk.Tk):
             self.update()
             messagebox.showinfo("Success", "All logs copied to clipboard!")
         except Exception as e:
-            logger.error(f"Error copying logs: {e}")
+            logger.error("SYSTEM", f"Error copying logs: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _on_copy_selected(self):
@@ -590,7 +590,7 @@ class LogViewerGUI(tk.Tk):
         except tk.TclError:
             messagebox.showinfo("No Selection", "Please select text to copy")
         except Exception as e:
-            logger.error(f"Error copying selection: {e}")
+            logger.error("SYSTEM", f"Error copying selection: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _on_closing(self):

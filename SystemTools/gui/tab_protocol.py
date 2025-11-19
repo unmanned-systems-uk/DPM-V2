@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 
 
@@ -33,7 +33,7 @@ class ProtocolInspectorTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Protocol Inspector tab initialized")
+        logger.debug("SYSTEM", "Protocol Inspector tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -296,7 +296,7 @@ class ProtocolInspectorTab(ttk.Frame):
 
         # Look up the message index from our mapping
         if item_id not in self.tree_item_to_msg_index:
-            logger.warning(f"Selected tree item {item_id} not found in mapping")
+            logger.warning("SYSTEM", f"Selected tree item {item_id} not found in mapping")
             return
 
         msg_index = self.tree_item_to_msg_index[item_id]
@@ -311,7 +311,7 @@ class ProtocolInspectorTab(ttk.Frame):
             formatted = json.dumps(message, indent=2)
             self.detail_text.insert(1.0, formatted)
         else:
-            logger.warning(f"Message index {msg_index} out of range (total: {len(self.messages)})")
+            logger.warning("SYSTEM", f"Message index {msg_index} out of range (total: {len(self.messages)})")
 
     def _update_stats(self):
         """Update statistics label"""
@@ -331,7 +331,7 @@ class ProtocolInspectorTab(ttk.Frame):
             self.tree_item_to_msg_index.clear()
             self.detail_text.delete(1.0, tk.END)
             self._update_stats()
-            logger.info("Protocol messages cleared")
+            logger.info("SYSTEM", "Protocol messages cleared")
 
     def _export_messages(self):
         """Export messages to JSON file"""
@@ -366,11 +366,11 @@ class ProtocolInspectorTab(ttk.Frame):
                 with open(filepath, 'w', encoding='utf-8') as f:
                     json.dump(export_data, f, indent=2)
 
-                logger.info(f"Messages exported to: {filepath}")
+                logger.info("SYSTEM", f"Messages exported to: {filepath}")
                 messagebox.showinfo("Success", f"Messages exported!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error exporting messages: {e}")
+                logger.error("SYSTEM", f"Error exporting messages: {e}")
                 messagebox.showerror("Error", f"Failed to export:\n{e}")
 
     def _copy_selected(self):
@@ -385,7 +385,7 @@ class ProtocolInspectorTab(ttk.Frame):
             item_id = selection[0]
 
             if item_id not in self.tree_item_to_msg_index:
-                logger.warning(f"Selected tree item {item_id} not found in mapping")
+                logger.warning("SYSTEM", f"Selected tree item {item_id} not found in mapping")
                 messagebox.showwarning("Error", "Could not find selected message")
                 return
 
@@ -405,9 +405,9 @@ class ProtocolInspectorTab(ttk.Frame):
 
                 messagebox.showinfo("Success", "Message copied to clipboard!")
             else:
-                logger.warning(f"Message index {msg_index} out of range (total: {len(self.messages)})")
+                logger.warning("SYSTEM", f"Message index {msg_index} out of range (total: {len(self.messages)})")
                 messagebox.showwarning("Error", "Message index out of range")
 
         except Exception as e:
-            logger.error(f"Error copying message: {e}")
+            logger.error("SYSTEM", f"Error copying message: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")

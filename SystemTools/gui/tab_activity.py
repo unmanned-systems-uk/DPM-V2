@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional
 from pathlib import Path
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class ActivityLogTab(ttk.Frame):
@@ -48,7 +48,7 @@ class ActivityLogTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Activity Log tab initialized")
+        logger.debug("SYSTEM", "Activity Log tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -250,7 +250,7 @@ class ActivityLogTab(ttk.Frame):
             self.events.clear()
             self.tree.delete(*self.tree.get_children())
             self._update_stats()
-            logger.info("Activity events cleared")
+            logger.info("SYSTEM", "Activity events cleared")
 
     def _copy_selected(self):
         """Copy selected event(s) to clipboard"""
@@ -305,9 +305,9 @@ class ActivityLogTab(ttk.Frame):
                         message = event_data["message"]
                         f.write(f"[{timestamp}] [{category:8s}] {message}\n")
 
-                logger.info(f"Activity log exported to: {filepath}")
+                logger.info("SYSTEM", f"Activity log exported to: {filepath}")
                 messagebox.showinfo("Success", f"Activity log exported!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error exporting activity log: {e}")
+                logger.error("SYSTEM", f"Error exporting activity log: {e}")
                 messagebox.showerror("Error", f"Failed to export:\n{e}")

@@ -13,7 +13,7 @@ from datetime import datetime
 
 from network.sftp_client import AirSideSFTPClient
 from network.ssh_client import SSHClient
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 
 
@@ -56,7 +56,7 @@ class FileBrowserTab:
         # Create UI with sub-tabs
         self._create_ui()
 
-        logger.info("File Browser tab initialized with sub-tabs")
+        logger.info("SYSTEM", "File Browser tab initialized with sub-tabs")
 
     def _create_ui(self):
         """Create the File Browser UI with sub-tabs"""
@@ -384,7 +384,7 @@ class FileBrowserTab:
             username = config.get('ssh', 'username', 'dpm')
             password = config.get('ssh', 'password', '2350')
 
-            logger.info(f"Connecting to Air-Side (Images): {username}@{host}")
+            logger.info("NETWORK", f"Connecting to Air-Side (Images): {username}@{host}")
 
             # Create SFTP client
             self.sftp_client = AirSideSFTPClient(
@@ -402,7 +402,7 @@ class FileBrowserTab:
                 self.images_download_btn.config(state=tk.NORMAL)
 
                 self._update_images_status(f"Connected to {host}")
-                logger.info(f"SFTP connection established to {host}")
+                logger.info("NETWORK", f"SFTP connection established to {host}")
 
                 # Auto-refresh file list
                 self._refresh_images_file_list()
@@ -410,7 +410,7 @@ class FileBrowserTab:
                 raise Exception("Connection failed")
 
         except Exception as e:
-            logger.error(f"SFTP connection failed: {e}")
+            logger.error("NETWORK", f"SFTP connection failed: {e}")
             messagebox.showerror(
                 "Connection Error",
                 f"Failed to connect to Air-Side:\n\n{str(e)}\n\nCheck network connection and credentials."
@@ -446,10 +446,10 @@ class FileBrowserTab:
 
             file_count = len(self.files)
             self._update_images_status(f"Found {file_count} file{'s' if file_count != 1 else ''}")
-            logger.info(f"Loaded {file_count} image files from Air-Side")
+            logger.info("SYSTEM", f"Loaded {file_count} image files from Air-Side")
 
         except Exception as e:
-            logger.error(f"Failed to list image files: {e}")
+            logger.error("SYSTEM", f"Failed to list image files: {e}")
             messagebox.showerror(
                 "List Error",
                 f"Failed to list files:\n\n{str(e)}"
@@ -608,12 +608,12 @@ class FileBrowserTab:
                         "Download Complete",
                         f"File downloaded successfully:\n\n{local_path}"
                     ))
-                    logger.info(f"Downloaded {filename} to {local_path}")
+                    logger.info("NETWORK", f"Downloaded {filename} to {local_path}")
                 else:
                     raise Exception("Download failed")
 
             except Exception as e:
-                logger.error(f"Download failed: {e}")
+                logger.error("NETWORK", f"Download failed: {e}")
                 self.frame.after_idle(lambda: messagebox.showerror(
                     "Download Error",
                     f"Failed to download {filename}:\n\n{str(e)}"
@@ -632,7 +632,7 @@ class FileBrowserTab:
     def _update_images_status(self, message: str):
         """Update status label for Images tab"""
         self.images_status_var.set(message)
-        logger.debug(f"File Browser (Images) status: {message}")
+        logger.debug("SYSTEM", f"File Browser (Images) status: {message}")
 
     # ========== Docker Logs Tab Handlers ==========
 
@@ -663,7 +663,7 @@ class FileBrowserTab:
             username = config.get('ssh', 'username', 'dpm')
             password = config.get('ssh', 'password', '2350')
 
-            logger.info(f"Connecting to Air-Side (Docker Logs): {username}@{host}")
+            logger.info("NETWORK", f"Connecting to Air-Side (Docker Logs): {username}@{host}")
 
             # Create SSH client (also provides SFTP)
             self.ssh_client = SSHClient(
@@ -683,7 +683,7 @@ class FileBrowserTab:
                 self.logs_popout_btn.config(state=tk.NORMAL)
 
                 self._update_logs_status(f"Connected to {host}")
-                logger.info(f"SSH connection established to {host}")
+                logger.info("NETWORK", f"SSH connection established to {host}")
 
                 # Auto-refresh log list
                 self._refresh_logs_file_list()
@@ -691,7 +691,7 @@ class FileBrowserTab:
                 raise Exception("Connection failed")
 
         except Exception as e:
-            logger.error(f"SSH connection failed: {e}")
+            logger.error("NETWORK", f"SSH connection failed: {e}")
             messagebox.showerror(
                 "Connection Error",
                 f"Failed to connect to Air-Side:\n\n{str(e)}\n\nCheck network connection and credentials."
@@ -737,7 +737,7 @@ class FileBrowserTab:
                 self._load_system_logs()
 
         except Exception as e:
-            logger.error(f"Failed to list logs: {e}")
+            logger.error("SYSTEM", f"Failed to list logs: {e}")
             messagebox.showerror(
                 "List Error",
                 f"Failed to list logs:\n\n{str(e)}"
@@ -751,7 +751,7 @@ class FileBrowserTab:
         """Load host-mounted logs (SOURCE 1: Direct SFTP)"""
         try:
             remote_dir = "/home/dpm/DPM-V2/sbc/logs"
-            logger.info(f"Listing host logs from {remote_dir}")
+            logger.info("NETWORK", f"Listing host logs from {remote_dir}")
 
             # List directory via SSH
             files = self.ssh_client.list_directory(remote_dir)
@@ -785,17 +785,17 @@ class FileBrowserTab:
 
             count = len(log_files)
             self._update_logs_status(f"Found {count} host log file{'s' if count != 1 else ''}")
-            logger.info(f"Loaded {count} host log files")
+            logger.info("SYSTEM", f"Loaded {count} host log files")
 
         except Exception as e:
-            logger.error(f"Failed to load host logs: {e}")
+            logger.error("NETWORK", f"Failed to load host logs: {e}")
             self._update_logs_status(f"Error loading host logs: {e}")
 
     def _load_system_logs(self):
         """Load system logs (SOURCE 4: Direct SFTP from /var/log/)"""
         try:
             remote_dir = "/var/log"
-            logger.info(f"Listing system logs from {remote_dir}")
+            logger.info("NETWORK", f"Listing system logs from {remote_dir}")
 
             # List directory via SSH
             files = self.ssh_client.list_directory(remote_dir)
@@ -830,10 +830,10 @@ class FileBrowserTab:
 
             count = len(log_files)
             self._update_logs_status(f"Found {count} system log file{'s' if count != 1 else ''}")
-            logger.info(f"Loaded {count} system log files")
+            logger.info("SYSTEM", f"Loaded {count} system log files")
 
         except Exception as e:
-            logger.error(f"Failed to load system logs: {e}")
+            logger.error("NETWORK", f"Failed to load system logs: {e}")
             self._update_logs_status(f"Error loading system logs: {e}")
 
     def _get_docker_image_id(self, container_name="payload-manager"):
@@ -858,7 +858,7 @@ class FileBrowserTab:
                 return "N/A"
 
         except Exception as e:
-            logger.warning(f"Failed to get Docker image ID: {e}")
+            logger.warning("NETWORK", f"Failed to get Docker image ID: {e}")
             return "N/A"
 
     def _load_container_logs(self):
@@ -917,10 +917,10 @@ class FileBrowserTab:
 
             count = len(self.logs_tree.get_children())
             self._update_logs_status(f"Found {count} container log file{'s' if count != 1 else ''}")
-            logger.info(f"Loaded {count} container log files")
+            logger.info("SYSTEM", f"Loaded {count} container log files")
 
         except Exception as e:
-            logger.error(f"Failed to load container logs: {e}")
+            logger.error("NETWORK", f"Failed to load container logs: {e}")
             self._update_logs_status(f"Error: {e}")
             messagebox.showerror(
                 "Container Logs Error",
@@ -955,10 +955,10 @@ class FileBrowserTab:
             )
 
             self._update_logs_status("Docker logs ready to download")
-            logger.info("Docker Output source ready")
+            logger.info("NETWORK", "Docker Output source ready")
 
         except Exception as e:
-            logger.error(f"Failed to prepare Docker Output: {e}")
+            logger.error("NETWORK", f"Failed to prepare Docker Output: {e}")
             self._update_logs_status(f"Error: {e}")
             messagebox.showerror(
                 "Docker Logs Error",
@@ -1082,12 +1082,12 @@ class FileBrowserTab:
                         "Download Complete",
                         f"Log downloaded successfully:\n\n{local_path}"
                     ))
-                    logger.info(f"Downloaded host log {filename} to {local_path}")
+                    logger.info("NETWORK", f"Downloaded host log {filename} to {local_path}")
                 else:
                     raise Exception("SFTP download failed")
 
             except Exception as e:
-                logger.error(f"Host log download failed: {e}")
+                logger.error("NETWORK", f"Host log download failed: {e}")
                 self.frame.after_idle(lambda: messagebox.showerror(
                     "Download Error",
                     f"Failed to download {filename}:\n\n{str(e)}"
@@ -1116,7 +1116,7 @@ class FileBrowserTab:
                 tmp_path = f"/tmp/{filename}"
                 docker_cp_cmd = f"docker cp payload-manager:{container_path} {tmp_path}"
 
-                logger.info(f"Running docker cp: {docker_cp_cmd}")
+                logger.info("NETWORK", f"Running docker cp: {docker_cp_cmd}")
                 self.frame.after_idle(lambda: self.logs_progress_var.set(30.0))
 
                 exit_code, stdout, stderr = self.ssh_client.execute_command(docker_cp_cmd)
@@ -1125,7 +1125,7 @@ class FileBrowserTab:
                     raise Exception(f"Docker cp failed: {stderr}")
 
                 # Step 2: Download from /tmp via SFTP
-                logger.info(f"Downloading from {tmp_path} to {local_path}")
+                logger.info("NETWORK", f"Downloading from {tmp_path} to {local_path}")
                 self.frame.after_idle(lambda: self.logs_progress_var.set(50.0))
 
                 def progress_callback(transferred, total):
@@ -1144,7 +1144,7 @@ class FileBrowserTab:
                     raise Exception("SFTP download from /tmp failed")
 
                 # Step 3: Cleanup /tmp file
-                logger.info(f"Cleaning up {tmp_path}")
+                logger.info("NETWORK", f"Cleaning up {tmp_path}")
                 self.frame.after_idle(lambda: self.logs_progress_var.set(95.0))
 
                 cleanup_cmd = f"rm {tmp_path}"
@@ -1157,10 +1157,10 @@ class FileBrowserTab:
                     "Download Complete",
                     f"Container log downloaded successfully:\n\n{local_path}"
                 ))
-                logger.info(f"Downloaded container log {filename} to {local_path}")
+                logger.info("NETWORK", f"Downloaded container log {filename} to {local_path}")
 
             except Exception as e:
-                logger.error(f"Container log download failed: {e}")
+                logger.error("NETWORK", f"Container log download failed: {e}")
                 self.frame.after_idle(lambda: messagebox.showerror(
                     "Download Error",
                     f"Failed to download {filename}:\n\n{str(e)}"
@@ -1190,7 +1190,7 @@ class FileBrowserTab:
                 tail_count = None if tail_str == "All" else int(tail_str)
 
                 # Execute docker logs command
-                logger.info(f"Getting Docker logs (tail={tail_count})")
+                logger.info("NETWORK", f"Getting Docker logs (tail={tail_count})")
                 self.frame.after_idle(lambda: self.logs_progress_var.set(30.0))
 
                 exit_code, stdout, stderr = self.ssh_client.get_docker_logs(
@@ -1202,7 +1202,7 @@ class FileBrowserTab:
                     raise Exception(f"Docker logs failed: {stderr}")
 
                 # Save to local file
-                logger.info(f"Saving Docker logs to {local_path}")
+                logger.info("SYSTEM", f"Saving Docker logs to {local_path}")
                 self.frame.after_idle(lambda: self.logs_progress_var.set(70.0))
 
                 with open(local_path, 'w', encoding='utf-8') as f:
@@ -1220,10 +1220,10 @@ class FileBrowserTab:
                     "Download Complete",
                     f"Docker logs saved successfully:\n\n{local_path}\n\nLines: {tail_count or 'All'}"
                 ))
-                logger.info(f"Downloaded Docker logs to {local_path}")
+                logger.info("NETWORK", f"Downloaded Docker logs to {local_path}")
 
             except Exception as e:
-                logger.error(f"Docker logs download failed: {e}")
+                logger.error("NETWORK", f"Docker logs download failed: {e}")
                 self.frame.after_idle(lambda: messagebox.showerror(
                     "Download Error",
                     f"Failed to download Docker logs:\n\n{str(e)}"
@@ -1242,7 +1242,7 @@ class FileBrowserTab:
     def _update_logs_status(self, message: str):
         """Update status label for Docker Logs tab"""
         self.logs_status_var.set(message)
-        logger.debug(f"File Browser (Docker Logs) status: {message}")
+        logger.debug("SYSTEM", f"File Browser (Docker Logs) status: {message}")
 
     # ========== Common Methods ==========
 
@@ -1251,18 +1251,18 @@ class FileBrowserTab:
         try:
             if self.sftp_client:
                 self.sftp_client.disconnect()
-                logger.info("SFTP connection closed")
+                logger.info("NETWORK", "SFTP connection closed")
                 self.sftp_client = None
 
             if self.ssh_client:
                 self.ssh_client.disconnect()
-                logger.info("SSH connection closed")
+                logger.info("NETWORK", "SSH connection closed")
                 self.ssh_client = None
 
             self.connected = False
 
         except Exception as e:
-            logger.error(f"Error disconnecting: {e}")
+            logger.error("NETWORK", f"Error disconnecting: {e}")
 
     def _pop_out_docker_logs(self):
         """Pop out Docker log viewer into a separate window"""
@@ -1276,7 +1276,7 @@ class FileBrowserTab:
         if self.popup_window and self.popup_window.winfo_exists():
             self.popup_window.lift()
             self.popup_window.focus_force()
-            logger.debug("Pop-out window brought to front")
+            logger.debug("SYSTEM", "Pop-out window brought to front")
             return
 
         # Get selected log info
@@ -1365,7 +1365,7 @@ class FileBrowserTab:
         # Load log content
         self._load_popup_content(popup_status_var, tags, log_source)
 
-        logger.info(f"Pop-out log window created for: {log_name}")
+        logger.info("SYSTEM", f"Pop-out log window created for: {log_name}")
 
     def _load_popup_content(self, status_var, tags, log_source):
         """Load log content into popup window"""
@@ -1388,7 +1388,7 @@ class FileBrowserTab:
                 self.popup_text.insert(1.0, "Error: Unknown log source type")
 
         except Exception as e:
-            logger.error(f"Failed to load popup content: {e}")
+            logger.error("SYSTEM", f"Failed to load popup content: {e}")
             status_var.set(f"Error: {e}")
             self.popup_text.insert(1.0, f"Error loading log:\n{e}")
 
@@ -1433,7 +1433,7 @@ class FileBrowserTab:
                 raise Exception("Failed to download log file")
 
         except Exception as e:
-            logger.error(f"Failed to load container log: {e}")
+            logger.error("NETWORK", f"Failed to load container log: {e}")
             status_var.set(f"Error: {e}")
             self.popup_text.insert(1.0, f"Error loading container log:\n{e}")
 
@@ -1459,7 +1459,7 @@ class FileBrowserTab:
                 raise Exception(f"docker logs failed: {stderr}")
 
         except Exception as e:
-            logger.error(f"Failed to load docker output: {e}")
+            logger.error("NETWORK", f"Failed to load docker output: {e}")
             status_var.set(f"Error: {e}")
             self.popup_text.insert(1.0, f"Error loading docker logs:\n{e}")
 
@@ -1494,7 +1494,7 @@ class FileBrowserTab:
                 raise Exception("Failed to download log file")
 
         except Exception as e:
-            logger.error(f"Failed to load SFTP log: {e}")
+            logger.error("NETWORK", f"Failed to load SFTP log: {e}")
             status_var.set(f"Error: {e}")
             self.popup_text.insert(1.0, f"Error loading log:\n{e}")
 
@@ -1535,7 +1535,7 @@ class FileBrowserTab:
         log_source = item['values'][2]
 
         self._load_popup_content(status_var, tags, log_source)
-        logger.debug("Pop-out window refreshed")
+        logger.debug("SYSTEM", "Pop-out window refreshed")
 
     def _copy_popup_content(self):
         """Copy all popup content to clipboard"""
@@ -1543,10 +1543,10 @@ class FileBrowserTab:
             content = self.popup_text.get(1.0, tk.END)
             self.popup_window.clipboard_clear()
             self.popup_window.clipboard_append(content)
-            logger.info("Popup content copied to clipboard")
+            logger.info("SYSTEM", "Popup content copied to clipboard")
             messagebox.showinfo("Copied", "Log content copied to clipboard")
         except Exception as e:
-            logger.error(f"Error copying popup content: {e}")
+            logger.error("SYSTEM", f"Error copying popup content: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _save_popup_to_file(self):
@@ -1571,14 +1571,14 @@ class FileBrowserTab:
                 with open(filename, 'w') as f:
                     f.write(content)
 
-                logger.info(f"Popup content saved to: {filename}")
+                logger.info("SYSTEM", f"Popup content saved to: {filename}")
                 messagebox.showinfo("Saved", f"Log saved to:\n{filename}")
 
         except Exception as e:
-            logger.error(f"Error saving popup content: {e}")
+            logger.error("SYSTEM", f"Error saving popup content: {e}")
             messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def cleanup(self):
         """Cleanup resources (called on window close)"""
-        logger.info("Cleaning up File Browser tab")
+        logger.info("SYSTEM", "Cleaning up File Browser tab")
         self.disconnect()

@@ -9,7 +9,7 @@ import json
 import time
 from typing import Optional
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.protocol_loader import protocol
 from network.tcp_client import TCPClient
 from network.protocol import protocol_msg
@@ -27,7 +27,7 @@ class CommandSenderTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Command Sender tab initialized")
+        logger.debug("SYSTEM", "Command Sender tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -160,18 +160,18 @@ class CommandSenderTab(ttk.Frame):
                 try:
                     self._handle_response(message)
                 except Exception as e:
-                    logger.error(f"Error in command response handler: {e}")
+                    logger.error("SYSTEM", f"Error in command response handler: {e}")
 
                 # Then call existing callback (maintains chain)
                 if existing_callback:
                     try:
                         existing_callback(message)
                     except Exception as e:
-                        logger.error(f"Error in chained callback: {e}")
+                        logger.error("SYSTEM", f"Error in chained callback: {e}")
 
             # Replace with chained callback
             client.on_message_received = response_callback
-            logger.debug("Command Sender tab: TCP response callback registered")
+            logger.debug("SYSTEM", "Command Sender tab: TCP response callback registered")
 
     def _load_properties(self):
         """Load camera properties from protocol definitions"""
@@ -223,7 +223,7 @@ class CommandSenderTab(ttk.Frame):
         # Record send time
         self.last_response_time = time.time()
 
-        logger.info(f"Command sent: {message_str[:100]}...")
+        logger.info("COMMAND", f"Command sent: {message_str[:100]}...")
 
     def _send_handshake(self):
         """Send handshake command"""

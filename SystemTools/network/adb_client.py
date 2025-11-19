@@ -6,7 +6,7 @@ Connects to H16 Android device for diagnostics and log viewing
 import subprocess
 import threading
 from typing import Optional, Callable
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class ADBClient:
@@ -68,7 +68,7 @@ class ADBClient:
         exit_code, stdout, stderr = self._run_adb_command(['adb', 'devices'])
 
         if exit_code != 0:
-            logger.error(f"ADB: Failed to get devices: {stderr}")
+            logger.error("NETWORK", f"ADB: Failed to get devices: {stderr}")
             return []
 
         # Parse output
@@ -97,12 +97,12 @@ class ADBClient:
             True if connected successfully
         """
         try:
-            logger.info("ADB: Checking connection...")
+            logger.info("NETWORK", "ADB: Checking connection...")
 
             # Check if ADB is available
             if not self.is_adb_available():
                 error_msg = "ADB not found - please install Android SDK Platform Tools"
-                logger.error(f"ADB: {error_msg}")
+                logger.error("NETWORK", f"ADB: {error_msg}")
                 if self.on_error:
                     self.on_error(error_msg)
                 return False
@@ -110,12 +110,12 @@ class ADBClient:
             # If device_id is provided and looks like a network address (contains colon),
             # first establish network connection with adb connect
             if device_id and ':' in device_id:
-                logger.info(f"ADB: Network device detected, connecting to {device_id}...")
+                logger.info("NETWORK", f"ADB: Network device detected, connecting to {device_id}...")
                 exit_code, stdout, stderr = self._run_adb_command(['adb', 'connect', device_id], timeout=10)
 
                 if exit_code != 0:
                     error_msg = f"Failed to connect to network device {device_id}: {stderr}"
-                    logger.error(f"ADB: {error_msg}")
+                    logger.error("NETWORK", f"ADB: {error_msg}")
                     if self.on_error:
                         self.on_error(error_msg)
                     return False
@@ -123,12 +123,12 @@ class ADBClient:
                 # Check if connection succeeded
                 if "connected" not in stdout.lower() and "already connected" not in stdout.lower():
                     error_msg = f"Network connection failed: {stdout}"
-                    logger.error(f"ADB: {error_msg}")
+                    logger.error("NETWORK", f"ADB: {error_msg}")
                     if self.on_error:
                         self.on_error(error_msg)
                     return False
 
-                logger.info(f"ADB: Network connection established: {stdout.strip()}")
+                logger.info("NETWORK", f"ADB: Network connection established: {stdout.strip()}")
                 self.device_id = device_id
 
             # Get available devices
@@ -136,7 +136,7 @@ class ADBClient:
 
             if not devices:
                 error_msg = "No Android devices connected via ADB"
-                logger.warning(f"ADB: {error_msg}")
+                logger.warning("NETWORK", f"ADB: {error_msg}")
                 if self.on_error:
                     self.on_error(error_msg)
                 return False
@@ -145,7 +145,7 @@ class ADBClient:
             if device_id:
                 if device_id not in devices:
                     error_msg = f"Device {device_id} not found in device list. Available: {devices}"
-                    logger.error(f"ADB: {error_msg}")
+                    logger.error("NETWORK", f"ADB: {error_msg}")
                     if self.on_error:
                         self.on_error(error_msg)
                     return False
@@ -161,7 +161,7 @@ class ADBClient:
             exit_code, stdout, stderr = self.execute_command('echo ADB_TEST')
 
             if exit_code == 0 and 'ADB_TEST' in stdout:
-                logger.info(f"ADB: Connected to device {self.device_id}")
+                logger.info("NETWORK", f"ADB: Connected to device {self.device_id}")
 
                 if self.on_connected:
                     self.on_connected()
@@ -171,14 +171,14 @@ class ADBClient:
                 # Test failed, mark as not connected
                 self.connected = False
                 error_msg = f"Failed to communicate with device {self.device_id}"
-                logger.error(f"ADB: {error_msg}")
+                logger.error("NETWORK", f"ADB: {error_msg}")
                 if self.on_error:
                     self.on_error(error_msg)
                 return False
 
         except Exception as e:
             error_msg = f"Connection failed: {e}"
-            logger.error(f"ADB: {error_msg}")
+            logger.error("NETWORK", f"ADB: {error_msg}")
             if self.on_error:
                 self.on_error(error_msg)
             return False
@@ -186,7 +186,7 @@ class ADBClient:
     def disconnect(self):
         """Disconnect from H16 (no actual disconnect needed for ADB)"""
         self.connected = False
-        logger.info("ADB: Disconnected")
+        logger.info("NETWORK", "ADB: Disconnected")
 
         if self.on_disconnected:
             self.on_disconnected()
@@ -203,7 +203,7 @@ class ADBClient:
             (exit_code, stdout, stderr)
         """
         if not self.connected:
-            logger.error("ADB: Not connected")
+            logger.error("NETWORK", "ADB: Not connected")
             return (-1, "", "Not connected to device")
 
         # Build ADB command
@@ -212,7 +212,7 @@ class ADBClient:
             adb_cmd.extend(['-s', self.device_id])
         adb_cmd.extend(['shell', command])
 
-        logger.debug(f"ADB: Executing command: {command}")
+        logger.debug("NETWORK", f"ADB: Executing command: {command}")
 
         return self._run_adb_command(adb_cmd, timeout=timeout)
 

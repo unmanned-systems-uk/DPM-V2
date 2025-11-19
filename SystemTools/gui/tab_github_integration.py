@@ -13,7 +13,7 @@ import urllib.error
 from typing import Optional, Dict, List
 from pathlib import Path
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 
 
@@ -48,7 +48,7 @@ class GitHubIntegrationTab(ttk.Frame):
         self._create_ui()
         self._load_initial_data()
 
-        logger.debug("GitHub Integration tab initialized")
+        logger.debug("SYSTEM", "GitHub Integration tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -484,19 +484,19 @@ With a token: 5000 requests/hour + access to private repositories"""
                         error_msg += f"\nValidation errors: {', '.join(validation_errors)}"
             except:
                 pass
-            logger.error(error_msg)
+            logger.error("SYSTEM", error_msg)
             messagebox.showerror("GitHub API Error", error_msg)
             return None
 
         except urllib.error.URLError as e:
             error_msg = f"Network error: {e.reason}"
-            logger.error(error_msg)
+            logger.error("SYSTEM", error_msg)
             messagebox.showerror("Network Error", error_msg)
             return None
 
         except Exception as e:
             error_msg = f"Error making GitHub request: {e}"
-            logger.error(error_msg)
+            logger.error("SYSTEM", error_msg)
             messagebox.showerror("Error", error_msg)
             return None
 
@@ -508,7 +508,7 @@ With a token: 5000 requests/hour + access to private repositories"""
             self.labels_cache = [label['name'] for label in response]
             # Update label filter dropdown
             self.label_filter_combo['values'] = ["All"] + self.labels_cache
-            logger.info(f"Loaded {len(self.labels_cache)} labels")
+            logger.info("SYSTEM", f"Loaded {len(self.labels_cache)} labels")
 
     def _refresh_issues(self):
         """Fetch and display issues from GitHub"""
@@ -521,7 +521,7 @@ With a token: 5000 requests/hour + access to private repositories"""
             self.issues = response
             self._apply_filters()
             self._update_statistics()
-            logger.info(f"Loaded {len(self.issues)} {state} issues")
+            logger.info("SYSTEM", f"Loaded {len(self.issues)} {state} issues")
 
     def _apply_filters(self):
         """Apply filters to issue list"""
@@ -807,7 +807,7 @@ With a token: 5000 requests/hour + access to private repositories"""
             config.save()
             self.github_token = token
             messagebox.showinfo("Success", "GitHub token saved successfully!")
-            logger.info("GitHub token saved")
+            logger.info("SYSTEM", "GitHub token saved")
         else:
             messagebox.showwarning("Empty Token", "Please enter a token first.")
 
@@ -819,7 +819,7 @@ With a token: 5000 requests/hour + access to private repositories"""
             self.github_token = ''
             self.token_entry.delete(0, tk.END)
             messagebox.showinfo("Success", "GitHub token cleared!")
-            logger.info("GitHub token cleared")
+            logger.info("SYSTEM", "GitHub token cleared")
 
     def _check_api_status(self):
         """Check GitHub API rate limit status"""
@@ -850,5 +850,5 @@ With a token: 5000 requests/hour + access to private repositories"""
 
         except Exception as e:
             error_msg = f"Error checking API status: {e}"
-            logger.error(error_msg)
+            logger.error("SYSTEM", error_msg)
             self.api_status_label.config(text=error_msg)

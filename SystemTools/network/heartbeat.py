@@ -8,7 +8,7 @@ import threading
 import time
 from typing import Optional
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from network.protocol import protocol_msg
 
 
@@ -36,7 +36,7 @@ class HeartbeatSender:
     def start(self) -> bool:
         """Start sending heartbeats"""
         try:
-            logger.info(f"Heartbeat: Starting sender to {self.target_ip}:{self.target_port}...")
+            logger.info("HEALTH", f"Heartbeat: Starting sender to {self.target_ip}:{self.target_port}...")
 
             # Create UDP socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -47,16 +47,16 @@ class HeartbeatSender:
             self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
             self.send_thread.start()
 
-            logger.info(f"Heartbeat: Sender started")
+            logger.info("HEALTH", "Heartbeat: Sender started")
             return True
 
         except Exception as e:
-            logger.error(f"Heartbeat: Failed to start sender: {e}")
+            logger.error("HEALTH", f"Heartbeat: Failed to start sender: {e}")
             return False
 
     def stop(self):
         """Stop sending heartbeats"""
-        logger.info("Heartbeat: Stopping sender...")
+        logger.info("HEALTH", "Heartbeat: Stopping sender...")
 
         self.running = False
 
@@ -68,7 +68,7 @@ class HeartbeatSender:
 
         self.socket = None
 
-        logger.info("Heartbeat: Sender stopped")
+        logger.info("HEALTH", "Heartbeat: Sender stopped")
 
     def _send_loop(self):
         """Background thread to send heartbeats at 1 Hz
@@ -97,14 +97,14 @@ class HeartbeatSender:
                 self.heartbeats_sent += 1
                 self.last_sent_time = time.time()
 
-                logger.debug(f"Heartbeat: Sent #{self.heartbeats_sent} (uptime: {uptime_seconds}s)")
+                logger.debug("HEALTH", f"Heartbeat: Sent #{self.heartbeats_sent} (uptime: {uptime_seconds}s)")
 
                 # Wait 1 second (1 Hz as per spec)
                 time.sleep(1.0)
 
             except Exception as e:
                 if self.running:  # Only log if not intentionally stopping
-                    logger.error(f"Heartbeat: Send error: {e}")
+                    logger.error("HEALTH", f"Heartbeat: Send error: {e}")
                     time.sleep(1.0)  # Wait before retry
 
     def is_running(self) -> bool:

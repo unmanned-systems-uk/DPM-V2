@@ -27,7 +27,7 @@ from datetime import datetime
 import hashlib
 import os
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class FileTransferError(Exception):
@@ -56,7 +56,7 @@ class AirSideFileClient:
         self.timeout = timeout
         self.base_url = f"http://{host}:{port}/api"
 
-        logger.info(f"AirSideFileClient initialized: {self.base_url}")
+        logger.info("NETWORK", f"AirSideFileClient initialized: {self.base_url}")
 
     def health_check(self) -> Dict[str, Any]:
         """
@@ -74,11 +74,11 @@ class AirSideFileClient:
             response.raise_for_status()
 
             data = response.json()
-            logger.info(f"Air-Side file server health: {data.get('status', 'unknown')}")
+            logger.info("NETWORK", f"Air-Side file server health: {data.get('status', 'unknown')}")
             return data
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Health check failed: {e}")
+            logger.error("NETWORK", f"Health check failed: {e}")
             raise FileTransferError(f"Cannot reach Air-Side file server at {self.base_url}: {e}")
 
     def list_files(self, file_type: str = 'all') -> List[Dict[str, Any]]:
@@ -113,11 +113,11 @@ class AirSideFileClient:
             data = response.json()
             files = data.get('files', [])
 
-            logger.info(f"Listed {len(files)} files from Air-Side (type={file_type})")
+            logger.info("NETWORK", f"Listed {len(files)} files from Air-Side (type={file_type})")
             return files
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to list files: {e}")
+            logger.error("NETWORK", f"Failed to list files: {e}")
             raise FileTransferError(f"Cannot list files from Air-Side: {e}")
 
     def get_file_info(self, filename: str) -> Dict[str, Any]:
@@ -147,11 +147,11 @@ class AirSideFileClient:
             response.raise_for_status()
 
             data = response.json()
-            logger.info(f"Got info for file: {filename} ({data.get('size', 0)} bytes)")
+            logger.info("NETWORK", f"Got info for file: {filename} ({data.get('size', 0)} bytes)")
             return data
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get file info for {filename}: {e}")
+            logger.error("NETWORK", f"Failed to get file info for {filename}: {e}")
             raise FileTransferError(f"Cannot get info for file '{filename}': {e}")
 
     def download_file(self,
@@ -195,10 +195,10 @@ class AirSideFileClient:
                         f"Insufficient disk space: need {file_size} bytes, have {free_bytes} bytes"
                     )
 
-                logger.info(f"Downloading {filename} ({file_size} bytes) to {destination}")
+                logger.info("NETWORK", f"Downloading {filename} ({file_size} bytes) to {destination}")
             except FileTransferError:
                 # File info not available, proceed anyway
-                logger.warning(f"Could not get file size for {filename}, proceeding with download")
+                logger.warning("NETWORK", f"Could not get file size for {filename}, proceeding with download")
                 file_size = 0
                 file_info = {}
 
@@ -221,32 +221,32 @@ class AirSideFileClient:
                             percent = int((downloaded / file_size) * 100)
                             progress_callback(percent)
 
-            logger.info(f"Downloaded {filename} successfully ({downloaded} bytes)")
+            logger.info("NETWORK", f"Downloaded {filename} successfully ({downloaded} bytes)")
 
             # Verify checksum if requested
             if verify_checksum and 'checksum' in file_info:
-                logger.info(f"Verifying checksum for {filename}...")
+                logger.info("NETWORK", f"Verifying checksum for {filename}...")
                 local_checksum = self._calculate_checksum(destination)
                 remote_checksum = file_info['checksum']
 
                 if local_checksum != remote_checksum:
-                    logger.error(f"Checksum mismatch! Local: {local_checksum}, Remote: {remote_checksum}")
+                    logger.error("NETWORK", f"Checksum mismatch! Local: {local_checksum}, Remote: {remote_checksum}")
                     raise FileTransferError(
                         f"Downloaded file corrupted (checksum mismatch): {filename}"
                     )
 
-                logger.info(f"Checksum verified OK: {local_checksum}")
+                logger.info("NETWORK", f"Checksum verified OK: {local_checksum}")
 
             return True
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Download failed for {filename}: {e}")
+            logger.error("NETWORK", f"Download failed for {filename}: {e}")
             # Clean up partial download
             if Path(destination).exists():
                 Path(destination).unlink()
             raise FileTransferError(f"Cannot download file '{filename}': {e}")
         except OSError as e:
-            logger.error(f"File system error during download: {e}")
+            logger.error("NETWORK", f"File system error during download: {e}")
             raise FileTransferError(f"File system error: {e}")
 
     def download_multiple(self,
@@ -268,7 +268,7 @@ class AirSideFileClient:
         dest_path = Path(destination_dir)
         dest_path.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Downloading {len(filenames)} files to {destination_dir}")
+        logger.info("NETWORK", f"Downloading {len(filenames)} files to {destination_dir}")
 
         for filename in filenames:
             try:
@@ -286,11 +286,11 @@ class AirSideFileClient:
                 results[filename] = success
 
             except FileTransferError as e:
-                logger.error(f"Failed to download {filename}: {e}")
+                logger.error("NETWORK", f"Failed to download {filename}: {e}")
                 results[filename] = False
 
         success_count = sum(1 for v in results.values() if v)
-        logger.info(f"Downloaded {success_count}/{len(filenames)} files successfully")
+        logger.info("NETWORK", f"Downloaded {success_count}/{len(filenames)} files successfully")
 
         return results
 

@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from .statistics import StatisticsEngine
 
 
@@ -56,7 +56,7 @@ class AnomalyDetector:
         self.alerts: List[Alert] = []
         self.max_alerts = 100  # Keep last 100 alerts
 
-        logger.info("AnomalyDetector initialized")
+        logger.info("HEALTH", "AnomalyDetector initialized")
 
     def check_threshold(
         self,
@@ -142,7 +142,7 @@ class AnomalyDetector:
             return None
 
         except Exception as e:
-            logger.error(f"Failed to check threshold for {metric_name}: {e}")
+            logger.error("HEALTH", f"Failed to check threshold for {metric_name}: {e}")
             return None
 
     def check_z_score(
@@ -194,7 +194,7 @@ class AnomalyDetector:
             return None
 
         except Exception as e:
-            logger.error(f"Failed to check Z-score for {metric_name}: {e}")
+            logger.error("HEALTH", f"Failed to check Z-score for {metric_name}: {e}")
             return None
 
     def check_rate_of_change(
@@ -244,7 +244,7 @@ class AnomalyDetector:
             return None
 
         except Exception as e:
-            logger.error(f"Failed to check rate of change for {metric_name}: {e}")
+            logger.error("HEALTH", f"Failed to check rate of change for {metric_name}: {e}")
             return None
 
     def analyze_snapshot(
@@ -370,7 +370,7 @@ class AnomalyDetector:
             return alerts
 
         except Exception as e:
-            logger.error(f"Failed to analyze snapshot: {e}")
+            logger.error("HEALTH", f"Failed to analyze snapshot: {e}")
             return alerts
 
     def _add_alert(self, alert: Alert):
@@ -381,7 +381,7 @@ class AnomalyDetector:
         if len(self.alerts) > self.max_alerts:
             self.alerts = self.alerts[-self.max_alerts:]
 
-        logger.debug(f"Alert added: {alert.severity.value} - {alert.message}")
+        logger.debug("HEALTH", f"Alert added: {alert.severity.value} - {alert.message}")
 
     def _get_recommendation(self, metric_name: str, severity: str) -> Optional[str]:
         """Get recommendation for a metric threshold breach"""
@@ -405,7 +405,7 @@ class AnomalyDetector:
     def clear_alerts(self):
         """Clear all alerts"""
         self.alerts = []
-        logger.info("Alerts cleared")
+        logger.info("HEALTH", "Alerts cleared")
 
     def get_alert_summary(self) -> Dict[str, int]:
         """Get count of alerts by severity"""

@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import json
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.protocol_loader import protocol
 from network.protocol import protocol_msg
 
@@ -41,7 +41,7 @@ class CameraDashboardTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Camera Dashboard tab initialized")
+        logger.debug("CAMERA", "Camera Dashboard tab initialized")
 
     def _create_ui(self):
         """Create UI elements with scrollable container"""
@@ -467,7 +467,7 @@ class CameraDashboardTab(ttk.Frame):
         """Manual refresh triggered by button"""
         # This would trigger a camera.get_properties command
         # For now, just log
-        logger.info("Manual camera refresh requested")
+        logger.info("CAMERA", "Manual camera refresh requested")
         # TODO: Send camera.get_properties command via TCP client
         # This will be connected when integrating with main_window
 
@@ -476,15 +476,16 @@ class CameraDashboardTab(ttk.Frame):
         self.auto_refresh_enabled = self.auto_refresh_var.get()
 
         if self.auto_refresh_enabled:
-            logger.info(f"Camera auto-refresh enabled ({self.interval_var.get()}s)")
+            interval = self.interval_var.get()
+            logger.info("CAMERA", f"Camera auto-refresh enabled ({interval}s)")
             self._schedule_refresh()
         else:
-            logger.info("Camera auto-refresh disabled")
+            logger.info("CAMERA", "Camera auto-refresh disabled")
 
     def _update_refresh_interval(self):
         """Update refresh interval"""
         self.refresh_interval = self.interval_var.get() * 1000  # Convert to ms
-        logger.debug(f"Camera refresh interval set to {self.interval_var.get()}s")
+        logger.debug("CAMERA", f"Camera refresh interval set to {self.interval_var.get()}s")
 
     def _schedule_refresh(self):
         """Schedule next auto-refresh"""
@@ -497,7 +498,7 @@ class CameraDashboardTab(ttk.Frame):
     def set_tcp_client(self, tcp_client):
         """Set TCP client reference for sending commands"""
         self.tcp_client = tcp_client
-        logger.debug("Camera tab: TCP client reference set")
+        logger.debug("CAMERA", "Camera tab: TCP client reference set")
 
     def handle_response(self, message: Dict[str, Any]):
         """Handle response messages from Air-Side (for debug mode)"""
@@ -553,11 +554,11 @@ class CameraDashboardTab(ttk.Frame):
         self.debug_mode_enabled = self.debug_mode_var.get()
 
         if self.debug_mode_enabled:
-            logger.info("Camera debug mode ENABLED")
+            logger.info("CAMERA", "Camera debug mode ENABLED")
             self.controls_container.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
             self._log_diagnostic("Debug Mode enabled. Camera control testing panel active.", "info")
         else:
-            logger.info("Camera debug mode DISABLED")
+            logger.info("CAMERA", "Camera debug mode DISABLED")
             self.controls_container.pack_forget()
 
     def _clear_diagnostics(self):
@@ -571,7 +572,7 @@ class CameraDashboardTab(ttk.Frame):
             except:
                 pass
 
-        logger.debug("Camera diagnostics cleared")
+        logger.debug("CAMERA", "Camera diagnostics cleared")
 
     def _copy_diagnostics_to_clipboard(self):
         """Copy all diagnostics text to clipboard"""
@@ -587,10 +588,10 @@ class CameraDashboardTab(ttk.Frame):
             self.update()
 
             self._log_diagnostic("✓ All diagnostics copied to clipboard", "info")
-            logger.info("Diagnostics copied to clipboard (all text)")
+            logger.info("CAMERA", "Diagnostics copied to clipboard (all text)")
         except Exception as e:
             self._log_diagnostic(f"ERROR: Failed to copy to clipboard: {e}", "error")
-            logger.error(f"Failed to copy diagnostics to clipboard: {e}")
+            logger.error("CAMERA", f"Failed to copy diagnostics to clipboard: {e}")
 
     def _copy_selection_to_clipboard(self):
         """Copy selected text to clipboard"""
@@ -608,13 +609,13 @@ class CameraDashboardTab(ttk.Frame):
                 self.update()
 
                 self._log_diagnostic("✓ Selected text copied to clipboard", "info")
-                logger.info("Diagnostics copied to clipboard (selection)")
+                logger.info("CAMERA", "Diagnostics copied to clipboard (selection)")
             else:
                 self._log_diagnostic("⚠ No text selected. Select text first, then click Copy Selection.", "warning")
-                logger.warning("No text selected for clipboard copy")
+                logger.warning("CAMERA", "No text selected for clipboard copy")
         except Exception as e:
             self._log_diagnostic(f"ERROR: Failed to copy selection: {e}", "error")
-            logger.error(f"Failed to copy selection to clipboard: {e}")
+            logger.error("CAMERA", f"Failed to copy selection to clipboard: {e}")
 
     def _pop_out_diagnostics(self):
         """Pop out diagnostics into a separate window"""
@@ -622,7 +623,7 @@ class CameraDashboardTab(ttk.Frame):
         if self.popup_diagnostics_window and self.popup_diagnostics_window.winfo_exists():
             self.popup_diagnostics_window.lift()
             self.popup_diagnostics_window.focus_force()
-            logger.debug("Pop-out diagnostics window brought to front")
+            logger.debug("CAMERA", "Pop-out diagnostics window brought to front")
             return
 
         # Create new popup window
@@ -678,7 +679,7 @@ class CameraDashboardTab(ttk.Frame):
         # Handle window close
         self.popup_diagnostics_window.protocol("WM_DELETE_WINDOW", self._close_popup_diagnostics)
 
-        logger.info("Pop-out diagnostics window opened")
+        logger.info("CAMERA", "Pop-out diagnostics window opened")
 
     def _close_popup_diagnostics(self):
         """Close pop-out diagnostics window"""
@@ -686,7 +687,7 @@ class CameraDashboardTab(ttk.Frame):
             self.popup_diagnostics_window.destroy()
             self.popup_diagnostics_window = None
             self.popup_diagnostics_text = None
-            logger.info("Pop-out diagnostics window closed")
+            logger.info("CAMERA", "Pop-out diagnostics window closed")
 
     def _copy_popup_to_clipboard(self):
         """Copy all text from popup to clipboard"""
@@ -698,9 +699,9 @@ class CameraDashboardTab(ttk.Frame):
             self.clipboard_clear()
             self.clipboard_append(all_text)
             self.update()
-            logger.info("Popup diagnostics copied to clipboard (all text)")
+            logger.info("CAMERA", "Popup diagnostics copied to clipboard (all text)")
         except Exception as e:
-            logger.error(f"Failed to copy popup diagnostics: {e}")
+            logger.error("CAMERA", f"Failed to copy popup diagnostics: {e}")
 
     def _copy_popup_selection_to_clipboard(self):
         """Copy selected text from popup to clipboard"""
@@ -713,9 +714,9 @@ class CameraDashboardTab(ttk.Frame):
                 self.clipboard_clear()
                 self.clipboard_append(selected_text)
                 self.update()
-                logger.info("Popup diagnostics copied to clipboard (selection)")
+                logger.info("CAMERA", "Popup diagnostics copied to clipboard (selection)")
         except Exception as e:
-            logger.error(f"Failed to copy popup selection: {e}")
+            logger.error("CAMERA", f"Failed to copy popup selection: {e}")
 
     def _log_diagnostic(self, message: str, level: str = "info"):
         """Log message to diagnostics panel with timestamp and color"""
@@ -740,7 +741,7 @@ class CameraDashboardTab(ttk.Frame):
         """Send command via TCP with automated diagnostics"""
         if not self.tcp_client or not self.tcp_client.connected:
             self._log_diagnostic("ERROR: TCP not connected to Air-Side", "error")
-            logger.warning(f"Cannot send {command_name}: TCP not connected")
+            logger.warning("CAMERA", "f Cannot send {command_name}: TCP not connected")
             return
 
         self._log_diagnostic(f"Sending command: {command_name}", "info")
@@ -752,14 +753,14 @@ class CameraDashboardTab(ttk.Frame):
 
             if success:
                 self._log_diagnostic("Command sent successfully", "success")
-                logger.info(f"Sent {command_name} command")
+                logger.info("CAMERA", f"Sent {command_name} command")
             else:
                 self._log_diagnostic("ERROR: Failed to send command", "error")
-                logger.error(f"Failed to send {command_name} command")
+                logger.error("CAMERA", f"Failed to send {command_name} command")
 
         except Exception as e:
             self._log_diagnostic(f"ERROR: Exception sending command: {e}", "error")
-            logger.error(f"Exception sending {command_name}: {e}")
+            logger.error("CAMERA", f"Exception sending {command_name}: {e}")
 
     def _send_focus_command(self, action: str):
         """Send camera.focus command"""

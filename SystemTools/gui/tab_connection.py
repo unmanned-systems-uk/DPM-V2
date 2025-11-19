@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from gui.widgets import StatusIndicator, ScrolledTextLog
 from network.tcp_client import TCPClient
@@ -57,7 +57,7 @@ class ConnectionTab(ttk.Frame):
         # Start pulse animation thread
         self._start_pulse_animation()
 
-        logger.debug("Connection tab initialized")
+        logger.debug("NETWORK", "Connection tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -141,7 +141,7 @@ class ConnectionTab(ttk.Frame):
         cam_frame = self._create_status_row(frame, "📷 Camera:")
         self.air_camera_indicator = StatusIndicator(cam_frame, size=14)
         self.air_camera_indicator.pack(side=tk.LEFT, padx=5)
-        self.air_camera_label = ttk.Label(cam_frame, text="Unknown", font=('Arial', 9))
+        self.air_camera_label = ttk.Label(cam_frame, text="Not Connected", font=('Arial', 9))
         self.air_camera_label.pack(side=tk.LEFT)
 
         # Docker Status
@@ -193,7 +193,7 @@ class ConnectionTab(ttk.Frame):
         cam_frame = self._create_status_row(frame, "📷 Camera:")
         self.ground_camera_indicator = StatusIndicator(cam_frame, size=14)
         self.ground_camera_indicator.pack(side=tk.LEFT, padx=5)
-        self.ground_camera_label = ttk.Label(cam_frame, text="Unknown", font=('Arial', 9))
+        self.ground_camera_label = ttk.Label(cam_frame, text="Not Connected", font=('Arial', 9))
         self.ground_camera_label.pack(side=tk.LEFT)
 
         # Network Link
@@ -226,14 +226,14 @@ class ConnectionTab(ttk.Frame):
         air_cam_frame = self._create_status_row(frame, "Air → Camera:")
         self.air_to_camera_indicator = StatusIndicator(air_cam_frame, size=14)
         self.air_to_camera_indicator.pack(side=tk.LEFT, padx=5)
-        self.air_to_camera_label = ttk.Label(air_cam_frame, text="Unknown", font=('Arial', 9))
+        self.air_to_camera_label = ttk.Label(air_cam_frame, text="Not Connected", font=('Arial', 9))
         self.air_to_camera_label.pack(side=tk.LEFT)
 
         # Ground → Camera
         ground_cam_frame = self._create_status_row(frame, "Ground → Camera:")
         self.ground_to_camera_indicator = StatusIndicator(ground_cam_frame, size=14)
         self.ground_to_camera_indicator.pack(side=tk.LEFT, padx=5)
-        self.ground_to_camera_label = ttk.Label(ground_cam_frame, text="Unknown", font=('Arial', 9))
+        self.ground_to_camera_label = ttk.Label(ground_cam_frame, text="Not Connected", font=('Arial', 9))
         self.ground_to_camera_label.pack(side=tk.LEFT)
 
         # Parameters Status
@@ -434,7 +434,7 @@ class ConnectionTab(ttk.Frame):
         # Share TCP client with main window if available
         if self.main_window:
             self.main_window.tcp_client = self.tcp_client
-            logger.info("TCP client shared with main window")
+            logger.info("NETWORK", "TCP client shared with main window")
 
         return True
 
@@ -454,7 +454,7 @@ class ConnectionTab(ttk.Frame):
         # Share SSH client with main window if available
         if self.main_window:
             self.main_window.ssh_client = self.ssh_client
-            logger.info("SSH client shared with main window")
+            logger.info("NETWORK", "SSH client shared with main window")
 
         return True
 
@@ -676,15 +676,15 @@ class ConnectionTab(ttk.Frame):
                 if is_running:
                     self.h16_app_indicator.set_status("green")
                     self.h16_app_label.config(text="Running")
-                    logger.debug(f"H16 DPM app is running ({package_name})")
+                    logger.debug("SYSTEM", f"H16 DPM app is running ({package_name})")
                 else:
                     self.h16_app_indicator.set_status("red")
                     self.h16_app_label.config(text="Not running")
-                    logger.debug(f"H16 DPM app is NOT running ({package_name})")
+                    logger.debug("SYSTEM", f"H16 DPM app is NOT running ({package_name})")
             except Exception as e:
                 self.h16_app_indicator.set_status("yellow")
                 self.h16_app_label.config(text="Check failed")
-                logger.error(f"Failed to check H16 app status: {e}")
+                logger.error("SYSTEM", f"Failed to check H16 app status: {e}")
 
         threading.Thread(target=check_app, daemon=True).start()
 
@@ -740,7 +740,7 @@ class ConnectionTab(ttk.Frame):
         props = properties.get('payload', properties) if isinstance(properties, dict) else {}
 
         # Log received properties for debugging
-        logger.debug(f"Received camera properties: {list(props.keys())}")
+        logger.debug("CAMERA", f"Received camera properties: {list(props.keys())}")
 
         # Helper function to find property value case-insensitively
         def find_prop(prop_dict, *possible_keys):
@@ -800,7 +800,7 @@ class ConnectionTab(ttk.Frame):
         self.drive_value_label.config(text=str(drive_val))
 
         # Log what values we found for debugging
-        logger.debug(f"Extracted values - ISO: {iso_val}, Shutter: {shutter_val}, Aperture: {aperture_val}, Battery: {battery_val}, WB: {wb_val}, Focus: {focus_val}, Drive: {drive_val}")
+        logger.debug("CAMERA", f"Extracted values - ISO: {iso_val}, Shutter: {shutter_val}, Aperture: {aperture_val}, Battery: {battery_val}, WB: {wb_val}, Focus: {focus_val}, Drive: {drive_val}")
 
         # Update "All Properties" details text
         self.camera_details_text.config(state=tk.NORMAL)
@@ -891,7 +891,7 @@ class ConnectionTab(ttk.Frame):
                         self.param_label.config(text=f"{self.camera_properties_count} properties ({time_ago})")
 
                 except Exception as e:
-                    logger.error(f"Pulse animation error: {e}")
+                    logger.error("SYSTEM", f"Pulse animation error: {e}")
 
                 time.sleep(1)
 
@@ -904,7 +904,7 @@ class ConnectionTab(ttk.Frame):
         """Clear the connection log"""
         if messagebox.askyesno("Clear Log", "Clear all connection log entries?"):
             self.log.clear()
-            logger.info("Connection log cleared")
+            logger.info("SYSTEM", "Connection log cleared")
 
     def _save_log(self):
         """Save connection log to file"""
@@ -933,11 +933,11 @@ class ConnectionTab(ttk.Frame):
 
                 config.set("data", "log_directory", str(Path(filepath).parent))
 
-                logger.info(f"Connection log saved to: {filepath}")
+                logger.info("SYSTEM", f"Connection log saved to: {filepath}")
                 messagebox.showinfo("Success", f"Log saved successfully!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error saving log: {e}")
+                logger.error("SYSTEM", f"Error saving log: {e}")
                 messagebox.showerror("Error", f"Failed to save log:\n{e}")
 
     def cleanup(self):

@@ -4,7 +4,7 @@ Statistics Engine - Calculate descriptive statistics and trends
 
 import numpy as np
 from typing import List, Dict, Any, Optional
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class StatisticsEngine:
@@ -48,7 +48,7 @@ class StatisticsEngine:
             return stats
 
         except Exception as e:
-            logger.error(f"Failed to calculate descriptive stats: {e}")
+            logger.error("HEALTH", f"Failed to calculate descriptive stats: {e}")
             return {
                 'mean': None,
                 'median': None,
@@ -85,7 +85,7 @@ class StatisticsEngine:
             return result
 
         except Exception as e:
-            logger.error(f"Failed to calculate percentiles: {e}")
+            logger.error("HEALTH", f"Failed to calculate percentiles: {e}")
             return {f'p{p}': None for p in percentiles}
 
     @staticmethod
@@ -118,7 +118,7 @@ class StatisticsEngine:
             return result
 
         except Exception as e:
-            logger.error(f"Failed to calculate moving average: {e}")
+            logger.error("HEALTH", f"Failed to calculate moving average: {e}")
             return [None] * len(data)
 
     @staticmethod
@@ -141,7 +141,7 @@ class StatisticsEngine:
             rate = (current - previous) / time_delta_sec
             return float(rate)
         except Exception as e:
-            logger.error(f"Failed to calculate rate of change: {e}")
+            logger.error("HEALTH", f"Failed to calculate rate of change: {e}")
             return None
 
     @staticmethod
@@ -167,7 +167,7 @@ class StatisticsEngine:
             z_score = (value - mean) / std_dev
             return float(z_score)
         except Exception as e:
-            logger.error(f"Failed to calculate Z-score: {e}")
+            logger.error("HEALTH", f"Failed to calculate Z-score: {e}")
             return None
 
     @staticmethod
@@ -224,7 +224,7 @@ class StatisticsEngine:
             return result
 
         except Exception as e:
-            logger.error(f"Failed to analyze metric '{metric_path}': {e}")
+            logger.error("HEALTH", f"Failed to analyze metric '{metric_path}': {e}")
             return {
                 'metric': metric_path,
                 'descriptive': {},

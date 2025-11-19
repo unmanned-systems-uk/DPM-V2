@@ -8,7 +8,7 @@ import threading
 import json
 from typing import Optional, Callable, Dict, Any
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class UDPListener:
@@ -32,7 +32,9 @@ class UDPListener:
     def start(self) -> bool:
         """Start listening for UDP messages"""
         try:
-            logger.info(f"{self.name}: Starting listener on port {self.port}...")
+            # Get context based on listener type
+            context = self._get_context()
+            logger.info(context, f"{self.name}: Starting listener on port {self.port}...")
 
             # Create UDP socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -50,18 +52,20 @@ class UDPListener:
             self.receive_thread = threading.Thread(target=self._receive_loop, daemon=True)
             self.receive_thread.start()
 
-            logger.info(f"{self.name}: Listener started on port {self.port}")
+            logger.info(context, f"{self.name}: Listener started on port {self.port}")
             return True
 
         except Exception as e:
-            logger.error(f"{self.name}: Failed to start listener: {e}")
+            context = self._get_context()
+            logger.error(context, f"{self.name}: Failed to start listener: {e}")
             if self.on_error:
                 self.on_error(f"Failed to start {self.name} listener: {e}")
             return False
 
     def stop(self):
         """Stop listening"""
-        logger.info(f"{self.name}: Stopping listener...")
+        context = self._get_context()
+        logger.info(context, f"{self.name}: Stopping listener...")
 
         self.running = False
 
@@ -73,7 +77,7 @@ class UDPListener:
 
         self.socket = None
 
-        logger.info(f"{self.name}: Listener stopped")
+        logger.info(context, f"{self.name}: Listener stopped")
 
     def _receive_loop(self):
         """Background thread to receive UDP messages"""
@@ -90,10 +94,12 @@ class UDPListener:
 
             except Exception as e:
                 if self.running:  # Only log if not intentionally stopping
-                    logger.debug(f"{self.name}: Receive error: {e}")
+                    context = self._get_context()
+                    logger.debug(context, f"{self.name}: Receive error: {e}")
 
     def _handle_message(self, message_str: str, addr: tuple):
         """Handle received message"""
+        context = self._get_context()
         try:
             # Parse JSON
             message = json.loads(message_str)
@@ -103,16 +109,25 @@ class UDPListener:
             import time
             self.last_message_time = time.time()
 
-            logger.debug(f"{self.name}: Received from {addr[0]}:{addr[1]}")
+            logger.debug(context, f"{self.name}: Received from {addr[0]}:{addr[1]}")
 
             # Call callback
             if self.on_message_received:
                 self.on_message_received(message)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"{self.name}: Invalid JSON: {e}")
+            logger.warning(context, f"{self.name}: Invalid JSON: {e}")
         except Exception as e:
-            logger.error(f"{self.name}: Error handling message: {e}")
+            logger.error(context, f"{self.name}: Error handling message: {e}")
+
+    def _get_context(self) -> str:
+        """Get log context based on listener type"""
+        if self.name == "Heartbeat":
+            return "HEALTH"
+        elif self.name == "Status":
+            return "NETWORK"
+        else:
+            return "NETWORK"  # Default for unknown listener types
 
     def is_running(self) -> bool:
         """Check if listener is running"""

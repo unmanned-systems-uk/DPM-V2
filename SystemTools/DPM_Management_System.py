@@ -40,7 +40,7 @@ from network.log_listeners import AirSideListener, GroundSideListener
 from network.udp_discovery import UDPDiscoverySender, load_discovery_config
 from network.udp_listener import StatusListener, HeartbeatListener
 from network.protocol import protocol_msg
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from utils.log_contexts import LogContexts
@@ -175,7 +175,7 @@ class DPMManagementSystem(tk.Tk):
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
-        logger.info("DPM Management System initialized")
+        logger.info("SYSTEM", "DPM Management System initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -934,16 +934,16 @@ class DPMManagementSystem(tk.Tk):
             # Connect
             if self.tcp_client.connect():
                 self.airside_connection_status.config(text=f"Connected to {host}:{port}", foreground="green")
-                logger.info(f"Connected to Air-Side at {host}:{port}")
+                logger.info("NETWORK", f"Connected to Air-Side at {host}:{port}")
                 return True
             else:
                 self.airside_connection_status.config(text="Connection Failed", foreground="red")
-                logger.error(f"Failed to connect to Air-Side at {host}:{port}")
+                logger.error("NETWORK", f"Failed to connect to Air-Side at {host}:{port}")
                 return False
 
         except Exception as e:
             self.airside_connection_status.config(text="Connection Error", foreground="red")
-            logger.error(f"Error connecting to Air-Side: {e}")
+            logger.error("NETWORK", f"Error connecting to Air-Side: {e}")
             messagebox.showerror("Connection Error", f"Failed to connect to Air-Side:\n{e}")
             return False
 
@@ -953,7 +953,7 @@ class DPMManagementSystem(tk.Tk):
             self.tcp_client.disconnect()
             self.tcp_client = None
             self.airside_connection_status.config(text="Not Connected", foreground="red")
-            logger.info("Disconnected from Air-Side")
+            logger.info("NETWORK", "Disconnected from Air-Side")
 
     def _get_local_ip(self) -> str:
         """Get local IP address on the 10.0.1.x subnet
@@ -968,10 +968,10 @@ class DPMManagementSystem(tk.Tk):
             s.connect(("10.0.1.53", 80))  # Air-Side IP
             local_ip = s.getsockname()[0]
             s.close()
-            logger.debug(f"Detected local IP: {local_ip}")
+            logger.debug("NETWORK", f"Detected local IP: {local_ip}")
             return local_ip
         except Exception as e:
-            logger.warning(f"Failed to auto-detect local IP: {e}, using fallback 10.0.1.83")
+            logger.warning("NETWORK", f"Failed to auto-detect local IP: {e}, using fallback 10.0.1.83")
             return "10.0.1.83"  # Fallback to known SystemTools IP
 
     # ========== Air-Side Config Management Methods (Issue #117) ==========
@@ -980,7 +980,7 @@ class DPMManagementSystem(tk.Tk):
         """Fetch configuration from Air-Side via system.get_config command"""
         # Auto-connect if not connected
         if not self.tcp_client or not self.tcp_client.is_connected():
-            logger.info("Not connected - attempting auto-connect to Air-Side...")
+            logger.info("NETWORK", "Not connected - attempting auto-connect to Air-Side...")
             success = self.connect_to_airside(host="10.0.1.53", port=5000, timeout_ms=5000)
             if not success:
                 messagebox.showerror("Connection Failed",
@@ -1007,24 +1007,24 @@ class DPMManagementSystem(tk.Tk):
                     raise Exception('No response from Air-Side (timeout)')
 
                 # Debug: Log full response structure
-                logger.debug(f"Received response: {response}")
+                logger.debug("NETWORK", f"Received response: {response}")
 
                 msg_type = response.get('message_type')
                 if msg_type == 'response':
                     payload = response.get('payload', {})
-                    logger.debug(f"Response payload: {payload}")
+                    logger.debug("CONFIG", f"Response payload: {payload}")
 
                     if payload.get('command') == 'system.get_config':
                         result = payload.get('result', {})
-                        logger.debug(f"Result from response: {result}")
+                        logger.debug("CONFIG", f"Result from response: {result}")
 
                         config_data = result.get('config', {})
-                        logger.info(f"Extracted config_data with {len(config_data)} sections: {list(config_data.keys())}")
+                        logger.info("CONFIG", f"Extracted config_data with {len(config_data)} sections: {list(config_data.keys())}")
 
                         if not config_data:
-                            logger.warning("Config data is empty! Full result structure:")
-                            logger.warning(f"  result keys: {list(result.keys())}")
-                            logger.warning(f"  result content: {result}")
+                            logger.warning("CONFIG", "Config data is empty! Full result structure:")
+                            logger.warning("CONFIG", f"result keys: {list(result.keys())}")
+                            logger.warning("CONFIG", f"result content: {result}")
 
                         # Update UI with config data
                         self.after(0, lambda: self._populate_config_ui(config_data))
@@ -1039,7 +1039,7 @@ class DPMManagementSystem(tk.Tk):
                     raise Exception(f"Unexpected message type: {msg_type}")
 
             except Exception as e:
-                logger.error(f"Failed to get config: {e}")
+                logger.error("CONFIG", f"Failed to get config: {e}")
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to get config:\n{e}"))
                 self.after(0, lambda: self.airside_config_status.config(text="❌ Error fetching config"))
 
@@ -1063,11 +1063,11 @@ class DPMManagementSystem(tk.Tk):
             log = config_data['logging']
             if 'level' in log:
                 level_value = log['level']
-                logger.debug(f"Setting logging.level combobox to: '{level_value}' (type: {type(level_value)})")
-                logger.debug(f"Combobox values: {self.config_widgets['logging.level']['values']}")
-                logger.debug(f"Combobox state: {self.config_widgets['logging.level']['state']}")
+                logger.debug("SYSTEM", f"Setting logging.level combobox to: '{level_value}' (type: {type(level_value)})")
+                logger.debug("SYSTEM", f"Combobox values: {self.config_widgets['logging.level']['values']}")
+                logger.debug("SYSTEM", f"Combobox state: {self.config_widgets['logging.level']['state']}")
                 self.config_widgets['logging.level'].set(level_value)
-                logger.debug(f"After .set(), combobox get() returns: '{self.config_widgets['logging.level'].get()}'")
+                logger.debug("SYSTEM", f"After .set(), combobox get() returns: '{self.config_widgets['logging.level'].get()}'")
             if 'network_systemtools_enabled' in log:
                 self.config_widgets['logging.network_systemtools_enabled'].set(
                     log['network_systemtools_enabled'])
@@ -1087,7 +1087,7 @@ class DPMManagementSystem(tk.Tk):
 
         # Store original config for change detection
         self.original_config = config_data
-        logger.info(f"Config UI populated with {len(config_data)} sections")
+        logger.info("CONFIG", f"Config UI populated with {len(config_data)} sections")
 
     def _apply_airside_config(self, persist=False):
         """Apply config changes to Air-Side"""
@@ -1162,7 +1162,7 @@ class DPMManagementSystem(tk.Tk):
                     raise Exception(f"Unexpected message type: {msg_type}")
 
             except Exception as e:
-                logger.error(f"Failed to apply config: {e}")
+                logger.error("CONFIG", f"Failed to apply config: {e}")
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to apply config:\n{e}"))
                 self.after(0, lambda: self.airside_config_status.config(text="❌ Error applying config"))
 
@@ -1236,7 +1236,7 @@ class DPMManagementSystem(tk.Tk):
         # Re-populate UI with original config
         self._populate_config_ui(self.original_config)
         self.airside_config_status.config(text="🔄 Reset to last fetched config")
-        logger.info("Config UI reset to original values")
+        logger.info("CONFIG", "Config UI reset to original values")
 
     # ========== Docker Logs Tab Methods ==========
 
@@ -1248,11 +1248,11 @@ class DPMManagementSystem(tk.Tk):
 
     def _docker_connect_ssh(self):
         """Connect to Air-Side SSH for Docker logs"""
-        logger.info("Connecting SSH to Air-Side for Docker logs...")
+        logger.info("NETWORK", "Connecting SSH to Air-Side for Docker logs...")
 
         # Check if already connected
         if self.ssh_client and self.ssh_client.is_connected():
-            logger.info("SSH already connected - reusing existing connection")
+            logger.info("NETWORK", "SSH already connected - reusing existing connection")
             self._docker_on_ssh_connected()
             return
 
@@ -1296,7 +1296,7 @@ class DPMManagementSystem(tk.Tk):
         # Fetch Docker Image ID
         self._docker_fetch_image_id()
 
-        logger.info("SSH connected - fetching initial Docker logs")
+        logger.info("NETWORK", "SSH connected - fetching initial Docker logs")
         self._docker_refresh_logs()
 
     def _docker_on_ssh_disconnected(self):
@@ -1412,7 +1412,7 @@ class DPMManagementSystem(tk.Tk):
             return line
         except Exception as e:
             # Parse error - return original line
-            logger.debug(f"Error parsing Docker log line: {e}")
+            logger.debug("SYSTEM", f"Error parsing Docker log line: {e}")
             return line
 
     def _docker_update_log_display(self, logs: str):
@@ -1497,7 +1497,7 @@ class DPMManagementSystem(tk.Tk):
 
         except Exception as e:
             # Parse error - don't filter
-            logger.debug(f"Custom filter parse error: {e}")
+            logger.debug("SYSTEM", f"Custom filter parse error: {e}")
             return True  # Show line if filter expression is invalid
 
     def _docker_apply_all_filters(self, logs: str) -> str:
@@ -1666,11 +1666,11 @@ class DPMManagementSystem(tk.Tk):
                 self.docker_auto_refresh_var.set(False)
                 self.docker_auto_refresh_enabled = False
 
-            logger.info("Starting to follow Docker logs in real-time...")
+            logger.info("NETWORK", "Starting to follow Docker logs in real-time...")
             self._docker_start_follow()
 
         else:
-            logger.info("Stopping Docker log follow...")
+            logger.info("NETWORK", "Stopping Docker log follow...")
             self._docker_stop_follow()
 
     def _docker_start_follow(self):
@@ -1790,7 +1790,7 @@ class DPMManagementSystem(tk.Tk):
 
         except Exception as e:
             # If any error in filter evaluation, default to showing the line
-            logger.debug(f"Error in _docker_should_display_line: {e}")
+            logger.debug("SYSTEM", f"Error in _docker_should_display_line: {e}")
             return True
 
     def _docker_append_log_line(self, line: str):
@@ -1846,15 +1846,15 @@ class DPMManagementSystem(tk.Tk):
                 self._docker_stop_follow()
                 self.docker_follow_enabled = False
 
-            logger.info(f"Docker log auto-refresh enabled ({self.docker_interval_var.get()}s)")
+            logger.info("SYSTEM", f"Docker log auto-refresh enabled ({self.docker_interval_var.get()}s)")
             self._docker_schedule_refresh()
         else:
-            logger.info("Docker log auto-refresh disabled")
+            logger.info("SYSTEM", "Docker log auto-refresh disabled")
 
     def _docker_update_refresh_interval(self):
         """Update refresh interval"""
         self.docker_refresh_interval = self.docker_interval_var.get() * 1000  # Convert to ms
-        logger.debug(f"Docker log refresh interval set to {self.docker_interval_var.get()}s")
+        logger.debug("SYSTEM", f"Docker log refresh interval set to {self.docker_interval_var.get()}s")
 
     def _docker_schedule_refresh(self):
         """Schedule next auto-refresh"""
@@ -1890,11 +1890,11 @@ class DPMManagementSystem(tk.Tk):
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(self.docker_current_logs)
 
-                logger.info(f"Docker logs saved to: {filepath}")
+                logger.info("SYSTEM", f"Docker logs saved to: {filepath}")
                 messagebox.showinfo("Success", f"Logs saved!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error saving Docker logs: {e}")
+                logger.error("SYSTEM", f"Error saving Docker logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def _docker_copy_all(self):
@@ -1911,7 +1911,7 @@ class DPMManagementSystem(tk.Tk):
             messagebox.showinfo("Success", "Logs copied to clipboard!")
 
         except Exception as e:
-            logger.error(f"Error copying Docker logs: {e}")
+            logger.error("SYSTEM", f"Error copying Docker logs: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     # ========== On-Demand Logging Methods (NEW for Issue #118) ==========
@@ -1928,7 +1928,7 @@ class DPMManagementSystem(tk.Tk):
         # Auto-start UDP listener if not running (Issue #118 UX fix)
         # Without this, logs are requested but not received (no listener = lost packets)
         if not self.stream_running:
-            logger.info("UDP listener not running - auto-starting for on-demand logs")
+            logger.info("NETWORK", "UDP listener not running - auto-starting for on-demand logs")
             self._on_start()
             # Brief delay to ensure listener is fully initialized
             time.sleep(0.5)
@@ -1952,7 +1952,7 @@ class DPMManagementSystem(tk.Tk):
 
                 # DEBUG: Show exact message being sent to Air-Side (Issue #118 debug)
                 print(f'DEBUG: Sending message: {message}')
-                logger.info(f'DEBUG: Sending message: {message}')
+                logger.info("NETWORK", f'DEBUG: Sending message: {message}')
 
                 success = self.tcp_client.send_message(message)
 
@@ -1963,7 +1963,7 @@ class DPMManagementSystem(tk.Tk):
                 response = self.tcp_client.wait_for_response(timeout=5.0)
 
                 # Debug: Log the actual response
-                logger.info(f"Air-Side response: {response}")
+                logger.info("NETWORK", f"Air-Side response: {response}")
 
                 # Check Air-Side response format
                 # Success response: {"message_type": "response", "payload": {"command": "...", "result": {...}}}
@@ -1980,12 +1980,12 @@ class DPMManagementSystem(tk.Tk):
                     if cmd == 'logging.enable_streaming':
                         result = payload.get('result', {})
                         actual_duration = result.get('duration_sec', duration)
-                        logger.info(f"Air-Side confirmed streaming for {actual_duration}s")
+                        logger.info("NETWORK", f"Air-Side confirmed streaming for {actual_duration}s")
                         # Success - start countdown
                         self.after(0, lambda: self._start_air_log_countdown(actual_duration))
                     elif cmd == 'logging.disable_streaming':
                         # User clicked Stop before response arrived - this is OK
-                        logger.info("Received disable_streaming response (user cancelled request)")
+                        logger.info("NETWORK", "Received disable_streaming response (user cancelled request)")
                         self.after(0, lambda: self.air_log_status.config(text="Cancelled", foreground="gray"))
                         self.after(0, lambda: self.air_request_btn.config(state=tk.NORMAL))
                         # Don't start countdown - streaming was cancelled
@@ -1999,7 +1999,7 @@ class DPMManagementSystem(tk.Tk):
                     raise Exception(f"Unexpected message type: {msg_type}")
 
             except Exception as e:
-                logger.error(f"Failed to request Air-Side logs: {e}")
+                logger.error("NETWORK", f"Failed to request Air-Side logs: {e}")
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to request logs:\n{e}"))
                 self.after(0, lambda: self.air_log_status.config(text="Error", foreground="red"))
                 self.after(0, lambda: self.air_request_btn.config(state=tk.NORMAL))
@@ -2054,7 +2054,7 @@ class DPMManagementSystem(tk.Tk):
                     raise Exception("Failed to send command")
 
             except Exception as e:
-                logger.error(f"Failed to stop Air-Side logs: {e}")
+                logger.error("NETWORK", f"Failed to stop Air-Side logs: {e}")
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to stop logs:\n{e}"))
 
         threading.Thread(target=send_stop, daemon=True).start()
@@ -2085,7 +2085,7 @@ class DPMManagementSystem(tk.Tk):
         if self.stream_running:
             return
 
-        logger.info("Starting Tri-Domain log streaming...")
+        logger.info("NETWORK", "Starting Tri-Domain log streaming...")
 
         # Clear queue and buffer
         self.log_queue.clear()
@@ -2105,7 +2105,7 @@ class DPMManagementSystem(tk.Tk):
                 payload=discovery_config.get('payload', {"type": "discovery", "source": "systemtools"})
             )
             self.discovery_sender.start()
-            logger.info(f"[DISCOVERY] UDP discovery sender started → {air_side_ip}:5009")
+            logger.info("DISCOVERY", f"UDP discovery sender started → {air_side_ip}:5009")
 
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
@@ -2119,7 +2119,7 @@ class DPMManagementSystem(tk.Tk):
         self.systemtools_handler = SystemToolsLogHandler(self.log_queue)
         self.systemtools_handler.setLevel(logging.DEBUG)  # Capture all levels
         logger.logger.addHandler(self.systemtools_handler)  # logger.logger is the actual logging.Logger
-        logger.info("SystemTools log handler added - SystemTools logs now visible in viewer")
+        logger.info("SYSTEM", "SystemTools log handler added - SystemTools logs now visible in viewer")
 
         # Start GUI update thread
         self.gui_update_running = True
@@ -2135,7 +2135,7 @@ class DPMManagementSystem(tk.Tk):
         self.pause_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.NORMAL)
 
-        logger.info("Tri-Domain log streaming started")
+        logger.info("NETWORK", "Tri-Domain log streaming started")
 
     def _on_pause(self):
         """Pause/resume display updates"""
@@ -2148,19 +2148,19 @@ class DPMManagementSystem(tk.Tk):
             self._update_status_indicator("paused")
             self.status_label.config(text="Paused", foreground="orange")
             self.pause_btn.config(text="▶ Resume")
-            logger.info("Display paused (buffering logs)")
+            logger.info("SYSTEM", "Display paused (buffering logs)")
         else:
             self._update_status_indicator("running")
             self.status_label.config(text="Running", foreground="green")
             self.pause_btn.config(text="⏸ Pause")
-            logger.info("Display resumed")
+            logger.info("SYSTEM", "Display resumed")
 
     def _on_stop(self):
         """Stop streaming"""
         if not self.stream_running:
             return
 
-        logger.info("Stopping Tri-Domain log streaming...")
+        logger.info("NETWORK", "Stopping Tri-Domain log streaming...")
 
         # Stop GUI update thread
         self.gui_update_running = False
@@ -2185,7 +2185,7 @@ class DPMManagementSystem(tk.Tk):
         if self.systemtools_handler:
             logger.logger.removeHandler(self.systemtools_handler)  # logger.logger is the actual logging.Logger
             self.systemtools_handler = None
-            logger.info("SystemTools log handler removed")
+            logger.info("SYSTEM", "SystemTools log handler removed")
 
         # Clear queue
         self.log_queue.clear()
@@ -2199,7 +2199,7 @@ class DPMManagementSystem(tk.Tk):
         self.pause_btn.config(state=tk.DISABLED, text="⏸ Pause")
         self.stop_btn.config(state=tk.DISABLED)
 
-        logger.info("Tri-Domain log streaming stopped")
+        logger.info("NETWORK", "Tri-Domain log streaming stopped")
 
     def _on_clear(self):
         """Clear log display"""
@@ -2235,7 +2235,7 @@ class DPMManagementSystem(tk.Tk):
                 time.sleep(0.1)
 
             except Exception as e:
-                logger.error(f"Error in GUI update worker: {e}")
+                logger.error("SYSTEM", f"Error in GUI update worker: {e}")
 
     def _process_queue(self):
         """Process all pending log entries from queue"""
@@ -2410,7 +2410,7 @@ class DPMManagementSystem(tk.Tk):
 
         except Exception as e:
             # Parse error - don't filter
-            logger.debug(f"Custom filter parse error: {e}")
+            logger.debug("SYSTEM", f"Custom filter parse error: {e}")
             return True  # Show entry if filter expression is invalid
 
     def _on_clear_custom_filter(self):
@@ -2451,13 +2451,13 @@ class DPMManagementSystem(tk.Tk):
 
     def _refresh_filter_labels(self):
         """Refresh filter labels from JSON (reload configuration)"""
-        logger.info("Refreshing filter labels from JSON...")
+        logger.info("CONFIG", "Refreshing filter labels from JSON...")
         success = self.log_filter_manager.refresh()
         if success:
             messagebox.showinfo("Filters Refreshed",
                                "Filter configuration reloaded from JSON.\n\n"
                                "Note: To see updated buttons, restart the application.")
-            logger.info("Filter labels refreshed successfully")
+            logger.info("CONFIG", "Filter labels refreshed successfully")
         else:
             messagebox.showerror("Refresh Failed",
                                 "Failed to reload filter configuration.\n"
@@ -2465,7 +2465,7 @@ class DPMManagementSystem(tk.Tk):
 
     def _apply_preset(self, preset_name: str):
         """Apply a preset filter configuration"""
-        logger.info(f"Applying preset filter: {preset_name}")
+        logger.info("CONFIG", f"Applying preset filter: {preset_name}")
         preset_config = self.log_filter_manager.apply_preset(preset_name)
 
         if not preset_config:
@@ -2493,17 +2493,17 @@ class DPMManagementSystem(tk.Tk):
 
         # Apply filter
         self._on_dynamic_filter_changed()
-        logger.info(f"Preset '{preset_name}' applied: {len(preset_config.get('contexts', []))} contexts, "
+        logger.info("CONFIG", f"Preset '{preset_name}' applied: {len(preset_config.get('contexts', []))} contexts, "
                    f"{len(preset_config.get('levels', []))} levels, logic={logic}")
 
     def _apply_custom_expression(self):
         """Apply custom filter expression (with Apply button - no real-time filtering)"""
         expression = self.filter_custom.get().strip()
         if expression:
-            logger.info(f"[CONFIG] Applying custom filter expression: {expression}")
+            logger.info("CONFIG", f"Applying custom filter expression: {expression}")
             self._on_filter_changed()
         else:
-            logger.info("[CONFIG] Custom filter expression is empty, clearing filter")
+            logger.info("CONFIG", "Custom filter expression is empty, clearing filter")
             self._on_filter_changed()
 
     # ========== End Issue #147 Handlers ==========
@@ -2632,11 +2632,11 @@ class DPMManagementSystem(tk.Tk):
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.write(content)
 
-                logger.info(f"Logs exported to: {filepath}")
+                logger.info("SYSTEM", f"Logs exported to: {filepath}")
                 messagebox.showinfo("Success", f"Logs saved!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error exporting logs: {e}")
+                logger.error("SYSTEM", f"Error exporting logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def _on_copy_all(self):
@@ -2652,7 +2652,7 @@ class DPMManagementSystem(tk.Tk):
             self.update()
             messagebox.showinfo("Success", "All logs copied to clipboard!")
         except Exception as e:
-            logger.error(f"Error copying logs: {e}")
+            logger.error("SYSTEM", f"Error copying logs: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _on_copy_selected(self):
@@ -2669,7 +2669,7 @@ class DPMManagementSystem(tk.Tk):
         except tk.TclError:
             messagebox.showinfo("No Selection", "Please select text to copy")
         except Exception as e:
-            logger.error(f"Error copying selection: {e}")
+            logger.error("SYSTEM", f"Error copying selection: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _wire_dashboard_clients(self):
@@ -2696,7 +2696,7 @@ class DPMManagementSystem(tk.Tk):
                     }
                     self.camera_tab.update_camera_status(status_message)
             except Exception as e:
-                logger.error(f"Error updating camera properties in dashboards: {e}")
+                logger.error("SYSTEM", f"Error updating camera properties in dashboards: {e}")
 
         # Store the callback for later use
         self.camera_properties_callback = on_camera_properties
@@ -2708,7 +2708,7 @@ class DPMManagementSystem(tk.Tk):
                 if hasattr(self, 'connection_tab'):
                     self.connection_tab.on_heartbeat_received(sender, data)
             except Exception as e:
-                logger.error(f"Error updating heartbeat in Connection Monitor: {e}")
+                logger.error("SYSTEM", f"Error updating heartbeat in Connection Monitor: {e}")
 
         # Store the callback for later use
         self.heartbeat_callback = on_heartbeat
@@ -2718,7 +2718,7 @@ class DPMManagementSystem(tk.Tk):
         status_port = config.get('network', 'udp_status_port', 5001)
         heartbeat_port = config.get('network', 'udp_heartbeat_port', 5002)
 
-        logger.info(f"Creating UDP listeners - Status Port: {status_port}, Heartbeat Port: {heartbeat_port}")
+        logger.info("NETWORK", f"Creating UDP listeners - Status Port: {status_port}, Heartbeat Port: {heartbeat_port}")
 
         # Create listeners
         self.status_listener = StatusListener(status_port)
@@ -2769,7 +2769,7 @@ class DPMManagementSystem(tk.Tk):
         self.heartbeat_listener.on_message_received = on_heartbeat_message
 
         # Start UDP listeners immediately (they run in background threads)
-        logger.info("Starting UDP listeners for heartbeat and camera status")
+        logger.info("NETWORK", "Starting UDP listeners for heartbeat and camera status")
         self.status_listener.start()
         self.heartbeat_listener.start()
 
@@ -2799,18 +2799,18 @@ class DPMManagementSystem(tk.Tk):
                                     self.camera_properties_callback(payload)
 
                         self.connection_tab.tcp_client.on_message_received = enhanced_callback
-                        logger.info("TCP client shared with Camera Dashboard and callbacks configured")
+                        logger.info("NETWORK", "TCP client shared with Camera Dashboard and callbacks configured")
                         return  # Done
 
                 # Check again in 500ms
                 self.after(500, check_and_share_tcp_client)
             except Exception as e:
-                logger.error(f"Error in check_and_share_tcp_client: {e}")
+                logger.error("NETWORK", f"Error in check_and_share_tcp_client: {e}")
 
         # Start periodic check
         self.after(100, check_and_share_tcp_client)
 
-        logger.info("Dashboard tabs wired up successfully")
+        logger.info("SYSTEM", "Dashboard tabs wired up successfully")
 
     def _on_closing(self):
         """Handle window close"""
@@ -2824,24 +2824,24 @@ class DPMManagementSystem(tk.Tk):
             if hasattr(self, 'camera_tab') and hasattr(self.camera_tab, 'cleanup'):
                 self.camera_tab.cleanup()
             if hasattr(self, 'analytics_tab') and hasattr(self.analytics_tab, 'cleanup'):
-                logger.info("Cleaning up Performance Analytics tab")
+                logger.info("SYSTEM", "Cleaning up Performance Analytics tab")
                 self.analytics_tab.cleanup()
             if hasattr(self, 'file_browser_tab') and hasattr(self.file_browser_tab, 'cleanup'):
-                logger.info("Cleaning up File Browser tab")
+                logger.info("SYSTEM", "Cleaning up File Browser tab")
                 self.file_browser_tab.cleanup()
         except Exception as e:
-            logger.error(f"Error during dashboard cleanup: {e}")
+            logger.error("SYSTEM", f"Error during dashboard cleanup: {e}")
 
         # Stop UDP listeners
         try:
             if hasattr(self, 'status_listener') and self.status_listener:
-                logger.info("Stopping UDP status listener")
+                logger.info("NETWORK", "Stopping UDP status listener")
                 self.status_listener.stop()
             if hasattr(self, 'heartbeat_listener') and self.heartbeat_listener:
-                logger.info("Stopping UDP heartbeat listener")
+                logger.info("NETWORK", "Stopping UDP heartbeat listener")
                 self.heartbeat_listener.stop()
         except Exception as e:
-            logger.error(f"Error stopping UDP listeners: {e}")
+            logger.error("NETWORK", f"Error stopping UDP listeners: {e}")
 
         self.destroy()
     def _docker_fetch_image_id(self):
@@ -2868,13 +2868,13 @@ class DPMManagementSystem(tk.Tk):
 
                 # Update label
                 self.docker_image_id_label.config(text=short_id, foreground="blue")
-                logger.info(f"Docker Image ID: {short_id}")
+                logger.info("NETWORK", f"Docker Image ID: {short_id}")
             else:
                 self.docker_image_id_label.config(text="N/A", foreground="gray")
-                logger.warning(f"Failed to get Docker image ID: {stderr}")
+                logger.warning("NETWORK", f"Failed to get Docker image ID: {stderr}")
 
         except Exception as e:
-            logger.error(f"Error fetching Docker image ID: {e}")
+            logger.error("NETWORK", f"Error fetching Docker image ID: {e}")
             self.docker_image_id_label.config(text="Error", foreground="red")
 
     def _docker_pop_out_logs(self):
@@ -2883,7 +2883,7 @@ class DPMManagementSystem(tk.Tk):
         if self.docker_popup_window and self.docker_popup_window.winfo_exists():
             self.docker_popup_window.lift()
             self.docker_popup_window.focus_force()
-            logger.debug("Pop-out window brought to front")
+            logger.debug("SYSTEM", "Pop-out window brought to front")
             return
 
         # Create new popup window
@@ -3069,7 +3069,7 @@ class DPMManagementSystem(tk.Tk):
         # Cleanup handler
         self.docker_popup_window.protocol("WM_DELETE_WINDOW", self._popup_close_window)
 
-        logger.info("Pop-out live logs window created with full filtering")
+        logger.info("SYSTEM", "Pop-out live logs window created with full filtering")
 
     # ===== POPUP-SPECIFIC FILTER METHODS =====
 
@@ -3190,7 +3190,7 @@ class DPMManagementSystem(tk.Tk):
             self.popup_line_count.config(text=f"Lines: {line_count}")
 
         except Exception as e:
-            logger.error(f"Error applying popup filters: {e}")
+            logger.error("SYSTEM", f"Error applying popup filters: {e}")
 
     def _popup_apply_highlighting(self):
         """Apply syntax highlighting to popup text"""
@@ -3266,7 +3266,7 @@ class DPMManagementSystem(tk.Tk):
         # Update timestamp
         self.popup_last_update_label.config(text=datetime.now().strftime("%H:%M:%S"))
 
-        logger.debug("Pop-out window manually refreshed")
+        logger.debug("SYSTEM", "Pop-out window manually refreshed")
 
     def _popup_toggle_auto_refresh(self):
         """Toggle popup auto-refresh on/off"""
@@ -3279,10 +3279,10 @@ class DPMManagementSystem(tk.Tk):
                 self.popup_auto_refresh_enabled = False
                 return
 
-            logger.info(f"Popup auto-refresh enabled ({self.popup_interval_var.get()}s)")
+            logger.info("SYSTEM", f"Popup auto-refresh enabled ({self.popup_interval_var.get()}s)")
             self._popup_schedule_refresh()
         else:
-            logger.info("Popup auto-refresh disabled")
+            logger.info("SYSTEM", "Popup auto-refresh disabled")
             if self.popup_after_id:
                 self.after_cancel(self.popup_after_id)
                 self.popup_after_id = None
@@ -3309,7 +3309,7 @@ class DPMManagementSystem(tk.Tk):
             self.docker_popup_window.destroy()
             self.docker_popup_window = None
 
-        logger.info("Pop-out window closed")
+        logger.info("SYSTEM", "Pop-out window closed")
 
     def _docker_copy_popup_content(self):
         """Copy all popup content to clipboard"""
@@ -3320,10 +3320,10 @@ class DPMManagementSystem(tk.Tk):
             content = self.docker_popup_text.get(1.0, tk.END)
             self.docker_popup_window.clipboard_clear()
             self.docker_popup_window.clipboard_append(content)
-            logger.info("Popup content copied to clipboard")
+            logger.info("SYSTEM", "Popup content copied to clipboard")
             messagebox.showinfo("Copied", "Log content copied to clipboard", parent=self.docker_popup_window)
         except Exception as e:
-            logger.error(f"Error copying popup content: {e}")
+            logger.error("SYSTEM", f"Error copying popup content: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.docker_popup_window)
 
     def _docker_save_popup_to_file(self):
@@ -3349,20 +3349,20 @@ class DPMManagementSystem(tk.Tk):
                 with open(filename, 'w') as f:
                     f.write(content)
 
-                logger.info(f"Popup content saved to: {filename}")
+                logger.info("SYSTEM", f"Popup content saved to: {filename}")
                 messagebox.showinfo("Saved", f"Log saved to:\n{filename}", parent=self.docker_popup_window)
 
         except Exception as e:
-            logger.error(f"Error saving popup content: {e}")
+            logger.error("SYSTEM", f"Error saving popup content: {e}")
             messagebox.showerror("Error", f"Failed to save:\n{e}", parent=self.docker_popup_window)
 
 
 def main():
     """Main entry point"""
-    logger.info("=" * 60)
-    logger.info(f"DPM Management System {get_version_string()} Starting...")
-    logger.info(f"Build: {get_build_info_string()}")
-    logger.info("=" * 60)
+    logger.info("SYSTEM", "" + "=" * 60)
+    logger.info("SYSTEM", f"DPM Management System {get_version_string()} Starting...")
+    logger.info("SYSTEM", f"Build: {get_build_info_string()}")
+    logger.info("SYSTEM", "" + "=" * 60)
 
     app = DPMManagementSystem()
     app.mainloop()

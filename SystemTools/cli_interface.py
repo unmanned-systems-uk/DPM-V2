@@ -14,7 +14,7 @@ from colorama import Fore, Style, Back
 # Initialize colorama for cross-platform colored output
 colorama.init()
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from utils.protocol_loader import protocol
 from network.tcp_client import TCPClient
@@ -309,11 +309,11 @@ class CLIInterface:
         self.print_banner()
 
         # Load configuration
-        logger.info("Loading configuration...")
+        logger.info("SYSTEM", "Loading configuration...")
         config.load()
 
         # Load protocol
-        logger.info("Loading protocol...")
+        logger.info("SYSTEM", "Loading protocol...")
         protocol.load()
 
         # Setup network

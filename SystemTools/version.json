@@ -1,6 +1,6 @@
 {
-  "version": "1.11.4",
-  "version_name": "DPM Management System - Protocol Compliance Fixes",
+  "version": "1.12.0",
+  "version_name": "DPM Management System - Protocol-Compliant Logger",
   "build_date": "2025-11-19",
   "python_required": "3.x",
   "platform": "Linux",

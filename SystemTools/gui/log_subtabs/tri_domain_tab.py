@@ -19,7 +19,7 @@ import threading
 import subprocess
 import sys
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from utils.log_colors import configure_tkinter_text_tags, get_buffer_max_entries
 from utils.log_contexts import LogContexts
@@ -63,7 +63,7 @@ class TriDomainAggregationTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Tri-Domain Aggregation tab initialized")
+        logger.debug("SYSTEM", "Tri-Domain Aggregation tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -227,7 +227,7 @@ class TriDomainAggregationTab(ttk.Frame):
         if self.stream_running:
             return
 
-        logger.info("Starting Tri-Domain log aggregation...")
+        logger.info("NETWORK", "Starting Tri-Domain log aggregation...")
 
         # Clear queue
         self.log_queue.clear()
@@ -254,7 +254,7 @@ class TriDomainAggregationTab(ttk.Frame):
         self.pause_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.NORMAL)
 
-        logger.info("Tri-Domain log aggregation started")
+        logger.info("NETWORK", "Tri-Domain log aggregation started")
 
     def _on_pause(self):
         """Pause display updates (listeners keep running, buffer logs)"""
@@ -267,19 +267,19 @@ class TriDomainAggregationTab(ttk.Frame):
             self._update_status_indicator("paused")
             self.status_label.config(text="Paused", foreground="orange")
             self.pause_btn.config(text="▶ Resume")
-            logger.info("Display paused (buffering logs)")
+            logger.info("SYSTEM", "Display paused (buffering logs)")
         else:
             self._update_status_indicator("running")
             self.status_label.config(text="Running", foreground="green")
             self.pause_btn.config(text="⏸ Pause")
-            logger.info("Display resumed")
+            logger.info("SYSTEM", "Display resumed")
 
     def _on_stop(self):
         """Stop both listeners and clear buffer"""
         if not self.stream_running:
             return
 
-        logger.info("Stopping Tri-Domain log aggregation...")
+        logger.info("NETWORK", "Stopping Tri-Domain log aggregation...")
 
         # Stop GUI update thread
         self.gui_update_running = False
@@ -307,7 +307,7 @@ class TriDomainAggregationTab(ttk.Frame):
         self.pause_btn.config(state=tk.DISABLED, text="⏸ Pause")
         self.stop_btn.config(state=tk.DISABLED)
 
-        logger.info("Tri-Domain log aggregation stopped")
+        logger.info("NETWORK", "Tri-Domain log aggregation stopped")
 
     def _on_clear(self):
         """Clear log display"""
@@ -342,7 +342,7 @@ class TriDomainAggregationTab(ttk.Frame):
                 time.sleep(0.1)
 
             except Exception as e:
-                logger.error(f"Error in GUI update worker: {e}")
+                logger.error("SYSTEM", f"Error in GUI update worker: {e}")
 
     def _process_queue(self):
         """Process all pending log entries from queue"""
@@ -475,7 +475,7 @@ class TriDomainAggregationTab(ttk.Frame):
         # Once they're displayed and removed, they're gone
         # For full filtering, we'd need to keep a persistent buffer
         # For now, just note that filters apply to NEW logs
-        logger.debug("Filters updated - will apply to new log entries")
+        logger.debug("SYSTEM", "Filters updated - will apply to new log entries")
 
     def _update_line_count(self):
         """Update line count label"""
@@ -525,11 +525,11 @@ class TriDomainAggregationTab(ttk.Frame):
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.write(content)
 
-                logger.info(f"Logs exported to: {filepath}")
+                logger.info("SYSTEM", f"Logs exported to: {filepath}")
                 messagebox.showinfo("Success", f"Logs saved!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error exporting logs: {e}")
+                logger.error("SYSTEM", f"Error exporting logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def _on_copy_all(self):
@@ -545,7 +545,7 @@ class TriDomainAggregationTab(ttk.Frame):
             self.update()
             messagebox.showinfo("Success", "All logs copied to clipboard!")
         except Exception as e:
-            logger.error(f"Error copying logs: {e}")
+            logger.error("SYSTEM", f"Error copying logs: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _on_copy_selected(self):
@@ -562,7 +562,7 @@ class TriDomainAggregationTab(ttk.Frame):
         except tk.TclError:
             messagebox.showinfo("No Selection", "Please select text to copy")
         except Exception as e:
-            logger.error(f"Error copying selection: {e}")
+            logger.error("SYSTEM", f"Error copying selection: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def _pop_out_window(self):
@@ -571,7 +571,7 @@ class TriDomainAggregationTab(ttk.Frame):
         if self.popup_window and self.popup_window.winfo_exists():
             self.popup_window.lift()
             self.popup_window.focus_force()
-            logger.debug("Pop-out window brought to front")
+            logger.debug("SYSTEM", "Pop-out window brought to front")
             return
 
         # Create new popup window
@@ -653,7 +653,7 @@ class TriDomainAggregationTab(ttk.Frame):
         # Handle window close
         self.popup_window.protocol("WM_DELETE_WINDOW", self.popup_window.destroy)
 
-        logger.info("Pop-out log window created")
+        logger.info("SYSTEM", "Pop-out log window created")
 
     def _refresh_popup(self, popup_text, status_label, line_count_label):
         """Refresh popup window with current log content"""
@@ -680,7 +680,7 @@ class TriDomainAggregationTab(ttk.Frame):
                            foreground=self.status_label.cget("foreground"))
         line_count_label.config(text=self.line_count_label.cget("text"))
 
-        logger.debug("Pop-out window refreshed")
+        logger.debug("SYSTEM", "Pop-out window refreshed")
 
     def _copy_popup_content(self, popup_text):
         """Copy popup window content to clipboard"""
@@ -692,7 +692,7 @@ class TriDomainAggregationTab(ttk.Frame):
                 self.update()
                 messagebox.showinfo("Success", "Logs copied to clipboard!", parent=self.popup_window)
             except Exception as e:
-                logger.error(f"Error copying from popup: {e}")
+                logger.error("SYSTEM", f"Error copying from popup: {e}")
                 messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.popup_window)
 
     def _launch_standalone(self):
@@ -702,7 +702,7 @@ class TriDomainAggregationTab(ttk.Frame):
 
             if not script_path.exists():
                 messagebox.showerror("Error", f"Standalone viewer not found:\n{script_path}")
-                logger.error(f"log_viewer_gui.py not found at {script_path}")
+                logger.error("SYSTEM", f"log_viewer_gui.py not found at {script_path}")
                 return
 
             # Launch in separate process
@@ -711,12 +711,12 @@ class TriDomainAggregationTab(ttk.Frame):
                            stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL)
 
-            logger.info("Launched standalone Tri-Domain Log Viewer")
+            logger.info("SYSTEM", "Launched standalone Tri-Domain Log Viewer")
             messagebox.showinfo("Launched", "Standalone Tri-Domain Log Viewer launched!\n\n"
                               "Check your taskbar for the new window.")
 
         except Exception as e:
-            logger.error(f"Error launching standalone viewer: {e}")
+            logger.error("SYSTEM", f"Error launching standalone viewer: {e}")
             messagebox.showerror("Error", f"Failed to launch standalone viewer:\n{e}")
 
     def cleanup(self):

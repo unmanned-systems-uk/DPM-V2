@@ -9,7 +9,7 @@ from typing import Optional
 import threading
 from datetime import datetime
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 
 
@@ -25,7 +25,7 @@ class RemoteControlTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Remote Control tab initialized")
+        logger.debug("SYSTEM", "Remote Control tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -224,7 +224,7 @@ class RemoteControlTab(ttk.Frame):
             return False
 
         # Auto-connect via Connection Monitor "Connect All"
-        logger.info("[AIR-SIDE REMOTE] SSH connection required - triggering Connect All")
+        logger.info("COMMAND", "SSH connection required - triggering Connect All")
         self.auto_connecting = True
 
         # Update status
@@ -243,11 +243,11 @@ class RemoteControlTab(ttk.Frame):
                                   "Commands will execute once connection is established.\n"
                                   "Please wait for 'SSH: Connected' status.")
 
-                logger.info("[AIR-SIDE REMOTE] Auto-connect initiated successfully")
+                logger.info("COMMAND", "Auto-connect initiated successfully")
                 return False  # Not yet connected, command should wait
 
             except Exception as e:
-                logger.error(f"[AIR-SIDE REMOTE] Auto-connect failed: {e}")
+                logger.error("COMMAND", f"Auto-connect failed: {e}")
                 self.auto_connecting = False
                 self.ssh_status_label.config(text="SSH: Connection Failed", foreground="red")
                 self.status_label.config(text="Auto-connect failed")
@@ -327,7 +327,7 @@ class RemoteControlTab(ttk.Frame):
                 self.after(0, lambda: self.status_label.config(text="Switched to SDK Test Mode"))
 
             except Exception as e:
-                logger.exception(f"Error switching to SDK mode: {e}")
+                logger.exception("COMMAND", f"Error switching to SDK mode: {e}")
                 self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
                 self.after(0, lambda: self.status_label.config(text="Mode switch failed"))
 
@@ -397,7 +397,7 @@ class RemoteControlTab(ttk.Frame):
                 self.after(0, lambda: self.status_label.config(text="Switched to Production Mode"))
 
             except Exception as e:
-                logger.exception(f"Error switching to production mode: {e}")
+                logger.exception("COMMAND", f"Error switching to production mode: {e}")
                 self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
                 self.after(0, lambda: self.status_label.config(text="Mode switch failed"))
 
@@ -459,7 +459,7 @@ class RemoteControlTab(ttk.Frame):
                     self.after(0, lambda: self.status_label.config(text="Mode check failed"))
 
             except Exception as e:
-                logger.exception(f"Error checking mode: {e}")
+                logger.exception("COMMAND", f"Error checking mode: {e}")
                 self.after(0, lambda e=e: self._append_output(f"\n❌ Error: {str(e)}\n", "error"))
                 self.after(0, lambda: self.status_label.config(text="Mode check failed"))
 
@@ -476,11 +476,11 @@ class RemoteControlTab(ttk.Frame):
             if hasattr(main_window, 'tcp_client'):
                 tcp_client = main_window.tcp_client
         except Exception as e:
-            logger.error(f"Error accessing tcp_client: {e}")
+            logger.error("COMMAND", f"Error accessing tcp_client: {e}")
 
         # Check if TCP connected, auto-connect if needed
         if not tcp_client or not tcp_client.is_connected():
-            logger.info("[AIR-SIDE REMOTE] TCP connection required - triggering Connect All")
+            logger.info("COMMAND", "TCP connection required - triggering Connect All")
 
             if self.main_window and hasattr(self.main_window, 'connection_tab'):
                 try:
@@ -493,7 +493,7 @@ class RemoteControlTab(ttk.Frame):
                         "Please wait for connection, then try again."
                     )
                 except Exception as e:
-                    logger.error(f"[AIR-SIDE REMOTE] Auto-connect failed: {e}")
+                    logger.error("COMMAND", f"Auto-connect failed: {e}")
                     messagebox.showerror(
                         "Connection Failed",
                         f"Failed to auto-connect:\n{e}\n\n"
@@ -565,7 +565,7 @@ class RemoteControlTab(ttk.Frame):
                     self.after(0, lambda: self.status_label.config(text="Test failed - No response"))
 
             except Exception as e:
-                logger.exception(f"Error testing invalid command: {e}")
+                logger.exception("COMMAND", f"Error testing invalid command: {e}")
                 self.after(0, lambda e=e: self._append_output(f"\n❌ Error during test: {str(e)}\n", "error"))
                 self.after(0, lambda: self.status_label.config(text="Test failed"))
 
@@ -871,7 +871,7 @@ class RemoteControlTab(ttk.Frame):
                 self.after(0, lambda: self.diagnostic_btn.config(state=tk.NORMAL))
 
             except Exception as e:
-                logger.exception(f"Error running smart diagnostic: {e}")
+                logger.exception("COMMAND", f"Error running smart diagnostic: {e}")
                 self.after(0, lambda: self._append_output(f"\n❌ Diagnostic failed: {str(e)}\n", "error"))
                 self.after(0, lambda: self.status_label.config(text="Diagnostic failed"))
                 self.after(0, lambda: self.diagnostic_btn.config(state=tk.NORMAL))
@@ -1002,8 +1002,8 @@ class RemoteControlTab(ttk.Frame):
                     f.write(output)
 
                 messagebox.showinfo("Success", f"Report saved successfully!\n\n{file_path}")
-                logger.info(f"Diagnostic report saved to: {file_path}")
+                logger.info("SYSTEM", f"Diagnostic report saved to: {file_path}")
                 self.status_label.config(text=f"Report saved to {file_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save report:\n{e}")
-            logger.exception(f"Error saving diagnostic report: {e}")
+            logger.exception("SYSTEM", f"Error saving diagnostic report: {e}")

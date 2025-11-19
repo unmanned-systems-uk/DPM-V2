@@ -12,7 +12,7 @@ import subprocess
 import re
 from datetime import datetime
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from network.diagnostic_client import DiagnosticClient
 
@@ -35,7 +35,7 @@ class H16DiagnosticsTab(ttk.Frame):
         self._create_ui()
         self._check_adb_available()
 
-        logger.debug("H16 Diagnostics tab initialized")
+        logger.debug("SYSTEM", "H16 Diagnostics tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -595,10 +595,10 @@ class H16DiagnosticsTab(ttk.Frame):
         try:
             result = subprocess.run(['adb', 'version'], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
-                logger.info("ADB is available")
+                logger.info("SYSTEM", "ADB is available")
                 return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            logger.warning("ADB not found in PATH")
+            logger.warning("SYSTEM", "ADB not found in PATH")
             self._append_output("⚠️  WARNING: ADB not found in system PATH\n", "warning")
             self._append_output("Please install Android Debug Bridge (ADB) and add to PATH\n", "info")
             return False
@@ -646,7 +646,7 @@ class H16DiagnosticsTab(ttk.Frame):
             self.status_label.config(text=f"Connected to {ip}:{port}")
             self.connect_btn.config(state=tk.DISABLED)
             self.disconnect_btn.config(state=tk.NORMAL)
-            logger.info(f"ADB connected to {ip}:{port}")
+            logger.info("NETWORK", f"ADB connected to {ip}:{port}")
         else:
             self.adb_connected = False
             self.conn_status_label.config(text="● Connection Failed", foreground="red")
@@ -1334,7 +1334,7 @@ class H16DiagnosticsTab(ttk.Frame):
                     f.write(output)
 
                 messagebox.showinfo("Success", f"Report saved successfully!\n\n{file_path}")
-                logger.info(f"H16 diagnostic report saved to: {file_path}")
+                logger.info("SYSTEM", f"H16 diagnostic report saved to: {file_path}")
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save report:\n{e}")

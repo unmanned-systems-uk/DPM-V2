@@ -8,7 +8,7 @@ from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
 
 from utils.config import config
-from utils.logger import logger
+from utils.protocol_logger import logger
 from gui.widgets import LabeledEntry, LabeledSpinbox
 
 
@@ -22,7 +22,7 @@ class ConfigTab(ttk.Frame):
         self._create_ui()
         self._load_settings()
 
-        logger.debug("Config tab initialized")
+        logger.debug("CONFIG", "Config tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -205,7 +205,7 @@ class ConfigTab(ttk.Frame):
         # Data
         self.log_dir_var.set(config.get("data", "log_directory", str(Path.home() / "Documents")))
 
-        logger.debug("Settings loaded")
+        logger.debug("CONFIG", "Settings loaded")
 
     def _save_settings(self):
         """Save settings to config"""
@@ -241,7 +241,7 @@ class ConfigTab(ttk.Frame):
         config.save()
 
         messagebox.showinfo("Success", "Settings saved successfully!")
-        logger.info("Settings saved")
+        logger.info("CONFIG", "Settings saved")
 
         if self.on_settings_changed:
             self.on_settings_changed()
@@ -259,7 +259,7 @@ class ConfigTab(ttk.Frame):
 
         if directory:
             self.log_dir_var.set(directory)
-            logger.info(f"Log directory changed to: {directory}")
+            logger.info("CONFIG", f"Log directory changed to: {directory}")
 
     def _reset_defaults(self):
         """Reset to default settings"""
@@ -267,4 +267,4 @@ class ConfigTab(ttk.Frame):
             config.reset_to_defaults()
             self._load_settings()
             messagebox.showinfo("Success", "Settings reset to defaults!")
-            logger.info("Settings reset to defaults")
+            logger.info("CONFIG", "Settings reset to defaults")

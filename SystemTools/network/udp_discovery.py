@@ -16,7 +16,7 @@ import json
 import threading
 import time
 from typing import Optional, Dict, Any
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class UDPDiscoverySender:
@@ -47,12 +47,12 @@ class UDPDiscoverySender:
         self.running = False
         self.thread: Optional[threading.Thread] = None
 
-        logger.info(f"[DISCOVERY] UDPDiscoverySender initialized: {target_host}:{target_port} every {interval_seconds}s")
+        logger.info("DISCOVERY", f"UDPDiscoverySender initialized: {target_host}:{target_port} every {interval_seconds}s")
 
     def start(self):
         """Start sending discovery heartbeats"""
         if self.running:
-            logger.warning("[DISCOVERY] UDPDiscoverySender already running")
+            logger.warning("DISCOVERY", "UDPDiscoverySender already running")
             return
 
         try:
@@ -64,10 +64,10 @@ class UDPDiscoverySender:
             self.thread = threading.Thread(target=self._discovery_worker, daemon=True)
             self.thread.start()
 
-            logger.info(f"[DISCOVERY] UDPDiscoverySender started → {self.target_host}:{self.target_port}")
+            logger.info("DISCOVERY", f"UDPDiscoverySender started → {self.target_host}:{self.target_port}")
 
         except Exception as e:
-            logger.error(f"[DISCOVERY] Failed to start UDPDiscoverySender: {e}")
+            logger.error("DISCOVERY", f"Failed to start UDPDiscoverySender: {e}")
             self.running = False
             if self.sock:
                 self.sock.close()
@@ -78,7 +78,7 @@ class UDPDiscoverySender:
         if not self.running:
             return
 
-        logger.info("[DISCOVERY] Stopping UDPDiscoverySender...")
+        logger.info("DISCOVERY", "Stopping UDPDiscoverySender...")
         self.running = False
 
         if self.thread:
@@ -88,41 +88,41 @@ class UDPDiscoverySender:
             self.sock.close()
             self.sock = None
 
-        logger.info("[DISCOVERY] UDPDiscoverySender stopped")
+        logger.info("DISCOVERY", "UDPDiscoverySender stopped")
 
     def _discovery_worker(self):
         """Background worker that sends periodic discovery packets"""
         payload_str = json.dumps(self.payload)
         payload_bytes = payload_str.encode('utf-8')
 
-        logger.info(f"[DISCOVERY] Discovery worker started, sending: {payload_str}")
+        logger.info("DISCOVERY", f"Discovery worker started, sending: {payload_str}")
 
         while self.running:
             try:
                 # Send discovery packet
                 self.sock.sendto(payload_bytes, (self.target_host, self.target_port))
-                logger.debug(f"[DISCOVERY] Sent discovery packet to {self.target_host}:{self.target_port}")
+                logger.debug("DISCOVERY", f"Sent discovery packet to {self.target_host}:{self.target_port}")
 
                 # Wait for next interval
                 time.sleep(self.interval_seconds)
 
             except Exception as e:
-                logger.error(f"[DISCOVERY] Error sending discovery packet: {e}")
+                logger.error("DISCOVERY", f"Error sending discovery packet: {e}")
                 time.sleep(self.interval_seconds)  # Continue trying
 
     def send_immediate(self):
         """Send discovery packet immediately (outside regular interval)"""
         if not self.sock:
-            logger.warning("[DISCOVERY] Cannot send immediate discovery - socket not initialized")
+            logger.warning("DISCOVERY", "Cannot send immediate discovery - socket not initialized")
             return
 
         try:
             payload_str = json.dumps(self.payload)
             payload_bytes = payload_str.encode('utf-8')
             self.sock.sendto(payload_bytes, (self.target_host, self.target_port))
-            logger.info(f"[DISCOVERY] Sent immediate discovery packet to {self.target_host}:{self.target_port}")
+            logger.info("DISCOVERY", f"Sent immediate discovery packet to {self.target_host}:{self.target_port}")
         except Exception as e:
-            logger.error(f"[DISCOVERY] Error sending immediate discovery packet: {e}")
+            logger.error("DISCOVERY", f"Error sending immediate discovery packet: {e}")
 
 
 def load_discovery_config() -> Dict[str, Any]:

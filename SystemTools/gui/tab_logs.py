@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 import threading
 
-from utils.logger import logger
+from utils.protocol_logger import logger
 from utils.config import config
 from network.ssh_client import SSHClient
 from utils.log_parser import LogParser
@@ -51,7 +51,7 @@ class LogInspectorTab(ttk.Frame):
 
         self._create_ui()
 
-        logger.debug("Log Inspector tab initialized")
+        logger.debug("SYSTEM", "Log Inspector tab initialized")
 
     def _create_ui(self):
         """Create UI elements"""
@@ -267,7 +267,7 @@ class LogInspectorTab(ttk.Frame):
 
     def _connect_ssh(self):
         """Connect to Air-Side SSH"""
-        logger.info("Connecting SSH to Air-Side...")
+        logger.info("NETWORK", "Connecting SSH to Air-Side...")
 
         ssh_config = self._get_ssh_config()
 
@@ -308,7 +308,7 @@ class LogInspectorTab(ttk.Frame):
         # Fetch Docker Image ID
         self._fetch_docker_image_id()
 
-        logger.info("SSH connected - fetching initial logs")
+        logger.info("NETWORK", "SSH connected - fetching initial logs")
         self._refresh_logs()
 
         # Notify Remote Control tab if available
@@ -519,11 +519,11 @@ class LogInspectorTab(ttk.Frame):
                 self.auto_refresh_var.set(False)
                 self.auto_refresh_enabled = False
 
-            logger.info("Starting to follow Docker logs in real-time...")
+            logger.info("NETWORK", "Starting to follow Docker logs in real-time...")
             self._start_follow()
 
         else:
-            logger.info("Stopping log follow...")
+            logger.info("NETWORK", "Stopping log follow...")
             self._stop_follow()
 
     def _start_follow(self):
@@ -639,7 +639,7 @@ class LogInspectorTab(ttk.Frame):
                 self.camera_comparison_tab.update_comparison()
 
         except Exception as e:
-            logger.error(f"Error updating sub-tabs: {e}")
+            logger.error("SYSTEM", f"Error updating sub-tabs: {e}")
 
         finally:
             # Reset scheduled flag
@@ -647,12 +647,12 @@ class LogInspectorTab(ttk.Frame):
 
     def update_udp_camera_status(self, camera_connected: bool):
         """Update camera status from UDP broadcast"""
-        logger.debug(f"Log Inspector received UDP camera status: {camera_connected}")
+        logger.debug("NETWORK", f"Log Inspector received UDP camera status: {camera_connected}")
         if self.camera_comparison_tab:
-            logger.debug("Updating camera comparison tab with UDP status")
+            logger.debug("SYSTEM", "Updating camera comparison tab with UDP status")
             self.camera_comparison_tab.update_comparison(udp_camera_connected=camera_connected)
         else:
-            logger.warning("Camera comparison tab is None - cannot update UDP status")
+            logger.warning("SYSTEM", "Camera comparison tab is None - cannot update UDP status")
 
     def _toggle_auto_refresh(self):
         """Toggle auto-refresh on/off"""
@@ -671,15 +671,15 @@ class LogInspectorTab(ttk.Frame):
                 self._stop_follow()
                 self.follow_enabled = False
 
-            logger.info(f"Log auto-refresh enabled ({self.interval_var.get()}s)")
+            logger.info("SYSTEM", f"Log auto-refresh enabled ({self.interval_var.get()}s)")
             self._schedule_refresh()
         else:
-            logger.info("Log auto-refresh disabled")
+            logger.info("SYSTEM", "Log auto-refresh disabled")
 
     def _update_refresh_interval(self):
         """Update refresh interval"""
         self.refresh_interval = self.interval_var.get() * 1000  # Convert to ms
-        logger.debug(f"Log refresh interval set to {self.interval_var.get()}s")
+        logger.debug("SYSTEM", f"Log refresh interval set to {self.interval_var.get()}s")
 
     def _schedule_refresh(self):
         """Schedule next auto-refresh"""
@@ -717,11 +717,11 @@ class LogInspectorTab(ttk.Frame):
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(self.current_logs)
 
-                logger.info(f"Logs saved to: {filepath}")
+                logger.info("SYSTEM", f"Logs saved to: {filepath}")
                 messagebox.showinfo("Success", f"Logs saved!\n\n{filepath}")
 
             except Exception as e:
-                logger.error(f"Error saving logs: {e}")
+                logger.error("SYSTEM", f"Error saving logs: {e}")
                 messagebox.showerror("Error", f"Failed to save:\n{e}")
 
     def _download_log_file(self):
@@ -771,7 +771,7 @@ class LogInspectorTab(ttk.Frame):
                         "Success",
                         f"Log file downloaded!\n\nFile: {filepath}\nSize: {size_mb:.2f} MB"
                     ))
-                    logger.info(f"Downloaded log file: {filepath} ({size_mb:.2f} MB)")
+                    logger.info("NETWORK", f"Downloaded log file: {filepath} ({size_mb:.2f} MB)")
                 else:
                     self.after(0, lambda: self.ssh_status_label.config(text="Connected", foreground="green"))
                     self.after(0, lambda: messagebox.showerror(
@@ -780,7 +780,7 @@ class LogInspectorTab(ttk.Frame):
                     ))
 
             except Exception as e:
-                logger.error(f"Error downloading log file: {e}")
+                logger.error("NETWORK", f"Error downloading log file: {e}")
                 self.after(0, lambda: self.ssh_status_label.config(text="Connected", foreground="green"))
                 self.after(0, lambda: messagebox.showerror("Error", f"Download failed:\n{e}"))
 
@@ -800,7 +800,7 @@ class LogInspectorTab(ttk.Frame):
             messagebox.showinfo("Success", "Logs copied to clipboard!")
 
         except Exception as e:
-            logger.error(f"Error copying logs: {e}")
+            logger.error("SYSTEM", f"Error copying logs: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}")
 
     def cleanup(self):
@@ -845,13 +845,13 @@ class LogInspectorTab(ttk.Frame):
 
                 # Update label
                 self.docker_image_id_label.config(text=short_id, foreground="blue")
-                logger.info(f"Docker Image ID: {short_id}")
+                logger.info("NETWORK", f"Docker Image ID: {short_id}")
             else:
                 self.docker_image_id_label.config(text="N/A", foreground="gray")
-                logger.warning(f"Failed to get Docker image ID: {stderr}")
+                logger.warning("NETWORK", f"Failed to get Docker image ID: {stderr}")
 
         except Exception as e:
-            logger.error(f"Error fetching Docker image ID: {e}")
+            logger.error("NETWORK", f"Error fetching Docker image ID: {e}")
             self.docker_image_id_label.config(text="Error", foreground="red")
 
     def _pop_out_logs(self):
@@ -860,7 +860,7 @@ class LogInspectorTab(ttk.Frame):
         if self.popup_window and self.popup_window.winfo_exists():
             self.popup_window.lift()
             self.popup_window.focus_force()
-            logger.debug("Pop-out window brought to front")
+            logger.debug("SYSTEM", "Pop-out window brought to front")
             return
 
         # Create new popup window
@@ -959,7 +959,7 @@ class LogInspectorTab(ttk.Frame):
         ttk.Button(button_frame, text="❌ Close",
                   command=self.popup_window.destroy).pack(side=tk.RIGHT, padx=5)
 
-        logger.info("Pop-out live logs window created")
+        logger.info("SYSTEM", "Pop-out live logs window created")
 
     def _refresh_popup(self, line_count_label):
         """Refresh popup window content from main log display"""
@@ -988,10 +988,10 @@ class LogInspectorTab(ttk.Frame):
             # Update line count
             line_count_label.config(text=self.line_count_label.cget("text"))
 
-            logger.debug("Pop-out window refreshed")
+            logger.debug("SYSTEM", "Pop-out window refreshed")
 
         except Exception as e:
-            logger.error(f"Failed to refresh popup: {e}")
+            logger.error("SYSTEM", f"Failed to refresh popup: {e}")
 
     def _copy_popup_content(self):
         """Copy all popup content to clipboard"""
@@ -1002,10 +1002,10 @@ class LogInspectorTab(ttk.Frame):
             content = self.popup_text.get(1.0, tk.END)
             self.popup_window.clipboard_clear()
             self.popup_window.clipboard_append(content)
-            logger.info("Popup content copied to clipboard")
+            logger.info("SYSTEM", "Popup content copied to clipboard")
             messagebox.showinfo("Copied", "Log content copied to clipboard", parent=self.popup_window)
         except Exception as e:
-            logger.error(f"Error copying popup content: {e}")
+            logger.error("SYSTEM", f"Error copying popup content: {e}")
             messagebox.showerror("Error", f"Failed to copy:\n{e}", parent=self.popup_window)
 
     def _save_popup_to_file(self):
@@ -1031,9 +1031,9 @@ class LogInspectorTab(ttk.Frame):
                 with open(filename, 'w') as f:
                     f.write(content)
 
-                logger.info(f"Popup content saved to: {filename}")
+                logger.info("SYSTEM", f"Popup content saved to: {filename}")
                 messagebox.showinfo("Saved", f"Log saved to:\n{filename}", parent=self.popup_window)
 
         except Exception as e:
-            logger.error(f"Error saving popup content: {e}")
+            logger.error("SYSTEM", f"Error saving popup content: {e}")
             messagebox.showerror("Error", f"Failed to save:\n{e}", parent=self.popup_window)

@@ -6,7 +6,7 @@ Connects to Air-Side Raspberry Pi for remote command execution and log viewing
 import paramiko
 import threading
 from typing import Optional, Callable
-from utils.logger import logger
+from utils.protocol_logger import logger
 
 
 class SSHClient:
@@ -29,7 +29,7 @@ class SSHClient:
     def connect(self) -> bool:
         """Connect to Air-Side via SSH"""
         try:
-            logger.info(f"SSH: Connecting to {self.username}@{self.host}:{self.port}...")
+            logger.info("NETWORK", f"SSH: Connecting to {self.username}@{self.host}:{self.port}...")
 
             # Create SSH client
             self.client = paramiko.SSHClient()
@@ -47,7 +47,7 @@ class SSHClient:
             )
 
             self.connected = True
-            logger.info(f"SSH: Connected to {self.host}")
+            logger.info("NETWORK", f"SSH: Connected to {self.host}")
 
             if self.on_connected:
                 self.on_connected()
@@ -56,21 +56,21 @@ class SSHClient:
 
         except paramiko.AuthenticationException:
             error_msg = "SSH authentication failed - check username/password"
-            logger.error(f"SSH: {error_msg}")
+            logger.error("NETWORK", f"SSH: {error_msg}")
             if self.on_error:
                 self.on_error(error_msg)
             return False
 
         except paramiko.SSHException as e:
             error_msg = f"SSH connection error: {e}"
-            logger.error(f"SSH: {error_msg}")
+            logger.error("NETWORK", f"SSH: {error_msg}")
             if self.on_error:
                 self.on_error(error_msg)
             return False
 
         except Exception as e:
             error_msg = f"Failed to connect: {e}"
-            logger.error(f"SSH: {error_msg}")
+            logger.error("NETWORK", f"SSH: {error_msg}")
             if self.on_error:
                 self.on_error(error_msg)
             return False
@@ -79,16 +79,16 @@ class SSHClient:
         """Disconnect from Air-Side"""
         if self.client:
             try:
-                logger.info("SSH: Disconnecting...")
+                logger.info("NETWORK", "SSH: Disconnecting...")
                 self.client.close()
                 self.connected = False
-                logger.info("SSH: Disconnected")
+                logger.info("NETWORK", "SSH: Disconnected")
 
                 if self.on_disconnected:
                     self.on_disconnected()
 
             except Exception as e:
-                logger.error(f"SSH: Error during disconnect: {e}")
+                logger.error("NETWORK", f"SSH: Error during disconnect: {e}")
 
         self.client = None
 
@@ -100,11 +100,11 @@ class SSHClient:
             (exit_code, stdout, stderr)
         """
         if not self.connected or not self.client:
-            logger.error("SSH: Not connected")
+            logger.error("NETWORK", "SSH: Not connected")
             return (-1, "", "Not connected to Air-Side")
 
         try:
-            logger.debug(f"SSH: Executing command: {command}")
+            logger.debug("NETWORK", f"SSH: Executing command: {command}")
 
             stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
 
@@ -113,13 +113,13 @@ class SSHClient:
             stdout_str = stdout.read().decode('utf-8')
             stderr_str = stderr.read().decode('utf-8')
 
-            logger.debug(f"SSH: Command exit code: {exit_code}")
+            logger.debug("NETWORK", f"SSH: Command exit code: {exit_code}")
 
             return (exit_code, stdout_str, stderr_str)
 
         except Exception as e:
             error_msg = f"Command execution failed: {e}"
-            logger.error(f"SSH: {error_msg}")
+            logger.error("NETWORK", f"SSH: {error_msg}")
             return (-1, "", str(e))
 
     def get_docker_logs(self, container: str = "payload-manager",
@@ -162,7 +162,7 @@ class SSHClient:
         This runs in a loop until stop_event is set
         """
         if not self.connected or not self.client:
-            logger.error("SSH: Not connected")
+            logger.error("NETWORK", "SSH: Not connected")
             return
 
         try:
@@ -171,7 +171,7 @@ class SSHClient:
             if tail:
                 command += f" --tail {tail}"
 
-            logger.info(f"SSH: Starting log follow: {command}")
+            logger.info("NETWORK", f"SSH: Starting log follow: {command}")
 
             # Execute command with channel for streaming
             transport = self.client.get_transport()
@@ -207,10 +207,10 @@ class SSHClient:
 
             # Clean up
             channel.close()
-            logger.info("SSH: Stopped following logs")
+            logger.info("NETWORK", "SSH: Stopped following logs")
 
         except Exception as e:
-            logger.error(f"SSH: Error following logs: {e}")
+            logger.error("NETWORK", f"SSH: Error following logs: {e}")
             if on_log_line:
                 on_log_line(f"ERROR: {e}")
 
@@ -240,11 +240,11 @@ class SSHClient:
             True if successful, False otherwise
         """
         if not self.connected or not self.client:
-            logger.error("SSH: Not connected")
+            logger.error("NETWORK", "SSH: Not connected")
             return False
 
         try:
-            logger.info(f"SFTP: Downloading {remote_path} -> {local_path}")
+            logger.info("NETWORK", f"SFTP: Downloading {remote_path} -> {local_path}")
 
             # Open SFTP session
             sftp = self.client.open_sftp()
@@ -264,14 +264,14 @@ class SSHClient:
 
             sftp.close()
 
-            logger.info(f"SFTP: Download complete ({file_size} bytes)")
+            logger.info("NETWORK", f"SFTP: Download complete ({file_size} bytes)")
             return True
 
         except FileNotFoundError:
-            logger.error(f"SFTP: Remote file not found: {remote_path}")
+            logger.error("NETWORK", f"SFTP: Remote file not found: {remote_path}")
             return False
         except Exception as e:
-            logger.error(f"SFTP: Download failed: {e}")
+            logger.error("NETWORK", f"SFTP: Download failed: {e}")
             return False
 
     def list_directory(self, remote_path: str) -> list[str]:
@@ -285,7 +285,7 @@ class SSHClient:
             List of filenames (empty list if error)
         """
         if not self.connected or not self.client:
-            logger.error("SSH: Not connected")
+            logger.error("NETWORK", "SSH: Not connected")
             return []
 
         try:
@@ -294,5 +294,5 @@ class SSHClient:
             sftp.close()
             return files
         except Exception as e:
-            logger.error(f"SFTP: Failed to list directory {remote_path}: {e}")
+            logger.error("NETWORK", f"SFTP: Failed to list directory {remote_path}: {e}")
             return []

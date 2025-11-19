@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "DPM Log Context & Level Definitions - Single Source of Truth for All Domains",
-  "last_updated": "2025-11-18",
+  "last_updated": "2025-11-19",
 
   "contexts": [
     {
@@ -38,6 +38,30 @@
         "Processing command: camera.set_iso",
         "Command validation failed: missing parameters",
         "Sending response: success"
+      ]
+    },
+    {
+      "id": "CONFIG",
+      "description": "Configuration management, settings, user preferences, config validation",
+      "domains": ["air-side", "ground-side", "systemtools"],
+      "color": "#607D8B",
+      "examples": [
+        "Configuration loaded from file",
+        "Setting updated: tcp_port=5001",
+        "Config validation passed",
+        "Applying custom filter expression"
+      ]
+    },
+    {
+      "id": "DISCOVERY",
+      "description": "Service discovery, UDP broadcasts, device detection, IP auto-configuration",
+      "domains": ["air-side", "systemtools"],
+      "color": "#3F51B5",
+      "examples": [
+        "UDP discovery sender started",
+        "Sent discovery packet to 10.0.1.53:5009",
+        "Discovery packet received from SystemTools",
+        "Auto-configured log destination IP"
       ]
     },
     {
