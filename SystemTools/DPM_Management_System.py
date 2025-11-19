@@ -77,13 +77,25 @@ class SystemToolsLogHandler(logging.Handler):
             record: LogRecord from Python logging system
         """
         try:
+            import re
+
+            message = record.getMessage()
+            context = ""
+
+            # Parse context from message (e.g., "[COMMAND]", "[NETWORK]")
+            # Match pattern like "[COMMAND] message text" at start of message
+            match = re.match(r'^\[([A-Z][A-Z_]*)\]\s*(.*)', message)
+            if match:
+                context = match.group(1)
+                message = match.group(2)  # Remove context tag from message
+
             # Format log entry to match Air/Ground log structure
             log_entry = {
                 'timestamp': datetime.fromtimestamp(record.created).isoformat(),
                 'domain': 'SYSTEMTOOLS',
                 'level': record.levelname,
-                'context': record.name.upper(),  # Logger name as context
-                'message': record.getMessage()
+                'context': context,  # Extracted from message or empty
+                'message': message
             }
 
             # Add to queue for display
@@ -2080,16 +2092,20 @@ class DPMManagementSystem(tk.Tk):
         self.display_buffer.clear()
 
         # Start UDP discovery sender (for Air-Side auto-configuration)
+        # Use Configuration Tab as single source of truth for Air-Side IP
         discovery_config = load_discovery_config()
         if discovery_config.get('enabled', True):
+            # Get Air-Side IP from shared config (NOT hardcoded)
+            air_side_ip = config.get("network", "air_side_ip", "10.0.1.53")
+
             self.discovery_sender = UDPDiscoverySender(
-                target_host=discovery_config['target_host'],
-                target_port=discovery_config['target_port'],
-                interval_seconds=discovery_config['interval_seconds'],
-                payload=discovery_config['payload']
+                target_host=air_side_ip,  # Use shared config, not hardcoded
+                target_port=discovery_config.get('target_port', 5009),
+                interval_seconds=discovery_config.get('interval_seconds', 10),
+                payload=discovery_config.get('payload', {"type": "discovery", "source": "systemtools"})
             )
             self.discovery_sender.start()
-            logger.info("UDP discovery sender started")
+            logger.info(f"[DISCOVERY] UDP discovery sender started → {air_side_ip}:5009")
 
         # Create listeners
         self.air_listener = AirSideListener(host="0.0.0.0", port=5007)
@@ -2484,10 +2500,10 @@ class DPMManagementSystem(tk.Tk):
         """Apply custom filter expression (with Apply button - no real-time filtering)"""
         expression = self.filter_custom.get().strip()
         if expression:
-            logger.info(f"Applying custom filter expression: {expression}")
+            logger.info(f"[CONFIG] Applying custom filter expression: {expression}")
             self._on_filter_changed()
         else:
-            logger.info("Custom filter expression is empty, clearing filter")
+            logger.info("[CONFIG] Custom filter expression is empty, clearing filter")
             self._on_filter_changed()
 
     # ========== End Issue #147 Handlers ==========

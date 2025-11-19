@@ -1,7 +1,7 @@
 {
-  "version": "1.11.2",
-  "version_name": "DPM Management System - JSON Filters, Config Mgmt, Testing",
-  "build_date": "2025-11-18",
+  "version": "1.11.4",
+  "version_name": "DPM Management System - Protocol Compliance Fixes",
+  "build_date": "2025-11-19",
   "python_required": "3.x",
   "platform": "Linux",
   "protocol_version": "1.1.0",
