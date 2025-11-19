@@ -597,6 +597,100 @@ See `.claude/ARCHITECTURE_UPDATE_RULES.md` for complete workflow and templates.
 
 ---
 
+## 🎯 RULE 11: Protocol Enforcement & Cross-Domain Compliance
+
+### **CRITICAL:** protocol/*.json Files are Single Source of Truth
+
+**All domains MUST use protocol JSON files for:**
+- Log contexts (`protocol/log_contexts.json`)
+- Commands (`protocol/commands.json`)
+- Any cross-domain standards
+
+### ❌ **PM MUST NEVER Allow:**
+- Hardcoded values that should be in protocol files
+- Domains implementing custom formats instead of protocol
+- Manual duplication of protocol data across domains
+- "Good enough" implementations that violate protocol
+
+### ✅ **PM MUST ALWAYS:**
+1. **Verify Protocol Compliance at Start of Phase:**
+   - Check all domains use protocol/*.json files
+   - Verify no hardcoded protocol data
+   - Test cross-domain compatibility
+
+2. **Regular Compliance Checks (Weekly):**
+   ```bash
+   # Check SystemTools log format compliance
+   grep -r 'logger\.\(debug\|info\)(' SystemTools/ | grep -v '\[.*\]' | wc -l
+   # Should be 0 violations
+
+   # Check Air-Side uses LogContext enum
+   ssh dpm@10.0.1.53 "grep -r 'LOG_' ~/DPM-V2/sbc/src | grep -v 'LogContext::' | wc -l"
+   # Should be 0 violations
+
+   # Check Ground-Side uses StructuredLogger
+   grep -r 'Log\.\(d\|i\|w\|e\)(' android/app/src | wc -l
+   # Should be 0 (should use Timber/StructuredLogger)
+   ```
+
+3. **Enforce Protocol Changes Workflow:**
+   - **STEP 1:** Update protocol/*.json file FIRST
+   - **STEP 2:** Create [PROTOCOL] tagged commit
+   - **STEP 3:** Update ALL domains to match
+   - **STEP 4:** Test cross-domain compatibility
+   - **NEVER** allow domain-specific implementations without protocol update
+
+4. **Create Compliance Issues Immediately:**
+   - Found 549 violations? Create CRITICAL issue
+   - Block Phase completion until compliance restored
+   - Do NOT allow manual fixes without architectural solution
+
+### **Real Example - What Just Happened:**
+
+**Problem Found:**
+- SystemTools had 549 log statements without context tags
+- Air-Side correctly enforces `LogContext` enum (protocol-compliant)
+- SystemTools `logger.py` does NOT enforce protocol (non-compliant)
+
+**Correct PM Response:**
+1. ✅ STOP manual fixing (549 individual edits)
+2. ✅ Identify root cause (logger doesn't enforce protocol)
+3. ✅ Create CRITICAL issue #162
+4. ✅ Require architectural fix (ProtocolLogger wrapper)
+5. ✅ Update PM rules (this rule!)
+6. ✅ Add protocol enforcement to regular checks
+
+**Incorrect PM Response (Don't Do This):**
+1. ❌ Let domain fix 549 logs manually
+2. ❌ Move on after partial fix
+3. ❌ Hope it doesn't happen again
+4. ❌ Not check other domains for same issue
+
+### **Why This Rule Exists:**
+- **Cross-Domain Compatibility:** Protocols ensure domains can communicate
+- **Single Source of Truth:** No duplication, no divergence
+- **Maintainability:** Change protocol once, all domains follow
+- **Quality:** Catch violations early, enforce standards
+
+### **PM Compliance Checklist (Add to PM_START.md):**
+```bash
+# Add to regular PM startup checks
+echo "=== Protocol Compliance Check ==="
+echo "SystemTools log format violations:"
+grep -r 'logger\.\(debug\|info\)(' SystemTools/ --include="*.py" | \
+  grep -v '\[COMMAND\]' | grep -v '\[NETWORK\]' | grep -v '\[DISCOVERY\]' | \
+  grep -v '\[CONFIG\]' | grep -v '\[SYSTEM\]' | grep -v '\[HEALTH\]' | \
+  grep -v '\[CAMERA\]' | grep -v '\[STORAGE\]' | grep -v '\[SYNC\]' | \
+  grep -v '\[UI\]' | wc -l
+```
+
+### **Related Issues:**
+- #162 - SystemTools Protocol Non-Compliance (549 violations)
+- #82 - Phase 1 Integration Testing (blocked by protocol violations)
+- #159 - Log Context Protocol Violation (root cause: no enforcement)
+
+---
+
 ---
 
 ## 🔗 Related Issues

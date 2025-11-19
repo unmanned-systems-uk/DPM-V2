@@ -163,6 +163,43 @@ tmux capture-pane -t AIR -p | tail -30
 tmux capture-pane -t TOOLS -p | tail -30
 ```
 
+### Step 6: Protocol Compliance Check (CRITICAL - See PM RULE 11)
+
+**IMPORTANT:** protocol/*.json files are SINGLE SOURCE OF TRUTH for cross-domain standards
+
+```bash
+echo "=== Protocol Compliance Check ==="
+
+# 1. SystemTools log format compliance
+echo "SystemTools log format violations:"
+grep -r 'logger\.\(debug\|info\)(' SystemTools/ --include="*.py" | \
+  grep -v '\[COMMAND\]' | grep -v '\[NETWORK\]' | grep -v '\[DISCOVERY\]' | \
+  grep -v '\[CONFIG\]' | grep -v '\[SYSTEM\]' | grep -v '\[HEALTH\]' | \
+  grep -v '\[CAMERA\]' | grep -v '\[STORAGE\]' | grep -v '\[SYNC\]' | \
+  grep -v '\[UI\]' | wc -l
+# Expected: 0 violations (after Issue #162 is fixed)
+
+# 2. Air-Side LogContext enforcement (if accessible)
+# ssh dpm@10.0.1.53 "grep -r 'LOG_' ~/DPM-V2/sbc/src | grep -v 'LogContext::' | wc -l"
+# Expected: 0 violations
+
+# 3. Ground-Side StructuredLogger usage
+echo "Ground-Side raw Log usage (should use Timber/StructuredLogger):"
+grep -r 'Log\.\(d\|i\|w\|e\)(' android/app/src --include="*.kt" 2>/dev/null | wc -l
+# Expected: 0 (should use StructuredLogger)
+```
+
+**If violations found:**
+- ✅ Create CRITICAL issue with "protocol" label
+- ✅ Block Phase completion until compliance restored
+- ✅ Delegate architectural fix (NOT manual edits)
+- ✅ Reference PM RULE 11
+
+**Protocol Files to Verify:**
+- `protocol/log_contexts.json` - Log context definitions (8 contexts)
+- `protocol/commands.json` - Command definitions
+- All domains MUST enforce at runtime (no hardcoded values)
+
 ---
 
 ## 📊 PM Monitoring Loop (Every 15-30 Minutes)
