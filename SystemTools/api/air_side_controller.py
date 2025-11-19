@@ -169,21 +169,22 @@ class AirSideController:
         try:
             # Send status.get command
             command_msg = protocol_msg.create_command("status.get", {})
-            self.tcp_client.send_command(command_msg)
+            success = self.tcp_client.send_command(command_msg)
 
-            # Wait for response (simplified - in production would use proper response handling)
-            time.sleep(timeout)
-
-            # Return cached status if available
-            if self._last_status:
+            if success:
+                logger.info("COMMAND", f"API: Sent status.get command")
                 return APIResponse.success_response(
-                    data=self._last_status,
+                    data={
+                        "command": "status.get",
+                        "sent": True,
+                        "status": "Command sent successfully"
+                    },
                     domain="air-side",
                     operation="get_status"
                 )
             else:
                 return APIResponse.error_response(
-                    error="No status received",
+                    error="Failed to send status.get command",
                     domain="air-side",
                     operation="get_status"
                 )
