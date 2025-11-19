@@ -26,6 +26,7 @@ from .controller import DPMController
 from .air_side_controller import AirSideController
 from .ground_side_controller import GroundSideController
 from .system_controller import SystemController
+from .multi_domain_controller import MultiDomainController
 from .response import APIResponse
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     'AirSideController',
     'GroundSideController',
     'SystemController',
+    'MultiDomainController',
     'APIResponse'
 ]

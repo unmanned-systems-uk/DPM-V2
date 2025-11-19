@@ -35,6 +35,7 @@ from network.adb_client import ADBClient
 from .air_side_controller import AirSideController
 from .system_controller import SystemController
 from .ground_side_controller import GroundSideController
+from .multi_domain_controller import MultiDomainController
 from .response import APIResponse
 
 
@@ -107,6 +108,13 @@ class DPMController:
         # Ground-Side controller (Phase 3)
         self._ground_side = GroundSideController(adb_client=self._adb_client)
 
+        # Multi-Domain controller (Phase 5)
+        self._multi_domain = MultiDomainController(
+            air_side_controller=self._air_side,
+            ground_side_controller=self._ground_side,
+            system_controller=self._system
+        )
+
         logger.info("SYSTEM", "DPMController initialized (API Mode)")
 
     @property
@@ -123,6 +131,11 @@ class DPMController:
     def ground_side(self) -> GroundSideController:
         """Get Ground-Side controller"""
         return self._ground_side
+
+    @property
+    def multi_domain(self) -> MultiDomainController:
+        """Get Multi-Domain orchestration controller"""
+        return self._multi_domain
 
     def connect_all(
         self,
