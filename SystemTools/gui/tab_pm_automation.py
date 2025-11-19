@@ -100,6 +100,8 @@ class PMAutomationTab:
         ttk.Label(air_frame, text="🚁 Air-Side:", font=('TkDefaultFont', 10, 'bold')).pack(anchor=tk.W)
         self.air_status_label = ttk.Label(air_frame, text="Unknown", foreground="gray")
         self.air_status_label.pack(anchor=tk.W)
+        self.air_camera_label = ttk.Label(air_frame, text="📷 Camera: --", font=('TkDefaultFont', 8))
+        self.air_camera_label.pack(anchor=tk.W)
         self.air_last_check = ttk.Label(air_frame, text="Never checked", foreground="gray", font=('TkDefaultFont', 8))
         self.air_last_check.pack(anchor=tk.W)
 
@@ -356,6 +358,14 @@ class PMAutomationTab:
                 self.air_status_label.config(text="✓ HEALTHY", foreground="green")
             else:
                 self.air_status_label.config(text="✗ UNHEALTHY", foreground="red")
+
+            # Update camera status
+            camera = air_status.get('camera', {})
+            if camera.get('connected'):
+                model = camera.get('model', 'Unknown')
+                self.air_camera_label.config(text=f"📷 Camera: ✓ {model}", foreground="green")
+            else:
+                self.air_camera_label.config(text="📷 Camera: ✗ Disconnected", foreground="red")
 
             timestamp = self.last_health_check.get('timestamp', '')
             if timestamp:

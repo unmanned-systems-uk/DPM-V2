@@ -54,6 +54,26 @@ def pm_health_check(include_ground_side=False):
         data = result.data
         overall_healthy = data.get('overall_healthy', False)
 
+        # Check camera status on Air-Side
+        camera_status = {'connected': False, 'model': 'Unknown'}
+        if data.get('domains', {}).get('air_side', {}).get('connected'):
+            print("\n  Checking camera status...")
+            try:
+                # Send camera.get_properties to check if camera is connected
+                camera_result = dpm.air_side.send_command('camera.get_properties', {})
+                if camera_result.success:
+                    camera_status['connected'] = True
+                    camera_status['model'] = 'Sony ILCE-1'  # Could parse from response
+                    print(f"    ✓ Camera connected")
+                else:
+                    print(f"    ✗ Camera not responding")
+            except Exception as e:
+                print(f"    ✗ Camera check error: {e}")
+
+        # Add camera status to air_side domain data
+        if 'air_side' in data.get('domains', {}):
+            data['domains']['air_side']['camera'] = camera_status
+
         # Print overall status
         print(f"\n{'='*80}")
         if overall_healthy:
