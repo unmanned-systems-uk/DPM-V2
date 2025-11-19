@@ -56,6 +56,7 @@ from gui.tab_remote_control import RemoteControlTab
 from gui.tab_camera import CameraDashboardTab
 from gui.tab_analytics import PerformanceAnalyticsTab
 from gui.tab_file_browser import FileBrowserTab
+from gui.tab_air_side import AirSideTab
 
 
 class SystemToolsLogHandler(logging.Handler):
@@ -187,37 +188,15 @@ class DPMManagementSystem(tk.Tk):
         self.log_tab = self._create_log_viewer_tab()
         self.notebook.add(self.log_tab, text="Log Viewer")
 
-        # Tab 2: Air-Side Config (Issue #117)
+        # Tab 2: Air-Side Multi-Tab (consolidates Air-Side Config, Docker Logs, Camera, Remote Control)
+        self.air_side_tab = AirSideTab(self.notebook, on_log_control_change=self._on_log_control_change)
+
+        # Create Air-Side sub-tabs
         self.airside_config_tab = self._create_airside_config_tab()
-        self.notebook.add(self.airside_config_tab, text="Air-Side Config")
-
-        # Tab 3: Docker Logs (Air-Side payload-manager logs via SSH)
         self.docker_logs_tab = self._create_docker_logs_tab()
-        self.notebook.add(self.docker_logs_tab, text="Docker Logs")
+        self.camera_tab = CameraDashboardTab(self.air_side_tab.frame)
 
-        # Tab 4: Connection Monitor (Smart Connection Dashboard from DPM Diagnostics v1.12.1)
-        self.connection_tab = ConnectionTab(self.notebook)
-        self.connection_tab.main_window = self  # Share main window for client sharing
-        self.notebook.add(self.connection_tab, text="Connection Monitor")
-
-        # Tab 5: Configuration (SystemTools settings management)
-        self.config_tab = ConfigTab(self.notebook)
-        self.notebook.add(self.config_tab, text="⚙️ Configuration")
-
-        # Tab 6: Camera Dashboard (from DPM Diagnostics v1.12.1)
-        self.camera_tab = CameraDashboardTab(self.notebook)
-        self.notebook.add(self.camera_tab, text="Camera Dashboard")
-
-        # Tab 7: Performance Analytics (Deep Statistical Analysis - Issue #130)
-        self.analytics_tab = PerformanceAnalyticsTab(self.notebook)
-        self.notebook.add(self.analytics_tab, text="Performance Analytics")
-
-        # Tab 8: File Browser (SFTP file transfer - Issue #133)
-        self.file_browser_tab = FileBrowserTab(self.notebook)
-        self.notebook.add(self.file_browser_tab.frame, text="📁 File Browser")
-
-        # Tab 9: Remote Control (SSH command execution panel)
-        # Create a simple SSH client accessor for RemoteControlTab
+        # Create SSH client accessor for Remote Control
         class SSHClientAccessor:
             """Simple wrapper to provide ssh_client attribute for RemoteControlTab"""
             def __init__(self, parent):
@@ -228,15 +207,42 @@ class DPMManagementSystem(tk.Tk):
                 return self.parent.ssh_client
 
         self.ssh_accessor = SSHClientAccessor(self)
-        self.remote_control_tab = RemoteControlTab(self.notebook, self.ssh_accessor)
+        self.remote_control_tab = RemoteControlTab(self.air_side_tab.frame, self.ssh_accessor)
         self.remote_control_tab.main_window = self  # Set main window reference for auto-connect
-        self.notebook.add(self.remote_control_tab, text="🎮 Air-Side Remote")
+
+        # Add sub-tabs to Air-Side container
+        self.air_side_tab.set_subtabs({
+            "⚙️ Configuration": self.airside_config_tab,
+            "📋 Docker Logs": self.docker_logs_tab,
+            "📷 Camera Dashboard": self.camera_tab,
+            "🎮 Remote Control": self.remote_control_tab
+        })
+
+        # Add Air-Side container to main notebook
+        self.notebook.add(self.air_side_tab.frame, text="🚁 Air-Side")
+
+        # Tab 3: Connection Monitor (Smart Connection Dashboard from DPM Diagnostics v1.12.1)
+        self.connection_tab = ConnectionTab(self.notebook)
+        self.connection_tab.main_window = self  # Share main window for client sharing
+        self.notebook.add(self.connection_tab, text="Connection Monitor")
+
+        # Tab 4: Configuration (SystemTools settings management)
+        self.config_tab = ConfigTab(self.notebook)
+        self.notebook.add(self.config_tab, text="⚙️ SystemTools Config")
+
+        # Tab 5: Performance Analytics (Deep Statistical Analysis - Issue #130)
+        self.analytics_tab = PerformanceAnalyticsTab(self.notebook)
+        self.notebook.add(self.analytics_tab, text="Performance Analytics")
+
+        # Tab 6: File Browser (SFTP file transfer - Issue #133)
+        self.file_browser_tab = FileBrowserTab(self.notebook)
+        self.notebook.add(self.file_browser_tab.frame, text="📁 File Browser")
 
         # Wire up clients to dashboard tabs
         self._wire_dashboard_clients()
 
         # Future tabs:
-        # Tab 10: H16 Diagnostics (Issue #XXX)
+        # Tab 7: Ground-Side Multi-Tab (H16 diagnostics, commands, etc.)
         # Tab 11: Command Sender (future)
         # etc. - add incrementally
 
