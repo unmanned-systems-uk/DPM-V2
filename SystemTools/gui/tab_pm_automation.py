@@ -240,7 +240,20 @@ class PMAutomationTab:
                         healthy = status.get('healthy', False)
                         tag = "success" if healthy else "error"
                         self._append_result(f"  {domain}: ", "info")
-                        self._append_result(f"{'✓ HEALTHY' if healthy else '✗ UNHEALTHY'}\n", tag)
+
+                        status_text = '✓ HEALTHY' if healthy else '✗ UNHEALTHY'
+
+                        # Add camera status for air_side
+                        if domain == 'air_side' and healthy:
+                            camera = status.get('camera', {})
+                            if camera.get('connected'):
+                                model = camera.get('model', 'Unknown')
+                                status_text += f" (Camera: ✓ {model})"
+                            else:
+                                status_text += " (Camera: ✗)"
+                                tag = "warning"  # Change to warning color
+
+                        self._append_result(f"{status_text}\n", tag)
 
                     self._append_result("\n✅ Health check complete\n", "success")
                 else:
