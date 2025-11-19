@@ -50,11 +50,13 @@ class PMAutomationTab:
         self.last_errors = None
         self.running_workflow = False
 
+        # Initialize auto-refresh control (BEFORE creating UI)
+        self.auto_refresh_enabled = tk.BooleanVar(value=False)
+
         # Build UI
         self._create_ui()
 
-        # Start auto-refresh (every 60 seconds)
-        self.auto_refresh_enabled = tk.BooleanVar(value=False)
+        # Start auto-refresh loop (every 60 seconds)
         self._auto_refresh_loop()
 
     def _create_ui(self):
