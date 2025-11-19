@@ -526,6 +526,14 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self.ax_disk.set_title("Disk Usage (MB)", fontsize=10, fontweight='bold')
             self.ax_disk.set_ylabel("Disk (MB)")
             self.ax_disk.grid(True, alpha=0.3)
+
+            # Add threshold lines (Disk)
+            disk_warn = thresholds.get('disk_warn_mb')
+            disk_crit = thresholds.get('disk_critical_mb')
+            if disk_warn:
+                self.ax_disk.axhline(y=disk_warn, color='orange', linestyle='--', linewidth=1, label=f'Warn ({disk_warn}MB)')
+            if disk_crit:
+                self.ax_disk.axhline(y=disk_crit, color='red', linestyle='--', linewidth=1, label=f'Critical ({disk_crit}MB)')
             self.ax_disk.legend(loc='upper right', fontsize=8)
 
             # Plot Network Traffic
@@ -534,6 +542,14 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self.ax_network.set_title("Network Traffic (Mbps)", fontsize=10, fontweight='bold')
             self.ax_network.set_ylabel("Mbps")
             self.ax_network.grid(True, alpha=0.3)
+
+            # Add threshold lines (Network)
+            net_rx_warn = thresholds.get('network_rx_warn_mbps')
+            net_rx_crit = thresholds.get('network_rx_critical_mbps')
+            if net_rx_warn:
+                self.ax_network.axhline(y=net_rx_warn, color='yellow', linestyle=':', linewidth=1, label=f'RX Warn ({net_rx_warn}Mbps)')
+            if net_rx_crit:
+                self.ax_network.axhline(y=net_rx_crit, color='red', linestyle=':', linewidth=1, label=f'RX Crit ({net_rx_crit}Mbps)')
             self.ax_network.legend(loc='upper right', fontsize=8)
 
             # Plot Camera Connection Status

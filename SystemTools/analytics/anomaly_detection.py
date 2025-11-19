@@ -322,6 +322,77 @@ class AnomalyDetector:
                 if alert:
                     alerts.append(alert)
 
+            # Disk usage check
+            disk_used = snapshot.get('disk_used_mb')
+            if disk_used is not None:
+                alert = self.check_threshold(
+                    "Disk Used",
+                    disk_used,
+                    thresholds.get('disk_warn_mb'),
+                    thresholds.get('disk_critical_mb'),
+                    check_type="above"
+                )
+                if alert:
+                    alerts.append(alert)
+
+            # Network RX check
+            network_rx = snapshot.get('network_rx_mbps')
+            if network_rx is not None:
+                alert = self.check_threshold(
+                    "Network RX",
+                    network_rx,
+                    thresholds.get('network_rx_warn_mbps'),
+                    thresholds.get('network_rx_critical_mbps'),
+                    check_type="above"
+                )
+                if alert:
+                    alerts.append(alert)
+
+            # Network TX check
+            network_tx = snapshot.get('network_tx_mbps')
+            if network_tx is not None:
+                alert = self.check_threshold(
+                    "Network TX",
+                    network_tx,
+                    thresholds.get('network_tx_warn_mbps'),
+                    thresholds.get('network_tx_critical_mbps'),
+                    check_type="above"
+                )
+                if alert:
+                    alerts.append(alert)
+
+            # Camera connection check
+            camera_connected = snapshot.get('camera_connected')
+            if camera_connected is False:  # Explicitly check for disconnected
+                # Camera is disconnected - create alert
+                alert = Alert(
+                    timestamp=datetime.utcnow(),
+                    severity=AlertSeverity.WARNING,
+                    metric_name="Camera Connection",
+                    metric_value=0,
+                    threshold_value=None,
+                    message="Camera disconnected",
+                    recommendation="Check camera USB connection and Sony SDK status"
+                )
+                self._add_alert(alert)
+                alerts.append(alert)
+
+            # TCP connection check
+            tcp_connected = snapshot.get('tcp_connected')
+            if tcp_connected is False:  # Explicitly check for disconnected
+                # TCP is disconnected - create alert
+                alert = Alert(
+                    timestamp=datetime.utcnow(),
+                    severity=AlertSeverity.WARNING,
+                    metric_name="TCP Connection",
+                    metric_value=0,
+                    threshold_value=None,
+                    message="TCP connection lost to Ground-Side",
+                    recommendation="Check network connectivity and Ground-Side app status"
+                )
+                self._add_alert(alert)
+                alerts.append(alert)
+
             # Rate of change checks (if previous snapshot available)
             if previous_snapshot:
                 # Calculate time delta
@@ -390,6 +461,12 @@ class AnomalyDetector:
             ("CPU Usage", "warning"): "Monitor CPU usage trends",
             ("Memory Used", "critical"): "Memory exhaustion imminent, restart may be needed",
             ("Memory Used", "warning"): "Monitor memory usage, check for leaks",
+            ("Disk Used", "critical"): "Disk space critically low, clean up old logs/data immediately",
+            ("Disk Used", "warning"): "Disk space running low, consider cleanup or expansion",
+            ("Network RX", "critical"): "Network receive bandwidth critically high, possible packet loss",
+            ("Network RX", "warning"): "Network receive bandwidth elevated, monitor for congestion",
+            ("Network TX", "critical"): "Network transmit bandwidth critically high, possible bottleneck",
+            ("Network TX", "warning"): "Network transmit bandwidth elevated, monitor for issues",
             ("Camera SDK Latency", "critical"): "Check USB connection or restart camera",
             ("Camera SDK Latency", "warning"): "Monitor camera latency, may indicate USB issues",
             ("Command Queue Depth", "critical"): "Command queue critically deep, system may be unresponsive",
