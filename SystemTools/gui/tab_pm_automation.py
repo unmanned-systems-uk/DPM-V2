@@ -243,12 +243,11 @@ class PMAutomationTab:
 
                         status_text = '✓ HEALTHY' if healthy else '✗ UNHEALTHY'
 
-                        # Add camera status for air_side
+                        # Add camera status for air_side (camera field is model string or None)
                         if domain == 'air_side' and healthy:
-                            camera = status.get('camera', {})
-                            if camera.get('connected'):
-                                model = camera.get('model', 'Unknown')
-                                status_text += f" (Camera: ✓ {model})"
+                            camera_model = status.get('camera')
+                            if camera_model:
+                                status_text += f" (Camera: ✓ {camera_model})"
                             else:
                                 status_text += " (Camera: ✗)"
                                 tag = "warning"  # Change to warning color
@@ -372,11 +371,10 @@ class PMAutomationTab:
             else:
                 self.air_status_label.config(text="✗ UNHEALTHY", foreground="red")
 
-            # Update camera status
-            camera = air_status.get('camera', {})
-            if camera.get('connected'):
-                model = camera.get('model', 'Unknown')
-                self.air_camera_label.config(text=f"📷 Camera: ✓ {model}", foreground="green")
+            # Update camera status (camera field is model string or None)
+            camera_model = air_status.get('camera')
+            if camera_model:
+                self.air_camera_label.config(text=f"📷 Camera: ✓ {camera_model}", foreground="green")
             else:
                 self.air_camera_label.config(text="📷 Camera: ✗ Disconnected", foreground="red")
 
