@@ -32,6 +32,7 @@ from network.tcp_client import TCPClient
 from network.ssh_client import SSHClient
 from network.adb_client import ADBClient
 from .air_side_controller import AirSideController
+from .system_controller import SystemController
 from .response import APIResponse
 
 
@@ -68,7 +69,9 @@ class DPMController:
         self,
         tcp_client: Optional[TCPClient] = None,
         ssh_client: Optional[SSHClient] = None,
-        adb_client: Optional[ADBClient] = None
+        adb_client: Optional[ADBClient] = None,
+        log_queue = None,
+        data_storage = None
     ):
         """
         Initialize DPM Controller
@@ -77,21 +80,28 @@ class DPMController:
             tcp_client: Existing TCP client (optional, creates on-demand if not provided)
             ssh_client: Existing SSH client (optional, creates on-demand if not provided)
             adb_client: Existing ADB client (optional, creates on-demand if not provided)
+            log_queue: Log queue from DPM_Management_System (optional)
+            data_storage: DataStorage instance (optional)
         """
         # Store clients (will be created on-demand in connect())
         self._tcp_client = tcp_client
         self._ssh_client = ssh_client
         self._adb_client = adb_client
 
-        # Initialize domain controllers (clients created on connect())
+        # Initialize domain controllers
         self._air_side = AirSideController(
             tcp_client=self._tcp_client,
             ssh_client=self._ssh_client
         )
 
-        # Future: Ground-Side and SystemTools controllers
+        # SystemTools controller (Phase 4)
+        self._system = SystemController(
+            log_queue=log_queue,
+            data_storage=data_storage
+        )
+
+        # Future: Ground-Side controller (Phase 3)
         # self._ground_side = GroundSideController(adb_client=self._adb_client)
-        # self._system = SystemController()
 
         logger.info("SYSTEM", "DPMController initialized (API Mode)")
 
@@ -100,16 +110,16 @@ class DPMController:
         """Get Air-Side controller"""
         return self._air_side
 
+    @property
+    def system(self) -> SystemController:
+        """Get SystemTools controller"""
+        return self._system
+
     # Future properties:
     # @property
     # def ground_side(self) -> GroundSideController:
     #     """Get Ground-Side controller"""
     #     return self._ground_side
-
-    # @property
-    # def system(self) -> SystemController:
-    #     """Get SystemTools controller"""
-    #     return self._system
 
     def connect_all(
         self,
