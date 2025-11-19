@@ -31,13 +31,13 @@ from api import DPMController
 
 def _get_camera_status_from_broadcast(timeout=3.0):
     """
-    Listen for Air-Side UDP status broadcast to get camera model
+    Listen for Air-Side UDP status broadcast to get camera status
 
     Args:
         timeout: Seconds to wait for broadcast (default 3s, Air-Side broadcasts every 1s)
 
     Returns:
-        str: Camera model name (e.g. 'ILCE-1') if connected, None if disconnected or no broadcast
+        dict: Camera status {'connected': bool, 'model': str} or None if no broadcast received
     """
     try:
         # Create UDP socket and bind to status port (5001)
@@ -56,8 +56,10 @@ def _get_camera_status_from_broadcast(timeout=3.0):
         # Extract camera status from payload
         if 'payload' in message and 'camera' in message['payload']:
             camera = message['payload']['camera']
-            if camera.get('connected', False):
-                return camera.get('model', 'Unknown')
+            return {
+                'connected': camera.get('connected', False),
+                'model': camera.get('model', 'Unknown')
+            }
 
         return None
 
@@ -95,19 +97,23 @@ def pm_health_check(include_ground_side=False):
         overall_healthy = data.get('overall_healthy', False)
 
         # Check camera status on Air-Side via UDP status broadcast
-        camera_model = None
+        camera_status = {'connected': False, 'model': 'Unknown'}
         if data.get('domains', {}).get('air_side', {}).get('connected'):
             print("\n  Checking camera status (listening for broadcast)...")
-            camera_model = _get_camera_status_from_broadcast(timeout=3.0)
+            broadcast_status = _get_camera_status_from_broadcast(timeout=3.0)
 
-            if camera_model:
-                print(f"    ✓ Camera connected: {camera_model}")
+            if broadcast_status:
+                camera_status = broadcast_status
+                if camera_status['connected']:
+                    print(f"    ✓ Camera connected: {camera_status['model']}")
+                else:
+                    print(f"    ✗ Camera disconnected")
             else:
-                print(f"    ✗ Camera disconnected")
+                print(f"    ⚠ No status broadcast received (Air-Side may not be running)")
 
         # Add camera status to air_side domain data
         if 'air_side' in data.get('domains', {}):
-            data['domains']['air_side']['camera'] = camera_model
+            data['domains']['air_side']['camera'] = camera_status
 
         # Print overall status
         print(f"\n{'='*80}")
