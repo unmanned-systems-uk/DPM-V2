@@ -1,0 +1,372 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPM Health Metrics Protocol Specification",
+  "description": "SINGLE SOURCE OF TRUTH for health metrics across ALL domains - Air-Side, Ground-Side, SystemTools",
+  "version": "2.0.0",
+  "last_updated": "2025-11-20",
+
+  "overview": {
+    "purpose": "Standardize health metric field names, units, types, and structure across entire DPM ecosystem",
+    "transport": "UDP broadcasts (Air-Side → Ground-Side/SystemTools)",
+    "frequency": "5 Hz (200ms interval) - configurable via config.health.broadcast_interval_sec",
+    "domains": {
+      "air_side": "Producer - broadcasts health snapshots",
+      "ground_side": "Consumer - receives and displays health data",
+      "systemtools": "Consumer - receives, stores, and analyzes health data"
+    },
+    "breaking_change": "v2.0.0 introduces mandatory field name standardization - ALL domains MUST migrate"
+  },
+
+  "health_snapshot_structure": {
+    "description": "Top-level health snapshot message structure",
+    "required_fields": ["timestamp", "system", "camera", "network", "sync"],
+    "schema": {
+      "timestamp": {
+        "type": "string",
+        "format": "ISO 8601",
+        "example": "2025-11-20T15:30:00.123Z",
+        "description": "UTC timestamp when snapshot was captured",
+        "implementation": "std::chrono C++, Instant.now() Kotlin, datetime.utcnow().isoformat() Python"
+      },
+      "system": {
+        "type": "object",
+        "description": "System-level health metrics (CPU, memory, disk, network traffic)",
+        "see": "system_metrics"
+      },
+      "camera": {
+        "type": "object",
+        "description": "Camera health metrics (connection, latency, errors)",
+        "see": "camera_metrics"
+      },
+      "network": {
+        "type": "object",
+        "description": "Network health metrics (TCP, UDP, queue depth)",
+        "see": "network_metrics"
+      },
+      "sync": {
+        "type": "object",
+        "description": "Synchronization health metrics (exposure rate, health rate)",
+        "see": "sync_metrics"
+      }
+    }
+  },
+
+  "system_metrics": {
+    "description": "System-level health metrics - CPU, memory, disk, network traffic",
+    "fields": {
+      "cpu_percent": {
+        "type": "float",
+        "unit": "percent",
+        "range": [0.0, 100.0],
+        "required": true,
+        "description": "CPU usage percentage (0-100%)",
+        "thresholds": {
+          "warn": 70.0,
+          "critical": 90.0
+        },
+        "example": 45.2
+      },
+      "memory_used_mb": {
+        "type": "integer",
+        "unit": "MB",
+        "range": [0, null],
+        "required": true,
+        "description": "Memory used in megabytes",
+        "thresholds": {
+          "warn": 6000,
+          "critical": 7000
+        },
+        "example": 4200
+      },
+      "memory_total_mb": {
+        "type": "integer",
+        "unit": "MB",
+        "range": [0, null],
+        "required": true,
+        "description": "Total memory in megabytes",
+        "example": 8192
+      },
+      "disk_used_mb": {
+        "type": "integer",
+        "unit": "MB",
+        "range": [0, null],
+        "required": true,
+        "description": "Disk space used in megabytes (IMPORTANT: MB not GB)",
+        "thresholds": {
+          "warn_percent": 85.0,
+          "critical_percent": 95.0
+        },
+        "example": 120000
+      },
+      "disk_total_mb": {
+        "type": "integer",
+        "unit": "MB",
+        "range": [0, null],
+        "required": true,
+        "description": "Total disk space in megabytes (IMPORTANT: MB not GB)",
+        "example": 256000
+      },
+      "network_rx_mbps": {
+        "type": "float",
+        "unit": "Mbps",
+        "range": [0.0, null],
+        "required": true,
+        "description": "Network receive throughput in megabits per second",
+        "example": 12.5
+      },
+      "network_tx_mbps": {
+        "type": "float",
+        "unit": "Mbps",
+        "range": [0.0, null],
+        "required": true,
+        "description": "Network transmit throughput in megabits per second",
+        "example": 8.3
+      },
+      "uptime_seconds": {
+        "type": "integer",
+        "unit": "seconds",
+        "range": [0, null],
+        "required": false,
+        "description": "System uptime in seconds since boot (optional)",
+        "example": 86400
+      }
+    }
+  },
+
+  "camera_metrics": {
+    "description": "Camera health metrics - connection, latency, USB traffic, errors",
+    "fields": {
+      "connected": {
+        "type": "boolean",
+        "required": true,
+        "description": "Camera connection status (true=connected, false=disconnected)",
+        "example": true
+      },
+      "sdk_latency_ms": {
+        "type": "float",
+        "unit": "milliseconds",
+        "range": [0.0, null],
+        "required": true,
+        "description": "Sony SDK operation latency in milliseconds",
+        "thresholds": {
+          "warn": 40.0,
+          "critical": 100.0
+        },
+        "example": 18.5
+      },
+      "usb_traffic_mbps": {
+        "type": "float",
+        "unit": "Mbps",
+        "range": [0.0, null],
+        "required": true,
+        "description": "USB traffic throughput in megabits per second",
+        "example": 250.0
+      },
+      "error_count": {
+        "type": "integer",
+        "range": [0, null],
+        "required": true,
+        "description": "Cumulative camera SDK error count since start",
+        "example": 0
+      }
+    }
+  },
+
+  "network_metrics": {
+    "description": "Network health metrics - TCP connection, latency, UDP loss, queue depth",
+    "fields": {
+      "tcp_connected": {
+        "type": "boolean",
+        "required": true,
+        "description": "TCP connection status to Ground-Side (true=connected, false=disconnected)",
+        "example": true
+      },
+      "tcp_latency_ms": {
+        "type": "float",
+        "unit": "milliseconds",
+        "range": [0.0, null],
+        "required": true,
+        "description": "TCP round-trip latency in milliseconds",
+        "thresholds": {
+          "warn": 50.0,
+          "critical": 100.0
+        },
+        "example": 12.3
+      },
+      "udp_loss_percent": {
+        "type": "float",
+        "unit": "percent",
+        "range": [0.0, 100.0],
+        "required": true,
+        "description": "UDP packet loss percentage (0-100%)",
+        "thresholds": {
+          "warn": 2.0,
+          "critical": 10.0
+        },
+        "example": 0.5
+      },
+      "command_queue_depth": {
+        "type": "integer",
+        "range": [0, null],
+        "required": true,
+        "description": "Number of pending commands in command queue",
+        "thresholds": {
+          "warn": 10,
+          "critical": 50
+        },
+        "example": 2
+      }
+    }
+  },
+
+  "sync_metrics": {
+    "description": "Synchronization health metrics - exposure sync, health broadcast, property reads",
+    "fields": {
+      "exposure_rate_hz": {
+        "type": "float",
+        "unit": "Hz",
+        "range": [0.0, null],
+        "required": true,
+        "description": "Camera exposure synchronization rate in Hz",
+        "thresholds": {
+          "warn_min": 3.0,
+          "critical_min": 1.0
+        },
+        "example": 5.0
+      },
+      "health_rate_hz": {
+        "type": "float",
+        "unit": "Hz",
+        "range": [0.0, null],
+        "required": true,
+        "description": "Health broadcast rate in Hz (should match config)",
+        "thresholds": {
+          "warn_min": 3.0,
+          "critical_min": 1.0
+        },
+        "example": 5.0
+      },
+      "property_reads_sec": {
+        "type": "integer",
+        "unit": "per second",
+        "range": [0, null],
+        "required": true,
+        "description": "Camera property reads per second",
+        "example": 15
+      }
+    }
+  },
+
+  "migration_guide": {
+    "v1_to_v2": {
+      "breaking_changes": [
+        {
+          "field": "disk_free_gb / disk_total_gb",
+          "old_format": "Ground-Side expected disk_free_gb and disk_total_gb in gigabytes",
+          "new_format": "ALL domains now use disk_used_mb and disk_total_mb in megabytes",
+          "rationale": "Consistency with Air-Side implementation and SystemTools database schema",
+          "migration": {
+            "ground_side": "Change HealthSnapshot.kt: disk_free_gb → Remove, disk_total_gb → Remove, Add disk_used_mb and disk_total_mb",
+            "systemtools": "Remove normalization code in tab_analytics.py lines 344-370",
+            "air_side": "No changes needed - already using correct format"
+          }
+        },
+        {
+          "field": "uptime_seconds",
+          "old_format": "Not present in all snapshots",
+          "new_format": "Optional field in system metrics",
+          "migration": "Add to Air-Side SystemMetrics::toJson() as optional field"
+        }
+      ]
+    }
+  },
+
+  "example_snapshot": {
+    "description": "Complete example health snapshot matching v2.0 specification",
+    "message": {
+      "timestamp": "2025-11-20T15:30:00.123Z",
+      "system": {
+        "cpu_percent": 45.2,
+        "memory_used_mb": 4200,
+        "memory_total_mb": 8192,
+        "disk_used_mb": 120000,
+        "disk_total_mb": 256000,
+        "network_rx_mbps": 12.5,
+        "network_tx_mbps": 8.3,
+        "uptime_seconds": 86400
+      },
+      "camera": {
+        "connected": true,
+        "sdk_latency_ms": 18.5,
+        "usb_traffic_mbps": 250.0,
+        "error_count": 0
+      },
+      "network": {
+        "tcp_connected": true,
+        "tcp_latency_ms": 12.3,
+        "udp_loss_percent": 0.5,
+        "command_queue_depth": 2
+      },
+      "sync": {
+        "exposure_rate_hz": 5.0,
+        "health_rate_hz": 5.0,
+        "property_reads_sec": 15
+      }
+    }
+  },
+
+  "validation_rules": {
+    "required_top_level": ["timestamp", "system", "camera", "network", "sync"],
+    "required_system": ["cpu_percent", "memory_used_mb", "memory_total_mb", "disk_used_mb", "disk_total_mb", "network_rx_mbps", "network_tx_mbps"],
+    "required_camera": ["connected", "sdk_latency_ms", "usb_traffic_mbps", "error_count"],
+    "required_network": ["tcp_connected", "tcp_latency_ms", "udp_loss_percent", "command_queue_depth"],
+    "required_sync": ["exposure_rate_hz", "health_rate_hz", "property_reads_sec"],
+    "field_name_case": "snake_case (lowercase with underscores)",
+    "unit_consistency": "CRITICAL: disk values MUST be in MB, not GB"
+  },
+
+  "implementation_checklist": {
+    "air_side": [
+      "✅ SystemMetrics already uses correct field names (disk_used_mb, disk_total_mb)",
+      "⚠️ Add uptime_seconds to SystemMetrics::toJson() as optional field",
+      "✅ No other changes needed - Air-Side is already compliant!"
+    ],
+    "ground_side": [
+      "❌ Change HealthSnapshot.kt SystemHealth data class",
+      "❌ Remove: disk_free_gb, disk_total_gb",
+      "❌ Add: disk_used_mb, disk_total_mb",
+      "❌ Update UI calculations to use disk_used_mb instead of calculating from free",
+      "❌ Test: Verify health broadcasts parse correctly with new fields"
+    ],
+    "systemtools": [
+      "❌ Remove normalization hacks in tab_analytics.py _normalize_snapshot() method",
+      "❌ Assume all incoming data matches protocol (no conversion needed)",
+      "❌ Update database schema documentation to reference protocol/health_metrics.json",
+      "❌ Add protocol validation on health snapshot receipt",
+      "❌ Test: Verify analytics dashboard displays correctly with standardized data"
+    ]
+  },
+
+  "testing_requirements": {
+    "unit_tests": {
+      "air_side": "Test HealthSnapshot::toJson() produces protocol-compliant JSON",
+      "ground_side": "Test HealthSnapshot.kt parses protocol-compliant JSON correctly",
+      "systemtools": "Test database stores all protocol fields without transformation"
+    },
+    "integration_tests": {
+      "air_to_ground": "Air-Side broadcast → Ground-Side receives and displays correctly",
+      "air_to_systemtools": "Air-Side broadcast → SystemTools stores and visualizes correctly",
+      "end_to_end": "Verify all domains show same values for same health snapshot"
+    }
+  },
+
+  "changelog": {
+    "2.0.0": {
+      "date": "2025-11-20",
+      "description": "BREAKING CHANGE: Standardized disk metrics to use MB across all domains (was GB in Ground-Side)",
+      "author": "CC-Dev-Tools",
+      "migration_required": true,
+      "affected_domains": ["ground-side", "systemtools"]
+    }
+  }
+}
