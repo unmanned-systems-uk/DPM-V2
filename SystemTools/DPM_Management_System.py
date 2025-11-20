@@ -174,6 +174,9 @@ class DPMManagementSystem(tk.Tk):
         # Create GUI
         self._create_ui()
 
+        # Install global error handler for ALL Tkinter callback exceptions
+        self.report_callback_exception = self._global_error_handler
+
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -1106,8 +1109,19 @@ class DPMManagementSystem(tk.Tk):
             messagebox.showerror("Not Connected", "Please connect to Air-Side first.")
             return
 
-        # Collect changes from UI
-        updates = self._collect_config_changes()
+        # Collect changes from UI (with error handling for malformed values)
+        try:
+            updates = self._collect_config_changes()
+        except ValueError as e:
+            messagebox.showerror("Invalid Configuration",
+                               f"Failed to parse configuration values:\n\n{str(e)}\n\n" +
+                               "Please check all numeric fields are valid.")
+            logger.error("CONFIG", f"Failed to collect config changes: {e}")
+            return
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error collecting changes:\n\n{str(e)}")
+            logger.exception("CONFIG", f"Unexpected error in _collect_config_changes: {e}")
+            return
 
         if not updates:
             messagebox.showinfo("No Changes", "No configuration changes to apply")
@@ -1192,11 +1206,11 @@ class DPMManagementSystem(tk.Tk):
         if 'network' in self.original_config:
             net_orig = self.original_config['network']
 
-            tcp_port = int(self.config_widgets['network.tcp_port'].get())
+            tcp_port = int(float(self.config_widgets['network.tcp_port'].get()))
             if tcp_port != net_orig.get('tcp_port'):
                 updates['network.tcp_port'] = tcp_port
 
-            udp_port = int(self.config_widgets['network.udp_status_port'].get())
+            udp_port = int(float(self.config_widgets['network.udp_status_port'].get()))
             if udp_port != net_orig.get('udp_status_port'):
                 updates['network.udp_status_port'] = udp_port
 
@@ -1232,7 +1246,7 @@ class DPMManagementSystem(tk.Tk):
             if broadcast_enabled != health_orig.get('broadcast_enabled'):
                 updates['health.broadcast_enabled'] = broadcast_enabled
 
-            interval = int(self.config_widgets['health.broadcast_interval_sec'].get())
+            interval = int(float(self.config_widgets['health.broadcast_interval_sec'].get()))
             if interval != health_orig.get('broadcast_interval_sec'):
                 updates['health.broadcast_interval_sec'] = interval
 
@@ -2129,7 +2143,7 @@ class DPMManagementSystem(tk.Tk):
         # Create and add SystemTools logging handler
         self.systemtools_handler = SystemToolsLogHandler(self.log_queue)
         self.systemtools_handler.setLevel(logging.DEBUG)  # Capture all levels
-        logger.logger.addHandler(self.systemtools_handler)  # logger.logger is the actual logging.Logger
+        logger._base_logger.logger.addHandler(self.systemtools_handler)  # Access the underlying logging.Logger
         logger.info("SYSTEM", "SystemTools log handler added - SystemTools logs now visible in viewer")
 
         # Start GUI update thread
@@ -2194,7 +2208,7 @@ class DPMManagementSystem(tk.Tk):
 
         # Remove SystemTools logging handler
         if self.systemtools_handler:
-            logger.logger.removeHandler(self.systemtools_handler)  # logger.logger is the actual logging.Logger
+            logger._base_logger.logger.removeHandler(self.systemtools_handler)  # Access the underlying logging.Logger
             self.systemtools_handler = None
             logger.info("SYSTEM", "SystemTools log handler removed")
 
@@ -2247,6 +2261,12 @@ class DPMManagementSystem(tk.Tk):
 
             except Exception as e:
                 logger.error("SYSTEM", f"Error in GUI update worker: {e}")
+                # Schedule error dialog on main thread (can't show messagebox from background thread)
+                self.after(0, lambda: messagebox.showerror(
+                    "Background Error",
+                    f"Error in log update worker:\n\n{str(e)}\n\n"
+                    "Log streaming may be interrupted. Consider restarting the stream."
+                ))
 
     def _process_queue(self):
         """Process all pending log entries from queue"""
@@ -2822,6 +2842,37 @@ class DPMManagementSystem(tk.Tk):
         self.after(100, check_and_share_tcp_client)
 
         logger.info("SYSTEM", "Dashboard tabs wired up successfully")
+
+    def _global_error_handler(self, exc_type, exc_value, exc_traceback):
+        """
+        Global error handler for ALL Tkinter callback exceptions.
+        This catches any unhandled exception in button clicks, GUI events, etc.
+        and displays a user-friendly error dialog.
+        """
+        import traceback
+
+        # Format the full traceback for logging
+        tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        tb_text = ''.join(tb_lines)
+
+        # Log the full error
+        logger.error("SYSTEM", f"Unhandled GUI exception: {exc_value}")
+        logger.error("SYSTEM", f"Traceback:\n{tb_text}")
+
+        # Show user-friendly error dialog
+        error_summary = str(exc_value)
+
+        # Create a more informative error message
+        error_title = "Application Error"
+        error_message = (
+            f"An unexpected error occurred:\n\n"
+            f"{exc_type.__name__}: {error_summary}\n\n"
+            f"This error has been logged. Please check the terminal output for details.\n\n"
+            f"If this issue persists, please report it to the development team."
+        )
+
+        # Show the error dialog
+        messagebox.showerror(error_title, error_message)
 
     def _on_closing(self):
         """Handle window close"""

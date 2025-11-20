@@ -41,7 +41,7 @@ class AirSideListener:
             self.sock.bind((self.host, self.port))
             self.sock.settimeout(1.0)  # 1 second timeout for graceful shutdown
 
-            logger.info(f"[AirSideListener] Listening on UDP {self.host}:{self.port}")
+            logger.info("NETWORK", f"[AirSideListener] Listening on UDP {self.host}:{self.port}")
             print(f"[AirSideListener] Listening on UDP {self.host}:{self.port}")
 
             while self.running:
@@ -112,7 +112,7 @@ class GroundSideListener:
             self.server_sock.listen(5)
             self.server_sock.settimeout(1.0)  # Accept timeout for clean shutdown
 
-            logger.info(f"[GroundSideListener] TCP server listening on {self.host}:{self.port}")
+            logger.info("NETWORK", f"[GroundSideListener] TCP server listening on {self.host}:{self.port}")
             print(f"[GroundSideListener] TCP server listening on {self.host}:{self.port}")
             print(f"[GroundSideListener] Waiting for Ground-Side (H16) to connect...")
 

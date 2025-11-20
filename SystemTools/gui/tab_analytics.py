@@ -319,64 +319,55 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
     def _normalize_snapshot(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Normalize Air-Side field names to match analytics database schema
+        Extract protocol-compliant health metrics from Air-Side snapshot
 
-        Air-Side sends: memory_mb, disk_free_gb, disk_total_gb, connected
-        We expect: memory_used_mb, disk_used_mb, disk_total_mb, camera_connected
+        Follows protocol/health_metrics.json v2.0.0 specification.
+        All domains now use standardized field names and units (MB for disk, not GB).
+
+        Database schema uses flat structure, so we map:
+        - connected → camera_connected (disambiguate camera vs network)
+        - All other fields pass through unchanged
+
+        Args:
+            snapshot: Flattened health snapshot (system, camera, network, sync merged)
+
+        Returns:
+            Snapshot ready for database insertion
         """
         normalized = {}
 
-        # System metrics - rename and unit conversion
+        # System metrics (protocol/health_metrics.json: system_metrics)
+        # All fields pass through - Air-Side now protocol-compliant (v2.0)
         if 'cpu_percent' in snapshot:
             normalized['cpu_percent'] = snapshot['cpu_percent']
-
-        # Handle memory metrics - support both live and imported formats
-        if 'memory_mb' in snapshot:
-            # Live data
-            normalized['memory_used_mb'] = snapshot['memory_mb']
-        elif 'memory_used_mb' in snapshot:
-            # Imported data - already in correct format
+        if 'memory_used_mb' in snapshot:
             normalized['memory_used_mb'] = snapshot['memory_used_mb']
-
         if 'memory_total_mb' in snapshot:
             normalized['memory_total_mb'] = snapshot['memory_total_mb']
-
-        # Handle disk metrics - support both live data and imported data
-        if 'disk_free_gb' in snapshot and 'disk_total_gb' in snapshot:
-            # Live data: Convert GB to MB and calculate used
-            disk_total_mb = snapshot['disk_total_gb'] * 1024
-            disk_free_mb = snapshot['disk_free_gb'] * 1024
-            normalized['disk_total_mb'] = int(disk_total_mb)
-            normalized['disk_used_mb'] = int(disk_total_mb - disk_free_mb)
-        elif 'disk_used_mb' in snapshot:
-            # Imported data: Already in correct format
+        if 'disk_used_mb' in snapshot:
             normalized['disk_used_mb'] = snapshot['disk_used_mb']
-            if 'disk_total_mb' in snapshot:
-                normalized['disk_total_mb'] = snapshot['disk_total_mb']
-
+        if 'disk_total_mb' in snapshot:
+            normalized['disk_total_mb'] = snapshot['disk_total_mb']
         if 'network_rx_mbps' in snapshot:
             normalized['network_rx_mbps'] = snapshot['network_rx_mbps']
-
         if 'network_tx_mbps' in snapshot:
             normalized['network_tx_mbps'] = snapshot['network_tx_mbps']
 
-        # Camera metrics - support both live and imported formats
+        # Camera metrics (protocol/health_metrics.json: camera_metrics)
+        # Map 'connected' → 'camera_connected' for database clarity
         if 'connected' in snapshot:
-            # Live data
             normalized['camera_connected'] = snapshot['connected']
         elif 'camera_connected' in snapshot:
-            # Imported data - already in correct format
             normalized['camera_connected'] = snapshot['camera_connected']
 
-        # Camera metrics that may be in imported data
         if 'sdk_latency_ms' in snapshot:
-            normalized['sdk_latency_ms'] = snapshot['sdk_latency_ms']
+            normalized['camera_latency_ms'] = snapshot['sdk_latency_ms']
         if 'usb_traffic_mbps' in snapshot:
-            normalized['usb_traffic_mbps'] = snapshot['usb_traffic_mbps']
+            normalized['camera_usb_traffic_mbps'] = snapshot['usb_traffic_mbps']
         if 'error_count' in snapshot:
-            normalized['error_count'] = snapshot['error_count']
+            normalized['camera_error_count'] = snapshot['error_count']
 
-        # Network metrics from imported data
+        # Network metrics (protocol/health_metrics.json: network_metrics)
         if 'tcp_connected' in snapshot:
             normalized['tcp_connected'] = snapshot['tcp_connected']
         if 'tcp_latency_ms' in snapshot:
@@ -384,9 +375,9 @@ class PerformanceAnalyticsTab(ttk.Frame):
         if 'udp_loss_percent' in snapshot:
             normalized['udp_loss_percent'] = snapshot['udp_loss_percent']
         if 'command_queue_depth' in snapshot:
-            normalized['command_queue_depth'] = snapshot['command_queue_depth']
+            normalized['queue_depth'] = snapshot['command_queue_depth']
 
-        # Sync metrics from imported data
+        # Sync metrics (protocol/health_metrics.json: sync_metrics)
         if 'exposure_rate_hz' in snapshot:
             normalized['exposure_rate_hz'] = snapshot['exposure_rate_hz']
         if 'health_rate_hz' in snapshot:
