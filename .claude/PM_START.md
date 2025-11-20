@@ -163,7 +163,45 @@ tmux capture-pane -t AIR -p | tail -30
 tmux capture-pane -t TOOLS -p | tail -30
 ```
 
-### Step 6: Protocol Compliance Check (CRITICAL - See PM RULE 11)
+### Step 6: Capability Database Check (NEW - Duplication Prevention)
+
+**IMPORTANT:** Query ccpm capability database BEFORE planning any new work to prevent duplicate implementations
+
+```bash
+# Check if ccpm server is running
+curl -s http://localhost:8080/api/health | grep -q "ok" && echo "✅ CCPM server running" || echo "⚠️ CCPM server offline"
+
+# Quick capability query examples:
+cd /home/anthony/ccpm-workspace/production/ccpm-client/python
+
+# Example: Check if feature exists before planning
+export CCPM_API_KEY="CCPM-System-FLqZDWyXLfbpS9y6QgswKkEzMwxMs6FA"
+python3 query_capability.py "Performance Analytics" --strict
+# Exit code 1 = found = duplication warning
+# Exit code 0 = not found = safe to implement
+
+# View all networking capabilities
+python3 query_capability.py "" --category networking
+```
+
+**When Planning New Work:**
+1. ✅ **ALWAYS query capability database first** using `query_capability.py`
+2. ✅ Use `--strict` mode to get exit code warning if capability exists
+3. ✅ If found: Review existing implementation, extend instead of duplicating
+4. ✅ If not found: Proceed with new implementation
+5. ✅ After completing: Register new capability using `register_capability.py`
+
+**Quick Reference:**
+- Query script: `/home/anthony/ccpm-workspace/production/ccpm-client/python/query_capability.py`
+- Register script: `/home/anthony/ccpm-workspace/production/ccpm-client/python/register_capability.py`
+- Full guide: `/home/anthony/ccpm-workspace/production/ccpm-client/python/PM_WORKFLOW_GUIDE.md`
+- Total capabilities: **515** (Air-Side: 150, Ground-Side: 120, SystemTools: 200, Cross-Domain: 45)
+
+**Backfill Status:** ✅ COMPLETE (2025-11-20) - All DPM-V2 capabilities from day one registered
+
+---
+
+### Step 7: Protocol Compliance Check (CRITICAL - See PM RULE 11)
 
 **IMPORTANT:** protocol/*.json files are SINGLE SOURCE OF TRUTH for cross-domain standards
 

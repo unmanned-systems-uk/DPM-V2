@@ -1,4 +1,7 @@
 - always use carriage return to submit tmux messages
+- CRITICAL: ALWAYS query ccpm capability database BEFORE planning new features to prevent duplicate development. Use query_capability.py --strict. See .claude/CCPM_CAPABILITY_TRACKING.md. 515 capabilities registered.
+- CRITICAL: ALWAYS query ccpm capability database BEFORE planning new features to prevent duplicate development. Use query_capability.py --strict. See .claude/CCPM_CAPABILITY_TRACKING.md. 515 capabilities registered.
+- CRITICAL: ALWAYS query ccpm capability database BEFORE planning new features to prevent duplicate development. Use query_capability.py --strict. See .claude/CCPM_CAPABILITY_TRACKING.md. 515 capabilities registered.
 - EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
 - EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
 - EXPLOIT TASK AGENTS AGGRESSIVELY: Use Task agents for multi-step work, parallel opportunities, exploratory searches, and anything >5k tokens. See docs/ALL_DOMAINS/TASK_AGENT_USAGE_GUIDE.md
