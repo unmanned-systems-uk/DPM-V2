@@ -328,10 +328,10 @@ private fun SystemStatusCard(
 
             Divider()
 
-            // Uptime
+            // Uptime (Protocol v2.0: optional field)
             StatusItem(
                 label = "Uptime",
-                value = formatUptime(systemStatus.uptimeSeconds)
+                value = formatUptime(systemStatus.uptimeSeconds ?: 0)
             )
 
             // CPU Usage
@@ -348,10 +348,10 @@ private fun SystemStatusCard(
                 progress = systemStatus.memoryUsagePercent.toFloat() / 100f
             )
 
-            // Storage Free
+            // Storage (Protocol v2.0: Display in MB)
             StatusItem(
-                label = "Storage Free",
-                value = "${String.format("%.2f", systemStatus.diskFreeGb)} GB"
+                label = "Storage",
+                value = "${systemStatus.diskUsedMb} MB / ${systemStatus.diskTotalMb} MB (${String.format("%.1f", systemStatus.diskUsagePercent)}%)"
             )
         }
     }

@@ -36,16 +36,17 @@ data class HealthSnapshot(
 
 /**
  * System health metrics
+ * Protocol v2.0: All disk metrics in MB (not GB)
  */
 data class SystemHealth(
     @SerializedName("cpu_percent") val cpuPercent: Float,
     @SerializedName("memory_used_mb") val memoryUsedMb: Int,
     @SerializedName("memory_total_mb") val memoryTotalMb: Int,
-    @SerializedName("disk_free_gb") val diskFreeGb: Float,
-    @SerializedName("disk_total_gb") val diskTotalGb: Float,
+    @SerializedName("disk_used_mb") val diskUsedMb: Int,
+    @SerializedName("disk_total_mb") val diskTotalMb: Int,
     @SerializedName("network_rx_mbps") val networkRxMbps: Float,
     @SerializedName("network_tx_mbps") val networkTxMbps: Float,
-    @SerializedName("uptime_seconds") val uptimeSeconds: Long
+    @SerializedName("uptime_seconds") val uptimeSeconds: Long? = null
 ) {
     /**
      * Calculate memory usage percentage
@@ -55,9 +56,10 @@ data class SystemHealth(
 
     /**
      * Calculate disk usage percentage
+     * Protocol v2.0: Use disk_used_mb directly (not calculated from free)
      */
     val diskUsagePercent: Float
-        get() = ((diskTotalGb - diskFreeGb) / diskTotalGb) * 100f
+        get() = (diskUsedMb.toFloat() / diskTotalMb.toFloat()) * 100f
 
     /**
      * Get CPU health status
@@ -187,11 +189,12 @@ data class NetworkHealth(
 
 /**
  * Sync metrics
+ * Protocol v2.0: property_reads_sec is integer (per second count)
  */
 data class SyncMetrics(
     @SerializedName("exposure_rate_hz") val exposureRateHz: Float,
     @SerializedName("health_rate_hz") val healthRateHz: Float,
-    @SerializedName("property_reads_sec") val propertyReadsSec: Float
+    @SerializedName("property_reads_sec") val propertyReadsSec: Int
 ) {
     /**
      * Get exposure sync health status

@@ -253,10 +253,10 @@ fun SystemHealthCard(system: SystemHealth) {
                 progress = system.memoryPercent / 100f
             )
 
-            // Disk
+            // Disk (Protocol v2.0: Display in MB, converted from disk_used_mb)
             MetricRow(
                 label = "Disk",
-                value = "${system.diskFreeGb.toInt()} GB free / ${system.diskTotalGb.toInt()} GB",
+                value = "${system.diskUsedMb} MB / ${system.diskTotalMb} MB",
                 status = system.getDiskStatus(),
                 progress = system.diskUsagePercent / 100f
             )
@@ -268,7 +268,7 @@ fun SystemHealthCard(system: SystemHealth) {
             ) {
                 SimpleMetric("RX", "${system.networkRxMbps} Mbps")
                 SimpleMetric("TX", "${system.networkTxMbps} Mbps")
-                SimpleMetric("Uptime", formatUptime(system.uptimeSeconds))
+                SimpleMetric("Uptime", formatUptime(system.uptimeSeconds ?: 0))
             }
         }
     }

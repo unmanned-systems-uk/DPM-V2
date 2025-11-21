@@ -74,14 +74,16 @@ data class StatusPayload(
 
 /**
  * System status information
- * Matches air-side UDP status broadcast format
+ * Protocol v2.0: Aligned with health_metrics.json
+ * Note: This is legacy - prefer HealthSnapshot for new code
  */
 data class SystemStatus(
-    @SerializedName("uptime_seconds") val uptimeSeconds: Long,
+    @SerializedName("uptime_seconds") val uptimeSeconds: Long? = null,
     @SerializedName("cpu_percent") val cpuPercent: Float,
-    @SerializedName("memory_mb") val memoryMb: Int,
+    @SerializedName("memory_mb") val memoryMb: Int, // Legacy: use memory_used_mb in new code
     @SerializedName("memory_total_mb") val memoryTotalMb: Int,
-    @SerializedName("disk_free_gb") val diskFreeGb: Float,
+    @SerializedName("disk_used_mb") val diskUsedMb: Int,
+    @SerializedName("disk_total_mb") val diskTotalMb: Int,
     @SerializedName("network_rx_mbps") val networkRxMbps: Float? = null,
     @SerializedName("network_tx_mbps") val networkTxMbps: Float? = null
 ) {
@@ -89,6 +91,12 @@ data class SystemStatus(
     val memoryUsagePercent: Float
         get() = if (memoryTotalMb > 0) {
             (memoryMb.toFloat() / memoryTotalMb.toFloat()) * 100f
+        } else 0f
+
+    // Computed property for disk usage percentage
+    val diskUsagePercent: Float
+        get() = if (diskTotalMb > 0) {
+            (diskUsedMb.toFloat() / diskTotalMb.toFloat()) * 100f
         } else 0f
 }
 
