@@ -36,7 +36,7 @@ object LogHelper {
         structuredLoggingEnabled = structuredEnabled
 
         // Log the configuration change itself using protocol-compliant logging
-        StructuredLogger.info("CONFIG", "Logging configuration updated: Android=$androidEnabled, Structured=$structuredEnabled")
+        StructuredLogger.info(LogContext.CONFIG, "Logging configuration updated: Android=$androidEnabled, Structured=$structuredEnabled")
     }
 
     /**

@@ -67,9 +67,9 @@ class LogContexts:
             with open(protocol_file, 'r') as f:
                 cls._protocol_data = json.load(f)
                 cls._protocol_path = protocol_file
-                logger.info(f"Loaded log contexts protocol from {protocol_file}")
-                logger.debug(f"Protocol version: {cls._protocol_data.get('version')}")
-                logger.debug(f"Found {len(cls._protocol_data.get('contexts', []))} contexts")
+                logger.info(f"[SYSTEM] Loaded log contexts protocol from {protocol_file}")
+                logger.debug(f"[SYSTEM] Protocol version: {cls._protocol_data.get('version')}")
+                logger.debug(f"[SYSTEM] Found {len(cls._protocol_data.get('contexts', []))} contexts")
                 return cls._protocol_data
 
         except json.JSONDecodeError as e:
@@ -275,7 +275,7 @@ class LogContexts:
         """
         cls._protocol_data = None
         cls._protocol_path = None
-        logger.info("Reloading log contexts protocol...")
+        logger.info("[SYSTEM] Reloading log contexts protocol...")
         cls._load_protocol()
 
 

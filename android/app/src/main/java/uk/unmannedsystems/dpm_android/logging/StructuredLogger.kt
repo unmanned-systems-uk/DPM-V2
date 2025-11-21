@@ -332,11 +332,13 @@ object StructuredLogger {
      */
     class TimberTree : Timber.Tree() {
         override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+            // Map android.util.Log priority constants to LogLevel (using integer values to avoid import)
+            // VERBOSE=2, DEBUG=3, INFO=4, WARN=5, ERROR=6, ASSERT=7
             val level = when (priority) {
-                Log.VERBOSE, Log.DEBUG -> LogLevel.DEBUG
-                Log.INFO -> LogLevel.INFO
-                Log.WARN -> LogLevel.WARNING
-                Log.ERROR, Log.ASSERT -> LogLevel.ERROR
+                2, 3 -> LogLevel.DEBUG  // VERBOSE, DEBUG
+                4 -> LogLevel.INFO      // INFO
+                5 -> LogLevel.WARNING   // WARN
+                6, 7 -> LogLevel.ERROR  // ERROR, ASSERT
                 else -> LogLevel.INFO
             }
 

@@ -35,7 +35,7 @@ class UdpLogReceiver(
      */
     fun start() {
         if (isRunning) {
-            StructuredLogger.warning("NETWORK", "UDP log receiver already running")
+            StructuredLogger.warning(LogContext.NETWORK, "UDP log receiver already running")
             return
         }
 
@@ -43,7 +43,7 @@ class UdpLogReceiver(
             try {
                 socket = DatagramSocket(port)
                 isRunning = true
-                StructuredLogger.info("NETWORK", "UDP log receiver started on port $port")
+                StructuredLogger.info(LogContext.NETWORK, "UDP log receiver started on port $port")
 
                 val buffer = ByteArray(65536) // Max UDP packet size
                 val packet = DatagramPacket(buffer, buffer.size)
@@ -59,23 +59,23 @@ class UdpLogReceiver(
 
                     } catch (e: SocketException) {
                         if (isRunning) {
-                            StructuredLogger.error("NETWORK", "Socket error receiving UDP packet: ${e.message}")
+                            StructuredLogger.error(LogContext.NETWORK, "Socket error receiving UDP packet: ${e.message}")
                         }
                         // Socket closed, exit loop
                         break
                     } catch (e: Exception) {
-                        StructuredLogger.error("NETWORK", "Error processing UDP log packet: ${e.message}")
+                        StructuredLogger.error(LogContext.NETWORK, "Error processing UDP log packet: ${e.message}")
                         // Continue listening for next packet
                     }
                 }
 
             } catch (e: Exception) {
-                StructuredLogger.error("NETWORK", "Error starting UDP log receiver: ${e.message}")
+                StructuredLogger.error(LogContext.NETWORK, "Error starting UDP log receiver: ${e.message}")
             } finally {
                 isRunning = false
                 socket?.close()
                 socket = null
-                StructuredLogger.info("NETWORK", "UDP log receiver stopped")
+                StructuredLogger.info(LogContext.NETWORK, "UDP log receiver stopped")
             }
         }
     }
@@ -88,7 +88,7 @@ class UdpLogReceiver(
             return
         }
 
-        StructuredLogger.info("NETWORK", "Stopping UDP log receiver...")
+        StructuredLogger.info(LogContext.NETWORK, "Stopping UDP log receiver...")
         isRunning = false
         socket?.close()
         scope.cancel()
@@ -166,7 +166,7 @@ class UdpLogReceiver(
             // Log successfully received (verbose level not needed for protocol compliance)
 
         } catch (e: Exception) {
-            StructuredLogger.error("NETWORK", "Error parsing log JSON: ${e.message}")
+            StructuredLogger.error(LogContext.NETWORK, "Error parsing log JSON: ${e.message}")
         }
     }
 
