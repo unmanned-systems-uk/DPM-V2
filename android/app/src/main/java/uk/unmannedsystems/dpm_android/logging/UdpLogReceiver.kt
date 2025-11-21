@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.logging
 
-import android.util.Log
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import timber.log.Timber
@@ -36,7 +35,7 @@ class UdpLogReceiver(
      */
     fun start() {
         if (isRunning) {
-            Log.w(TAG, "UDP log receiver already running")
+            StructuredLogger.warning("NETWORK", "UDP log receiver already running")
             return
         }
 
@@ -44,7 +43,7 @@ class UdpLogReceiver(
             try {
                 socket = DatagramSocket(port)
                 isRunning = true
-                Log.i(TAG, "UDP log receiver started on port $port")
+                StructuredLogger.info("NETWORK", "UDP log receiver started on port $port")
 
                 val buffer = ByteArray(65536) // Max UDP packet size
                 val packet = DatagramPacket(buffer, buffer.size)
@@ -60,23 +59,23 @@ class UdpLogReceiver(
 
                     } catch (e: SocketException) {
                         if (isRunning) {
-                            Log.e(TAG, "Socket error receiving UDP packet", e)
+                            StructuredLogger.error("NETWORK", "Socket error receiving UDP packet: ${e.message}")
                         }
                         // Socket closed, exit loop
                         break
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error processing UDP log packet", e)
+                        StructuredLogger.error("NETWORK", "Error processing UDP log packet: ${e.message}")
                         // Continue listening for next packet
                     }
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error starting UDP log receiver", e)
+                StructuredLogger.error("NETWORK", "Error starting UDP log receiver: ${e.message}")
             } finally {
                 isRunning = false
                 socket?.close()
                 socket = null
-                Log.i(TAG, "UDP log receiver stopped")
+                StructuredLogger.info("NETWORK", "UDP log receiver stopped")
             }
         }
     }
@@ -89,7 +88,7 @@ class UdpLogReceiver(
             return
         }
 
-        Log.i(TAG, "Stopping UDP log receiver...")
+        StructuredLogger.info("NETWORK", "Stopping UDP log receiver...")
         isRunning = false
         socket?.close()
         scope.cancel()
@@ -164,10 +163,10 @@ class UdpLogReceiver(
                 else -> Timber.tag("AIR-SIDE").i(message)
             }
 
-            Log.v(TAG, "Received Air-Side log: [$level] $message")
+            // Log successfully received (verbose level not needed for protocol compliance)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing log JSON: $json", e)
+            StructuredLogger.error("NETWORK", "Error parsing log JSON: ${e.message}")
         }
     }
 

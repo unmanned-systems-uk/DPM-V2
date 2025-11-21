@@ -1,8 +1,8 @@
 package uk.unmannedsystems.dpm_android.logging.sinks
 
-import android.util.Log
 import kotlinx.coroutines.*
 import uk.unmannedsystems.dpm_android.logging.LogEntry
+import uk.unmannedsystems.dpm_android.logging.StructuredLogger
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.net.Socket
@@ -47,8 +47,8 @@ class NetworkSink(
 
     init {
         if (enabled) {
-            Log.i(TAG, "NetworkSink enabled: Connecting to SystemTools at $host:$port")
-            Log.i(TAG, "If using 'localhost', ensure ADB reverse is set up: adb reverse tcp:$port tcp:$port")
+            StructuredLogger.info("NETWORK", "NetworkSink enabled: Connecting to SystemTools at $host:$port")
+            StructuredLogger.info("NETWORK", "If using 'localhost', ensure ADB reverse is set up: adb reverse tcp:$port tcp:$port")
 
             // Start connection attempt
             reconnectJob = scope.launch {
@@ -60,7 +60,7 @@ class NetworkSink(
                 processSendQueue()
             }
         } else {
-            Log.i(TAG, "NetworkSink disabled (not in DEBUG build or explicitly disabled in settings)")
+            StructuredLogger.info("NETWORK", "NetworkSink disabled (not in DEBUG build or explicitly disabled in settings)")
         }
     }
 
@@ -82,10 +82,10 @@ class NetworkSink(
                 // Queue full, drop oldest
                 sendQueue.poll()
                 sendQueue.offer(json)
-                Log.w(TAG, "Send queue full, dropped oldest log")
+                StructuredLogger.warning("NETWORK", "Send queue full, dropped oldest log")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to queue log entry", e)
+            StructuredLogger.error("NETWORK", "Failed to queue log entry: ${e.message}")
         }
     }
 
@@ -112,11 +112,11 @@ class NetworkSink(
             writer?.close()
             socket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing network sink", e)
+            StructuredLogger.error("NETWORK", "Error closing network sink: ${e.message}")
         }
 
         isConnected = false
-        Log.i(TAG, "NetworkSink closed")
+        StructuredLogger.info("NETWORK", "NetworkSink closed")
     }
 
     /**
@@ -128,7 +128,7 @@ class NetworkSink(
             try {
                 if (!isConnected) {
                     attemptCount++
-                    Log.d(TAG, "Connection attempt #$attemptCount to $host:$port (queue size: ${sendQueue.size})")
+                    StructuredLogger.debug("NETWORK", "Connection attempt #$attemptCount to $host:$port (queue size: ${sendQueue.size})")
 
                     socket = Socket(host, port)
                     socket?.soTimeout = 5000  // 5 second read timeout
@@ -136,10 +136,10 @@ class NetworkSink(
 
                     isConnected = true
                     attemptCount = 0  // Reset counter on success
-                    Log.i(TAG, "✅ Connected to SystemTools at $host:$port")
+                    StructuredLogger.info("NETWORK", "✅ Connected to SystemTools at $host:$port")
 
                     if (host == "localhost") {
-                        Log.i(TAG, "Using ADB reverse - ensure 'adb reverse tcp:$port tcp:$port' is active")
+                        StructuredLogger.info("NETWORK", "Using ADB reverse - ensure 'adb reverse tcp:$port tcp:$port' is active")
                     }
                 }
 
@@ -150,16 +150,16 @@ class NetworkSink(
 
                 if (attemptCount == 1) {
                     // First failure - provide helpful diagnostic
-                    Log.w(TAG, "❌ Connection failed to $host:$port: ${e.javaClass.simpleName} - ${e.message}")
+                    StructuredLogger.warning("NETWORK", "❌ Connection failed to $host:$port: ${e.javaClass.simpleName} - ${e.message}")
                     if (host == "localhost") {
-                        Log.w(TAG, "💡 Troubleshooting: Run 'adb reverse tcp:$port tcp:$port' and ensure SystemTools is running")
-                        Log.w(TAG, "💡 Alternative: Change host to dev machine IP (e.g., '10.0.1.83') in settings")
+                        StructuredLogger.warning("NETWORK", "💡 Troubleshooting: Run 'adb reverse tcp:$port tcp:$port' and ensure SystemTools is running")
+                        StructuredLogger.warning("NETWORK", "💡 Alternative: Change host to dev machine IP (e.g., '10.0.1.83') in settings")
                     } else {
-                        Log.w(TAG, "💡 Troubleshooting: Ensure SystemTools is running on $host and port $port is accessible")
+                        StructuredLogger.warning("NETWORK", "💡 Troubleshooting: Ensure SystemTools is running on $host and port $port is accessible")
                     }
                 } else if (attemptCount % 6 == 0) {
                     // Log every 6th attempt (every ~60 seconds) to avoid spam
-                    Log.w(TAG, "Still attempting connection to $host:$port (attempt #$attemptCount, queue: ${sendQueue.size} logs)")
+                    StructuredLogger.warning("NETWORK", "Still attempting connection to $host:$port (attempt #$attemptCount, queue: ${sendQueue.size} logs)")
                 }
 
                 // Clean up
@@ -198,7 +198,7 @@ class NetworkSink(
                         // Report stats every 100 logs or every 30 seconds
                         val now = System.currentTimeMillis()
                         if (logsSentCount % 100 == 0 || (now - lastLogReportTime) > 30000) {
-                            Log.d(TAG, "📤 Sent $logsSentCount logs to SystemTools (queue: ${sendQueue.size})")
+                            StructuredLogger.debug("NETWORK", "📤 Sent $logsSentCount logs to SystemTools (queue: ${sendQueue.size})")
                             lastLogReportTime = now
                         }
                     } else {
@@ -210,7 +210,7 @@ class NetworkSink(
                     delay(100)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Error sending log to SystemTools: ${e.javaClass.simpleName} - ${e.message}")
+                StructuredLogger.error("NETWORK", "❌ Error sending log to SystemTools: ${e.javaClass.simpleName} - ${e.message}")
                 isConnected = false
 
                 // Clean up connection

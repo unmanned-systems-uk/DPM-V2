@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.logging
 
-import android.util.Log
 import timber.log.Timber
 
 /**
@@ -36,18 +35,14 @@ object LogHelper {
         androidLogcatEnabled = androidEnabled
         structuredLoggingEnabled = structuredEnabled
 
-        // Log the configuration change itself (always use both temporarily to ensure visibility)
-        Log.i("LogHelper", "Logging configuration updated: Android=$androidEnabled, Structured=$structuredEnabled")
-        Timber.i("Logging configuration updated: Android=$androidEnabled, Structured=$structuredEnabled")
+        // Log the configuration change itself using protocol-compliant logging
+        StructuredLogger.info("CONFIG", "Logging configuration updated: Android=$androidEnabled, Structured=$structuredEnabled")
     }
 
     /**
      * Debug log
      */
     fun d(tag: String, message: String) {
-        if (androidLogcatEnabled) {
-            Log.d(tag, message)
-        }
         if (structuredLoggingEnabled) {
             Timber.tag(tag).d(message)
         }
@@ -57,9 +52,6 @@ object LogHelper {
      * Info log
      */
     fun i(tag: String, message: String) {
-        if (androidLogcatEnabled) {
-            Log.i(tag, message)
-        }
         if (structuredLoggingEnabled) {
             Timber.tag(tag).i(message)
         }
@@ -69,13 +61,6 @@ object LogHelper {
      * Warning log
      */
     fun w(tag: String, message: String, throwable: Throwable? = null) {
-        if (androidLogcatEnabled) {
-            if (throwable != null) {
-                Log.w(tag, message, throwable)
-            } else {
-                Log.w(tag, message)
-            }
-        }
         if (structuredLoggingEnabled) {
             if (throwable != null) {
                 Timber.tag(tag).w(throwable, message)
@@ -89,13 +74,6 @@ object LogHelper {
      * Error log
      */
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        if (androidLogcatEnabled) {
-            if (throwable != null) {
-                Log.e(tag, message, throwable)
-            } else {
-                Log.e(tag, message)
-            }
-        }
         if (structuredLoggingEnabled) {
             if (throwable != null) {
                 Timber.tag(tag).e(throwable, message)
@@ -109,9 +87,6 @@ object LogHelper {
      * Verbose log
      */
     fun v(tag: String, message: String) {
-        if (androidLogcatEnabled) {
-            Log.v(tag, message)
-        }
         if (structuredLoggingEnabled) {
             Timber.tag(tag).v(message)
         }
