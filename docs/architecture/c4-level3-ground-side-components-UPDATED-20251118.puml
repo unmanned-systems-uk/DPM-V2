@@ -1,0 +1,176 @@
+@startuml Ground-Side Component Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' Ground-Side Component Diagram (C4 Level 3)
+' Shows internal components of the Ground-Side Android application
+'
+' **WHO:** CC-Ground-Side
+' **DATE:** 2025-11-18
+' **TIME:** 18:00 UTC
+' **CHANGES:** Added SystemTools logging integration components (LogHelper, StructuredLogger, NetworkSink, UdpLogReceiver)
+'             Added AdvancedSettingsScreen for SystemTools configuration
+'             Updated from commit a2e3bdb - Issues #99, #113
+
+title Ground-Side (Android H16) Component Diagram - Updated 2025-11-18
+
+Container_Boundary(ground_side, "Ground-Side Application (Kotlin, Jetpack Compose on Android)") {
+    ' UI Layer
+    Component(main_activity, "MainActivity", "Jetpack Compose", "Application entry point, hosts navigation and composables")
+    Component(camera_dashboard, "CameraDashboard", "Composable", "Main camera control UI with property controls")
+    Component(settings_screen, "SettingsScreen", "Composable", "Application settings and configuration")
+    Component(advanced_settings, "AdvancedSettingsScreen", "Composable", "[NEW 2025-11-18] SystemTools logging configuration UI")
+    Component(status_display, "StatusDisplay", "Composable", "Real-time system and camera status display")
+    Component(video_player, "VideoPlayer", "Composable", "RTSP video stream player using ExoPlayer")
+
+    ' ViewModel Layer (MVVM)
+    Component(camera_viewmodel, "CameraViewModel", "ViewModel", "Camera state and control logic")
+    Component(settings_viewmodel, "SettingsViewModel", "ViewModel", "Settings management")
+    Component(advanced_settings_vm, "AdvancedSettingsViewModel", "ViewModel", "[NEW 2025-11-18] SystemTools settings management")
+    Component(connection_viewmodel, "ConnectionViewModel", "ViewModel", "Network connection state")
+
+    ' Repository Layer
+    Component(camera_repository, "CameraRepository", "Repository", "Camera data and command orchestration")
+    Component(settings_repository, "SettingsRepository", "Repository", "[ENHANCED 2025-11-18] Persistent settings + SystemTools config")
+
+    ' Network Layer
+    Component(tcp_client, "TcpCommandClient", "Kotlin Coroutines", "TCP client for bidirectional command/response")
+    Component(udp_listener, "UdpStatusListener", "Kotlin Coroutines", "UDP listener for 5Hz status updates")
+    Component(udp_log_receiver, "UdpLogReceiver", "Kotlin Coroutines", "[ENHANCED 2025-11-18] Air-Side log relay to SystemTools")
+    Component(heartbeat_client, "HeartbeatClient", "Kotlin Coroutines", "Bidirectional heartbeat management")
+    Component(network_monitor, "NetworkMonitor", "Kotlin", "Connection health monitoring and auto-reconnect")
+
+    ' Logging Layer (NEW 2025-11-18)
+    Component(log_helper, "LogHelper", "Kotlin", "[NEW 2025-11-18] Unified logging wrapper - dynamic logcat/Timber control")
+    Component(structured_logger, "StructuredLogger", "Timber + Sinks", "[NEW 2025-11-18] Multi-sink logging (File, Memory, Network)")
+    Component(network_sink, "NetworkSink", "TCP Client", "[ENHANCED 2025-11-18] SystemTools TCP relay (port 5008)")
+    Component(file_sink, "FileSink", "File I/O", "[NEW 2025-11-18] Local log file rotation")
+    Component(memory_sink, "MemorySink", "In-Memory", "[NEW 2025-11-18] Log viewer ring buffer")
+
+    ' Data Layer
+    Component(property_loader, "PropertyLoader", "Kotlin", "Loads camera property specifications from embedded JSON")
+    Component(message_serializer, "MessageSerializer", "Gson", "JSON message serialization/deserialization")
+
+    ComponentDb(property_specs, "Property Specifications", "JSON assets", "Embedded camera property definitions")
+    ComponentDb(datastore, "DataStore", "Preferences", "[ENHANCED] User settings + SystemTools config")
+    ComponentDb(log_files, "Log Files", "External Storage", "[NEW 2025-11-18] Rotated log files (50MB, 3 files)")
+}
+
+Person(operator, "Drone Operator", "Controls camera")
+Container_Ext(tcp_channel, "TCP Command Channel", "Port 5000")
+Container_Ext(udp_status, "UDP Status", "Port 5001")
+Container_Ext(udp_heartbeat, "UDP Heartbeat", "Port 5002")
+Container_Ext(udp_air_logs, "UDP Air-Side Logs", "[NEW] Port 5005")
+Container_Ext(systemtools_tcp, "SystemTools TCP", "[NEW] Port 5008 (via ADB reverse)")
+System_Ext(rtsp_stream, "RTSP Video Stream", "Camera video feed")
+
+' Operator interaction
+Rel(operator, camera_dashboard, "Controls camera", "Touch UI")
+Rel(operator, settings_screen, "Configures app", "Touch UI")
+Rel(operator, advanced_settings, "[NEW] Configures SystemTools", "Touch UI")
+
+' UI → ViewModel (MVVM pattern)
+Rel(camera_dashboard, camera_viewmodel, "Observes state, triggers actions")
+Rel(settings_screen, settings_viewmodel, "Observes/updates settings")
+Rel(advanced_settings, advanced_settings_vm, "[NEW] Observes/updates SystemTools config")
+Rel(status_display, camera_viewmodel, "Observes status")
+Rel(status_display, connection_viewmodel, "Observes connection")
+Rel(video_player, rtsp_stream, "Streams video", "ExoPlayer")
+
+' ViewModel → Repository
+Rel(camera_viewmodel, camera_repository, "Requests data, sends commands")
+Rel(settings_viewmodel, settings_repository, "Reads/writes settings")
+Rel(advanced_settings_vm, settings_repository, "[NEW] Reads/writes SystemTools config")
+Rel(connection_viewmodel, network_monitor, "Observes connection state")
+
+' Repository → Network
+Rel(camera_repository, tcp_client, "Sends commands, receives responses")
+Rel(camera_repository, udp_listener, "Receives status updates")
+Rel(camera_repository, property_loader, "Queries property specs")
+
+' Network Layer
+Rel(tcp_client, tcp_channel, "Bidirectional communication")
+Rel(udp_listener, udp_status, "Receives broadcasts")
+Rel(udp_log_receiver, udp_air_logs, "[NEW] Receives Air-Side logs")
+Rel(heartbeat_client, udp_heartbeat, "Sends/receives heartbeats")
+Rel(network_monitor, heartbeat_client, "Monitors health")
+Rel(network_monitor, tcp_client, "Triggers reconnect")
+
+' Logging Flow (NEW 2025-11-18)
+Rel(udp_log_receiver, log_helper, "[NEW] Relays Air-Side logs")
+Rel(log_helper, structured_logger, "[NEW] Timber integration")
+Rel(structured_logger, network_sink, "[NEW] Sends to SystemTools")
+Rel(structured_logger, file_sink, "[NEW] Writes to files")
+Rel(structured_logger, memory_sink, "[NEW] Buffers for LogViewer")
+Rel(network_sink, systemtools_tcp, "[NEW] TCP to SystemTools")
+Rel(file_sink, log_files, "[NEW] Rotated log storage")
+
+' Serialization
+Rel(tcp_client, message_serializer, "Serializes/deserializes")
+Rel(udp_listener, message_serializer, "Deserializes")
+Rel(heartbeat_client, message_serializer, "Serializes/deserializes")
+Rel(udp_log_receiver, message_serializer, "[NEW] Deserializes Air-Side logs")
+
+' Data access
+Rel(property_loader, property_specs, "Loads on startup")
+Rel(settings_repository, datastore, "Reads/writes (incl. SystemTools config)")
+
+SHOW_LEGEND()
+
+note right of camera_viewmodel
+  **MVVM Pattern:**
+  - Holds UI state (StateFlow)
+  - Business logic
+  - Lifecycle-aware
+  - Survives configuration changes
+  - Exposes immutable state to UI
+end note
+
+note right of property_loader
+  **Specification-First Architecture:**
+  - Single source of truth
+  - Air/Ground use same JSON specs
+  - Value ranges, constraints
+  - UI rendering metadata
+  - Protocol version sync
+end note
+
+note right of tcp_client
+  **Connection Management:**
+  - Kotlin Coroutines for async
+  - Auto-reconnect on disconnect
+  - Command queue management
+  - Response correlation
+  - Timeout handling
+end note
+
+note right of structured_logger
+  **NEW: Tri-Domain Logging (2025-11-18):**
+  - Multi-sink architecture
+  - File: Rotated logs (50MB x 3)
+  - Memory: Ring buffer (1000 entries)
+  - Network: SystemTools TCP (port 5008)
+  - Dynamic control via settings
+  - Air-Side log relay capability
+
+  **Issue #99:** SystemTools integration
+  **Issue #113:** Timber coverage expansion
+end note
+
+note right of log_helper
+  **NEW: Unified Logging (2025-11-18):**
+  - Wraps both Android Log and Timber
+  - Dynamic enable/disable control
+  - Supports parallel operation during testing
+  - Consistent API across codebase
+end note
+
+note right of udp_log_receiver
+  **ENHANCED: Air-Side Log Relay (2025-11-18):**
+  - Receives UDP logs from Air-Side (port 5005)
+  - Tags with "AIR-SIDE" context
+  - Forwards to StructuredLogger
+  - SystemTools filtering enabled
+  - Part of tri-domain observability
+end note
+
+@enduml
