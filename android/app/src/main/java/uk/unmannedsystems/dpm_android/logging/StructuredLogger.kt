@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.logging
 
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.*
@@ -30,14 +29,20 @@ enum class LogLevel(val value: Int, val label: String) {
 
 /**
  * Log context enum for categorizing logs
+ *
+ * NOTE: Must stay synchronized with protocol/log_contexts.json
+ * Issue #164: Added HEALTH, CONFIG, DISCOVERY for protocol compliance
  */
 enum class LogContext(val label: String) {
     CAMERA("CAMERA"),
     NETWORK("NETWORK"),
-    SYNC("SYNC"),
     COMMAND("COMMAND"),
+    CONFIG("CONFIG"),           // Added for Issue #164 protocol compliance
+    DISCOVERY("DISCOVERY"),     // Added for Issue #164 protocol compliance
     SYSTEM("SYSTEM"),
     STORAGE("STORAGE"),
+    HEALTH("HEALTH"),           // Added for Issue #164 protocol compliance
+    SYNC("SYNC"),
     UI("UI");
 
     companion object {
@@ -143,7 +148,7 @@ object StructuredLogger {
         sinks: List<LogSink> = emptyList()
     ) {
         if (isInitialized) {
-            Log.w(TAG, "StructuredLogger already initialized")
+            // Already initialized - skip duplicate init
             return
         }
 
@@ -154,7 +159,7 @@ object StructuredLogger {
         startProcessing()
 
         isInitialized = true
-        Log.i(TAG, "StructuredLogger initialized with ${this.sinks.size} sinks")
+        // StructuredLogger initialized (internal logging removed to prevent circular dependencies)
     }
 
     /**
@@ -164,7 +169,7 @@ object StructuredLogger {
         synchronized(sinks) {
             sinks.add(sink)
         }
-        Log.d(TAG, "Added sink: ${sink::class.simpleName}")
+        // Sink added (internal logging removed to prevent circular dependencies)
     }
 
     /**
@@ -174,7 +179,7 @@ object StructuredLogger {
         synchronized(sinks) {
             sinks.remove(sink)
         }
-        Log.d(TAG, "Removed sink: ${sink::class.simpleName}")
+        // Sink removed (internal logging removed to prevent circular dependencies)
     }
 
     /**
@@ -182,7 +187,7 @@ object StructuredLogger {
      */
     fun setMinLogLevel(level: LogLevel) {
         minLogLevel = level
-        Log.d(TAG, "Minimum log level set to: ${level.label}")
+        // Min log level set (internal logging removed to prevent circular dependencies)
     }
 
     /**
@@ -272,7 +277,7 @@ object StructuredLogger {
                                 try {
                                     sink.write(entry)
                                 } catch (e: Exception) {
-                                    Log.e(TAG, "Error writing to sink ${sink::class.simpleName}", e)
+                                    // Silently drop sink write errors to prevent circular logging
                                 }
                             }
                         }
@@ -281,7 +286,7 @@ object StructuredLogger {
                         delay(10)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error processing log queue", e)
+                    // Silently drop queue processing errors to prevent circular logging
                 }
             }
         }
@@ -296,7 +301,7 @@ object StructuredLogger {
                 try {
                     sink.flush()
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error flushing sink ${sink::class.simpleName}", e)
+                    // Silently drop flush errors to prevent circular logging
                 }
             }
         }
@@ -313,13 +318,13 @@ object StructuredLogger {
                 try {
                     sink.close()
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error closing sink ${sink::class.simpleName}", e)
+                    // Silently drop close errors to prevent circular logging
                 }
             }
             sinks.clear()
         }
         isInitialized = false
-        Log.i(TAG, "StructuredLogger shut down")
+        // StructuredLogger shut down (internal logging removed to prevent circular dependencies)
     }
 
     /**
@@ -327,11 +332,13 @@ object StructuredLogger {
      */
     class TimberTree : Timber.Tree() {
         override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+            // Map android.util.Log priority constants to LogLevel (using integer values to avoid import)
+            // VERBOSE=2, DEBUG=3, INFO=4, WARN=5, ERROR=6, ASSERT=7
             val level = when (priority) {
-                Log.VERBOSE, Log.DEBUG -> LogLevel.DEBUG
-                Log.INFO -> LogLevel.INFO
-                Log.WARN -> LogLevel.WARNING
-                Log.ERROR, Log.ASSERT -> LogLevel.ERROR
+                2, 3 -> LogLevel.DEBUG  // VERBOSE, DEBUG
+                4 -> LogLevel.INFO      // INFO
+                5 -> LogLevel.WARNING   // WARN
+                6, 7 -> LogLevel.ERROR  // ERROR, ASSERT
                 else -> LogLevel.INFO
             }
 

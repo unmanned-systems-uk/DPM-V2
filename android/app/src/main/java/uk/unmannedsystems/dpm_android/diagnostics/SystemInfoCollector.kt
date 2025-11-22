@@ -6,12 +6,13 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.StatFs
-import android.util.Log
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.text.SimpleDateFormat
 import java.util.*
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 
 /**
  * Collects H16 system information for diagnostics
@@ -29,8 +30,7 @@ import java.util.*
  */
 class SystemInfoCollector(private val context: Context) {
     companion object {
-        private const val TAG = "SystemInfoCollector"
-    }
+        }
 
     // Track last CPU stats for usage calculation
     private data class CpuStats(
@@ -74,7 +74,7 @@ class SystemInfoCollector(private val context: Context) {
             val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
             batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting battery percent", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error getting battery percent")
             // Fallback to Intent-based approach
             try {
                 val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -87,7 +87,7 @@ class SystemInfoCollector(private val context: Context) {
                     -1
                 }
             } catch (e2: Exception) {
-                Log.e(TAG, "Error getting battery percent via intent", e2)
+                Timber.tag(LogContext.SYSTEM.label).e(e2, "Error getting battery percent via intent")
                 -1
             }
         }
@@ -133,7 +133,7 @@ class SystemInfoCollector(private val context: Context) {
             usage.coerceIn(0f, 100f)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading CPU usage", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading CPU usage")
             -1f
         }
     }
@@ -157,7 +157,7 @@ class SystemInfoCollector(private val context: Context) {
             (kb / 1024).toInt()  // Convert kB to MB
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading total memory", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading total memory")
             -1
         }
     }
@@ -192,7 +192,7 @@ class SystemInfoCollector(private val context: Context) {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading available memory", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading available memory")
             -1
         }
     }
@@ -223,7 +223,7 @@ class SystemInfoCollector(private val context: Context) {
             val totalBytes = stat.totalBytes
             (totalBytes / (1024.0 * 1024.0 * 1024.0)).toFloat()
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading total storage", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading total storage")
             -1f
         }
     }
@@ -239,7 +239,7 @@ class SystemInfoCollector(private val context: Context) {
             val availableBytes = stat.availableBytes
             (availableBytes / (1024.0 * 1024.0 * 1024.0)).toFloat()
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading available storage", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading available storage")
             -1f
         }
     }
@@ -286,7 +286,7 @@ class SystemInfoCollector(private val context: Context) {
             -1f  // No valid temperature found
 
         } catch (e: Exception) {
-            Log.w(TAG, "CPU temperature not available", e)
+            Timber.tag(LogContext.SYSTEM.label).w(e, "CPU temperature not available")
             -1f
         }
     }
@@ -310,7 +310,7 @@ class SystemInfoCollector(private val context: Context) {
             uptimeSeconds.toLong()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading uptime", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading uptime")
             -1
         }
     }
@@ -353,7 +353,7 @@ class SystemInfoCollector(private val context: Context) {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading kernel version", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error reading kernel version")
             "unknown"
         }
     }

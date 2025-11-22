@@ -1,16 +1,17 @@
 package uk.unmannedsystems.dpm_android.network
 
 import android.content.Context
-import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import timber.log.Timber
 import uk.unmannedsystems.dpm_android.diagnostics.DiagnosticsCommandHandler
 import uk.unmannedsystems.dpm_android.eventlog.EventCategory
 import uk.unmannedsystems.dpm_android.eventlog.EventLevel
 import uk.unmannedsystems.dpm_android.eventlog.EventLogViewModel
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
@@ -32,7 +33,6 @@ class NetworkClient(
     private val clientId: String = "H16"
 ) {
     companion object {
-        private const val TAG = "NetworkClient"
         private const val CLIENT_VERSION = "1.0.0"
     }
 
@@ -74,7 +74,7 @@ class NetworkClient(
     fun connect() {
         if (_connectionStatus.value.state == ConnectionState.CONNECTED ||
             _connectionStatus.value.state == ConnectionState.CONNECTING) {
-            Log.w(TAG, "Already connected or connecting")
+            Timber.tag(LogContext.NETWORK.label).w("Already connected or connecting")
             addConnectionLog("Already connected or connecting", LogLevel.WARNING)
             return
         }
@@ -140,10 +140,10 @@ class NetworkClient(
 
                 // Note: Connection state already set to OPERATIONAL by sendHandshake()
                 // Do not overwrite it here
-                Log.i(TAG, "Connected to ${settings.targetIp}")
+                Timber.tag(LogContext.NETWORK.label).i("Connected to ${settings.targetIp}")
 
             } catch (e: Exception) {
-                Log.e(TAG, "Connection failed", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "Connection failed")
                 val errorMsg = "Connection failed: ${e.message}"
                 updateConnectionState(
                     ConnectionState.ERROR,
@@ -172,7 +172,7 @@ class NetworkClient(
                 sendDisconnect()
                 addConnectionLog("Disconnect message sent", LogLevel.INFO)
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending disconnect", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "Error sending disconnect")
                 addConnectionLog("Error sending disconnect: ${e.message}", LogLevel.WARNING)
             }
 
@@ -202,7 +202,7 @@ class NetworkClient(
                 )
 
                 val json = gson.toJson(message)
-                Log.d(TAG, "Sending command: $json")
+                Timber.tag(LogContext.NETWORK.label).d("Sending command: $json")
 
                 tcpWriter?.println(json)
                 tcpWriter?.flush()
@@ -210,7 +210,7 @@ class NetworkClient(
                 // Read response
                 val response = tcpReader?.readLine()
                 if (response != null) {
-                    Log.d(TAG, "Received response: $response")
+                    Timber.tag(LogContext.NETWORK.label).d("Received response: $response")
                     val responseMessage = gson.fromJson(response, BaseMessage::class.java)
                     val responsePayload = gson.fromJson(
                         gson.toJson(responseMessage.payload),
@@ -221,7 +221,7 @@ class NetworkClient(
                     Result.failure(Exception("No response received"))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending command", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "Error sending command")
                 Result.failure(e)
             }
         }
@@ -320,6 +320,36 @@ class NetworkClient(
         )
     }
 
+    /**
+     * Get Air-Side configuration
+     *
+     * Retrieves complete merged configuration from Air-Side (default + environment overrides).
+     * Part of Issue #170 - Phase 1: Configuration Management
+     *
+     * @return Command response with configuration in result.config field
+     */
+    suspend fun getConfig(): Result<ResponsePayload> {
+        return sendCommand("system.get_config")
+    }
+
+    /**
+     * Update Air-Side configuration at runtime
+     *
+     * Updates Air-Side configuration with provided values. Changes are persisted
+     * to development.json and applied immediately where possible.
+     * Part of Issue #170 - Phase 1: Configuration Management
+     *
+     * @param updates Configuration updates in nested key format
+     *                Example: {"network.tcp_port": 5001, "logging.level": "DEBUG"}
+     * @return Command response with updated/failed keys and restart_required flag
+     */
+    suspend fun updateConfig(updates: Map<String, Any>): Result<ResponsePayload> {
+        return sendCommand(
+            "system.update_config",
+            mapOf("updates" to updates)
+        )
+    }
+
     private suspend fun connectTcp() {
         val address = InetAddress.getByName(settings.targetIp)
         tcpSocket = withContext(Dispatchers.IO) {
@@ -354,7 +384,7 @@ class NetworkClient(
         // Wait for handshake response
         val response = tcpReader?.readLine()
         if (response != null) {
-            Log.i(TAG, "Handshake response: $response")
+            Timber.tag(LogContext.NETWORK.label).i("Handshake response: $response")
             // Parse and validate handshake response
             updateConnectionState(ConnectionState.OPERATIONAL)
         }
@@ -368,7 +398,7 @@ class NetworkClient(
                     reuseAddress = true
                     bind(java.net.InetSocketAddress(settings.statusListenPort))
                 }
-                Log.d(TAG, "UDP status listener bound to port ${settings.statusListenPort}")
+                Timber.tag(LogContext.NETWORK.label).d("UDP status listener bound to port ${settings.statusListenPort}")
                 val buffer = ByteArray(4096)
 
                 while (isActive) {
@@ -376,7 +406,7 @@ class NetworkClient(
                     udpSocket?.receive(packet)
 
                     val json = String(packet.data, 0, packet.length)
-                    Log.d(TAG, "Received UDP status: $json")
+                    Timber.tag(LogContext.NETWORK.label).d("Received UDP status: $json")
                     try {
                         val statusMessage = gson.fromJson(json, BaseMessage::class.java)
                         val statusPayload = gson.fromJson(
@@ -387,14 +417,14 @@ class NetworkClient(
                         // Update state flows
                         _cameraStatus.value = statusPayload.camera
                         _systemStatus.value = statusPayload.system
-                        Log.d(TAG, "System status updated: uptime=${statusPayload.system.uptimeSeconds}s, cpu=${statusPayload.system.cpuPercent}%")
+                        Timber.tag(LogContext.NETWORK.label).d("System status updated: uptime=${statusPayload.system.uptimeSeconds}s, cpu=${statusPayload.system.cpuPercent}%")
 
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing status message: $json", e)
+                        Timber.tag(LogContext.NETWORK.label).e(e, "Error parsing status message: $json")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "UDP status listener error", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "UDP status listener error")
             }
         }
     }
@@ -440,7 +470,7 @@ class NetworkClient(
                     delay(settings.heartbeatIntervalMs)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Heartbeat sender error", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "Heartbeat sender error")
             }
         }
     }
@@ -460,7 +490,7 @@ class NetworkClient(
                     bind(java.net.InetSocketAddress(receivePort))
                 }
 
-                Log.d(TAG, "Heartbeat receiver listening on port $receivePort")
+                Timber.tag(LogContext.NETWORK.label).d("Heartbeat receiver listening on port $receivePort")
 
                 val buffer = ByteArray(4096)
                 while (isActive) {
@@ -469,7 +499,7 @@ class NetworkClient(
                         heartbeatReceiveSocket?.receive(packet)
 
                         val json = String(packet.data, 0, packet.length)
-                        Log.d(TAG, "Received heartbeat: ${json.take(200)}")
+                        Timber.tag(LogContext.NETWORK.label).d("Received heartbeat: ${json.take(200)}")
 
                         // Parse heartbeat
                         try {
@@ -480,25 +510,25 @@ class NetworkClient(
                                 _connectionStatus.value = _connectionStatus.value.copy(
                                     lastHeartbeatReceivedMs = now
                                 )
-                                Log.d(TAG, "Heartbeat received from Air-Side at $now")
+                                Timber.tag(LogContext.NETWORK.label).d("Heartbeat received from Air-Side at $now")
                             }
                         } catch (e: Exception) {
-                            Log.w(TAG, "Failed to parse heartbeat: ${e.message}")
+                            Timber.tag(LogContext.NETWORK.label).w("Failed to parse heartbeat: ${e.message}")
                         }
 
                     } catch (e: SocketException) {
                         if (isActive) {
-                            Log.w(TAG, "Heartbeat receiver socket error: ${e.message}")
+                            Timber.tag(LogContext.NETWORK.label).w("Heartbeat receiver socket error: ${e.message}")
                         }
                         break
                     } catch (e: Exception) {
                         if (isActive) {
-                            Log.w(TAG, "Heartbeat receiver error: ${e.message}")
+                            Timber.tag(LogContext.NETWORK.label).w("Heartbeat receiver error: ${e.message}")
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Heartbeat receiver init error", e)
+                Timber.tag(LogContext.NETWORK.label).e(e, "Heartbeat receiver init error")
             }
         }
     }
@@ -510,7 +540,7 @@ class NetworkClient(
         heartbeatWatchdogJob = scope.launch {
             // Wait a bit before starting monitoring (give time for first heartbeat)
             delay(3000)
-            Log.d(TAG, "Heartbeat watchdog monitoring started")
+            Timber.tag(LogContext.NETWORK.label).d("Heartbeat watchdog monitoring started")
 
             while (isActive) {
                 val status = _connectionStatus.value
@@ -523,7 +553,7 @@ class NetworkClient(
                     val timeSince = status.timeSinceLastHeartbeat()
                     val timeSinceConnect = System.currentTimeMillis() - status.connectionStartedMs
 
-                    Log.d(TAG, "Watchdog check - isAlive: $isAlive, lastRx: ${status.lastHeartbeatReceivedMs}, " +
+                    Timber.tag(LogContext.NETWORK.label).d("Watchdog check - isAlive: $isAlive, lastRx: ${status.lastHeartbeatReceivedMs}, " +
                               "timeSinceLastRx: ${timeSince}ms, timeSinceConnect: ${timeSinceConnect}ms")
 
                     if (!isAlive) {
@@ -532,7 +562,7 @@ class NetworkClient(
                         } else {
                             "Heartbeat timeout: No response from Air-Side for ${timeSince}ms"
                         }
-                        Log.e(TAG, errorMsg)
+                        Timber.tag(LogContext.NETWORK.label).e(errorMsg)
 
                         updateConnectionState(
                             ConnectionState.ERROR,
@@ -573,13 +603,13 @@ class NetworkClient(
         try {
             tcpWriter?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing TCP writer", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing TCP writer")
         }
 
         try {
             tcpReader?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing TCP reader", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing TCP reader")
         }
 
         try {
@@ -593,25 +623,25 @@ class NetworkClient(
         try {
             tcpSocket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing TCP socket", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing TCP socket")
         }
 
         try {
             udpSocket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing UDP socket", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing UDP socket")
         }
 
         try {
             heartbeatSendSocket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing heartbeat send socket", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing heartbeat send socket")
         }
 
         try {
             heartbeatReceiveSocket?.close()
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing heartbeat receive socket", e)
+            Timber.tag(LogContext.NETWORK.label).e(e, "Error closing heartbeat receive socket")
         }
 
         // Null out references
@@ -678,7 +708,7 @@ class NetworkClient(
      * @return ResponsePayload to send back
      */
     private fun handleIncomingDiagnosticCommand(command: CommandPayload): ResponsePayload {
-        Log.d(TAG, "Handling incoming diagnostic command: ${command.command}")
+        Timber.tag(LogContext.COMMAND.label).d("Handling incoming diagnostic command: ${command.command}")
 
         return try {
             if (command.command.startsWith("diagnostics.")) {
@@ -696,7 +726,7 @@ class NetworkClient(
                 )
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling incoming command", e)
+            Timber.tag(LogContext.COMMAND.label).e(e, "Error handling incoming command")
             ResponsePayload(
                 command = command.command,
                 status = "error",
@@ -724,12 +754,12 @@ class NetworkClient(
                 )
 
                 val json = gson.toJson(message)
-                Log.d(TAG, "Sending diagnostic response: $json")
+                Timber.tag(LogContext.COMMAND.label).d("Sending diagnostic response: $json")
 
                 tcpWriter?.println(json)
                 tcpWriter?.flush()
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending diagnostic response", e)
+                Timber.tag(LogContext.COMMAND.label).e(e, "Error sending diagnostic response")
             }
         }
     }

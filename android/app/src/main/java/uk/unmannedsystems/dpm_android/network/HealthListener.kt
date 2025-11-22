@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.network
 
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import kotlinx.coroutines.CoroutineScope
@@ -10,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.model.HealthSnapshot
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -34,8 +35,7 @@ class HealthListener(
     private val bufferSize: Int = 4096
 ) {
     companion object {
-        private const val TAG = "HealthListener"
-        private const val SOCKET_TIMEOUT_MS = 5000 // 5 seconds
+            private const val SOCKET_TIMEOUT_MS = 5000 // 5 seconds
         private const val STALE_THRESHOLD_MS = 15000L // 15 seconds
     }
 
@@ -70,11 +70,11 @@ class HealthListener(
      */
     fun start() {
         if (isRunning) {
-            Log.w(TAG, "HealthListener already running")
+            Timber.tag(LogContext.HEALTH.label).w( "HealthListener already running")
             return
         }
 
-        Log.i(TAG, "Starting HealthListener on port $port")
+        Timber.tag(LogContext.HEALTH.label).i( "Starting HealthListener on port $port")
         isRunning = true
 
         // Launch UDP listener coroutine
@@ -85,13 +85,13 @@ class HealthListener(
                     reuseAddress = true
                 }
 
-                Log.i(TAG, "UDP socket bound to port $port")
+                Timber.tag(LogContext.HEALTH.label).i( "UDP socket bound to port $port")
                 _isConnected.value = true
 
                 listenLoop()
 
             } catch (e: SocketException) {
-                Log.e(TAG, "Failed to create UDP socket: ${e.message}", e)
+                Timber.tag(LogContext.HEALTH.label).e(e, "Failed to create UDP socket: ${e.message}")
                 _isConnected.value = false
                 _errorCount.value += 1
             } finally {
@@ -117,7 +117,7 @@ class HealthListener(
                 socket?.receive(packet)
 
                 val data = String(packet.data, 0, packet.length)
-                Log.d(TAG, "Received health broadcast (${packet.length} bytes) from ${packet.address}:${packet.port}")
+                Timber.tag(LogContext.HEALTH.label).d( "Received health broadcast (${packet.length} bytes) from ${packet.address}:${packet.port}")
 
                 // Parse JSON to HealthSnapshot
                 val health = parseHealthSnapshot(data)
@@ -126,27 +126,27 @@ class HealthListener(
                     _lastReceivedTime.value = System.currentTimeMillis()
                     _isStale.value = false
 
-                    Log.v(TAG, "Health update: CPU=${health.system.cpuPercent}%, " +
+                    Timber.tag(LogContext.HEALTH.label).v("Health update: CPU=${health.system.cpuPercent}%, " +
                             "MEM=${health.system.memoryPercent.toInt()}%, " +
                             "CAM=${if (health.camera.connected) "connected" else "disconnected"}")
                 } else {
-                    Log.w(TAG, "Failed to parse health broadcast")
+                    Timber.tag(LogContext.HEALTH.label).w( "Failed to parse health broadcast")
                     _errorCount.value += 1
                 }
 
             } catch (e: SocketTimeoutException) {
                 // Timeout is normal - continue listening
-                Log.v(TAG, "Socket timeout (no data received in ${SOCKET_TIMEOUT_MS}ms)")
+                Timber.tag(LogContext.HEALTH.label).v("Socket timeout (no data received in ${SOCKET_TIMEOUT_MS}ms)")
 
             } catch (e: SocketException) {
                 if (isRunning) {
-                    Log.e(TAG, "Socket error: ${e.message}", e)
+                    Timber.tag(LogContext.HEALTH.label).e(e, "Socket error: ${e.message}")
                     _errorCount.value += 1
                 }
                 break
 
             } catch (e: Exception) {
-                Log.e(TAG, "Unexpected error in listen loop: ${e.message}", e)
+                Timber.tag(LogContext.HEALTH.label).e(e, "Unexpected error in listen loop: ${e.message}")
                 _errorCount.value += 1
             }
         }
@@ -167,9 +167,9 @@ class HealthListener(
                 if (isCurrentlyStale != _isStale.value) {
                     _isStale.value = isCurrentlyStale
                     if (isCurrentlyStale) {
-                        Log.w(TAG, "Health data is STALE (no updates for ${elapsed}ms)")
+                        Timber.tag(LogContext.HEALTH.label).w( "Health data is STALE (no updates for ${elapsed}ms)")
                     } else {
-                        Log.i(TAG, "Health data is FRESH again")
+                        Timber.tag(LogContext.HEALTH.label).i( "Health data is FRESH again")
                     }
                 }
             }
@@ -183,11 +183,11 @@ class HealthListener(
         return try {
             gson.fromJson(json, HealthSnapshot::class.java)
         } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "JSON parsing error: ${e.message}", e)
-            Log.e(TAG, "Invalid JSON: $json")
+            Timber.tag(LogContext.HEALTH.label).e(e, "JSON parsing error: ${e.message}")
+            Timber.tag(LogContext.HEALTH.label).e("Invalid JSON: $json")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected parsing error: ${e.message}", e)
+            Timber.tag(LogContext.HEALTH.label).e(e, "Unexpected parsing error: ${e.message}")
             null
         }
     }
@@ -197,11 +197,11 @@ class HealthListener(
      */
     fun stop() {
         if (!isRunning) {
-            Log.w(TAG, "HealthListener not running")
+            Timber.tag(LogContext.HEALTH.label).w( "HealthListener not running")
             return
         }
 
-        Log.i(TAG, "Stopping HealthListener")
+        Timber.tag(LogContext.HEALTH.label).i( "Stopping HealthListener")
         isRunning = false
         cleanup()
     }
@@ -214,9 +214,9 @@ class HealthListener(
             socket?.close()
             socket = null
             _isConnected.value = false
-            Log.i(TAG, "HealthListener stopped and cleaned up")
+            Timber.tag(LogContext.HEALTH.label).i( "HealthListener stopped and cleaned up")
         } catch (e: Exception) {
-            Log.e(TAG, "Error during cleanup: ${e.message}", e)
+            Timber.tag(LogContext.HEALTH.label).e(e, "Error during cleanup: ${e.message}")
         }
     }
 

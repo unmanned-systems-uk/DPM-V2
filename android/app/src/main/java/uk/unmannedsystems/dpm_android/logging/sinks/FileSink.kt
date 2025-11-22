@@ -1,7 +1,8 @@
 package uk.unmannedsystems.dpm_android.logging.sinks
 
-import android.util.Log
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.logging.LogEntry
+import uk.unmannedsystems.dpm_android.logging.StructuredLogger
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -37,15 +38,15 @@ class FileSink(
         // Ensure log directory exists
         if (!logDir.exists()) {
             logDir.mkdirs()
-            Log.i(TAG, "Created log directory: ${logDir.absolutePath}")
+            StructuredLogger.info(LogContext.STORAGE, "Created log directory: ${logDir.absolutePath}")
         }
 
         // Open the current log file
         try {
             writer = BufferedWriter(FileWriter(currentFile, true))
-            Log.i(TAG, "FileSink initialized: ${currentFile.absolutePath}")
+            StructuredLogger.info(LogContext.STORAGE, "FileSink initialized: ${currentFile.absolutePath}")
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to open log file", e)
+            StructuredLogger.error(LogContext.STORAGE, "Failed to open log file: ${e.message}")
         }
     }
 
@@ -64,7 +65,7 @@ class FileSink(
             writer?.write(entry.toJson())
             writer?.newLine()
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to write log entry", e)
+            StructuredLogger.error(LogContext.STORAGE, "Failed to write log entry: ${e.message}")
         }
     }
 
@@ -76,7 +77,7 @@ class FileSink(
         try {
             writer?.flush()
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to flush log file", e)
+            StructuredLogger.error(LogContext.STORAGE, "Failed to flush log file: ${e.message}")
         }
     }
 
@@ -88,9 +89,9 @@ class FileSink(
         try {
             writer?.flush()
             writer?.close()
-            Log.i(TAG, "FileSink closed")
+            StructuredLogger.info(LogContext.STORAGE, "FileSink closed")
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to close log file", e)
+            StructuredLogger.error(LogContext.STORAGE, "Failed to close log file: ${e.message}")
         }
     }
 
@@ -106,7 +107,7 @@ class FileSink(
      * 6. Open new writer
      */
     private fun rotate() {
-        Log.i(TAG, "Rotating log files (current size: ${currentFile.length() / 1024 / 1024} MB)")
+        StructuredLogger.info(LogContext.STORAGE, "Rotating log files (current size: ${currentFile.length() / 1024 / 1024} MB)")
 
         try {
             // Close current writer
@@ -117,7 +118,7 @@ class FileSink(
             val oldestFile = File(logDir, "$baseFileName.$maxRotatedFiles.jsonl")
             if (oldestFile.exists()) {
                 oldestFile.delete()
-                Log.d(TAG, "Deleted oldest log file: ${oldestFile.name}")
+                StructuredLogger.debug(LogContext.STORAGE, "Deleted oldest log file: ${oldestFile.name}")
             }
 
             // Rename existing rotated files (increment number)
@@ -126,21 +127,21 @@ class FileSink(
                 val destFile = File(logDir, "$baseFileName.${i + 1}.jsonl")
                 if (sourceFile.exists()) {
                     sourceFile.renameTo(destFile)
-                    Log.d(TAG, "Renamed ${sourceFile.name} -> ${destFile.name}")
+                    StructuredLogger.debug(LogContext.STORAGE, "Renamed ${sourceFile.name} -> ${destFile.name}")
                 }
             }
 
             // Rename current file to .1.jsonl
             val rotatedFile = File(logDir, "$baseFileName.1.jsonl")
             currentFile.renameTo(rotatedFile)
-            Log.d(TAG, "Renamed ${currentFile.name} -> ${rotatedFile.name}")
+            StructuredLogger.debug(LogContext.STORAGE, "Renamed ${currentFile.name} -> ${rotatedFile.name}")
 
             // Create new current file
             currentFile = File(logDir, baseFileName)
             writer = BufferedWriter(FileWriter(currentFile, true))
-            Log.i(TAG, "Created new log file: ${currentFile.name}")
+            StructuredLogger.info(LogContext.STORAGE, "Created new log file: ${currentFile.name}")
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to rotate log files", e)
+            StructuredLogger.error(LogContext.STORAGE, "Failed to rotate log files: ${e.message}")
         }
     }
 }

@@ -5,8 +5,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Debug
 import android.os.Process
-import android.util.Log
+import timber.log.Timber
 import uk.unmannedsystems.dpm_android.BuildConfig
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.network.NetworkManager
 import java.text.SimpleDateFormat
 import java.util.*
@@ -25,8 +26,6 @@ import java.util.*
  */
 class AppStatusTracker(private val context: Context) {
     companion object {
-        private const val TAG = "AppStatusTracker"
-
         // Singleton instance to track errors and state across app
         @Volatile
         private var instance: AppStatusTracker? = null
@@ -78,7 +77,7 @@ class AppStatusTracker(private val context: Context) {
                 val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                 packageInfo.versionName ?: "unknown"
             } catch (e2: Exception) {
-                Log.e(TAG, "Error getting app version", e2)
+                Timber.tag(LogContext.SYSTEM.label).e(e2, "Error getting app version")
                 "unknown"
             }
         }
@@ -124,7 +123,7 @@ class AppStatusTracker(private val context: Context) {
             connectionStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.OPERATIONAL ||
             connectionStatus.state == uk.unmannedsystems.dpm_android.network.ConnectionState.CONNECTED
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking Air-Side connection", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error checking Air-Side connection")
             false
         }
 
@@ -155,7 +154,7 @@ class AppStatusTracker(private val context: Context) {
             Thread.activeCount()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting thread count", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error getting thread count")
             -1
         }
     }
@@ -179,7 +178,7 @@ class AppStatusTracker(private val context: Context) {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting memory usage", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "Error getting memory usage")
             -1f
         }
     }
@@ -192,7 +191,7 @@ class AppStatusTracker(private val context: Context) {
     fun recordError(error: String) {
         lastError = error
         lastErrorTime = getCurrentTimestampISO()
-        Log.e(TAG, "Error recorded: $error at $lastErrorTime")
+        Timber.tag(LogContext.SYSTEM.label).e("Error recorded: $error at $lastErrorTime")
     }
 
     /**
@@ -201,7 +200,7 @@ class AppStatusTracker(private val context: Context) {
     fun clearError() {
         lastError = null
         lastErrorTime = null
-        Log.d(TAG, "Error cleared")
+        Timber.tag(LogContext.SYSTEM.label).d("Error cleared")
     }
 
     /**

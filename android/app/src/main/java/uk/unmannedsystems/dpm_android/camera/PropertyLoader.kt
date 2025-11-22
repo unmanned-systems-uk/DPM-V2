@@ -1,8 +1,9 @@
 package uk.unmannedsystems.dpm_android.camera
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONObject
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 
 /**
  * PropertyLoader - Loads and validates camera property values from specification JSON
@@ -28,7 +29,6 @@ import org.json.JSONObject
  * See: docs/CC_READ_THIS_FIRST.md lines 29-111 for specification-first rules
  */
 object PropertyLoader {
-    private const val TAG = "PropertyLoader"
     private const val JSON_FILENAME = "camera_properties.json"
 
     private var initialized = false
@@ -47,11 +47,11 @@ object PropertyLoader {
      */
     fun initialize(context: Context): Boolean {
         if (initialized) {
-            Log.w(TAG, "PropertyLoader.initialize() called multiple times - ignoring")
+            Timber.tag(LogContext.CAMERA.label).w( "PropertyLoader.initialize() called multiple times - ignoring")
             return true
         }
 
-        Log.i(TAG, "PropertyLoader: Loading camera properties from $JSON_FILENAME")
+        Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Loading camera properties from $JSON_FILENAME")
 
         try {
             // Load JSON from assets
@@ -63,7 +63,7 @@ object PropertyLoader {
 
             // Validate JSON structure
             if (!spec.has("properties")) {
-                Log.e(TAG, "PropertyLoader: Invalid JSON - missing 'properties' field")
+                Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Invalid JSON - missing 'properties' field")
                 return false
             }
 
@@ -79,17 +79,17 @@ object PropertyLoader {
                         for (i in 0 until values.length()) {
                             isoValues.add(values.getString(i))
                         }
-                        Log.i(TAG, "PropertyLoader: Loaded ${isoValues.size} ISO values")
+                        Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Loaded ${isoValues.size} ISO values")
                     } else {
-                        Log.e(TAG, "PropertyLoader: ISO validation missing 'values'")
+                        Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: ISO validation missing 'values'")
                         return false
                     }
                 } else {
-                    Log.e(TAG, "PropertyLoader: ISO property missing 'validation'")
+                    Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: ISO property missing 'validation'")
                     return false
                 }
             } else {
-                Log.e(TAG, "PropertyLoader: Missing 'iso' property in JSON")
+                Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Missing 'iso' property in JSON")
                 return false
             }
 
@@ -103,17 +103,17 @@ object PropertyLoader {
                         for (i in 0 until values.length()) {
                             shutterSpeedValues.add(values.getString(i))
                         }
-                        Log.i(TAG, "PropertyLoader: Loaded ${shutterSpeedValues.size} shutter speed values")
+                        Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Loaded ${shutterSpeedValues.size} shutter speed values")
                     } else {
-                        Log.e(TAG, "PropertyLoader: Shutter speed validation missing 'values'")
+                        Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Shutter speed validation missing 'values'")
                         return false
                     }
                 } else {
-                    Log.e(TAG, "PropertyLoader: Shutter speed property missing 'validation'")
+                    Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Shutter speed property missing 'validation'")
                     return false
                 }
             } else {
-                Log.e(TAG, "PropertyLoader: Missing 'shutter_speed' property in JSON")
+                Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Missing 'shutter_speed' property in JSON")
                 return false
             }
 
@@ -127,39 +127,39 @@ object PropertyLoader {
                         for (i in 0 until values.length()) {
                             apertureValues.add(values.getString(i))
                         }
-                        Log.i(TAG, "PropertyLoader: Loaded ${apertureValues.size} aperture values")
+                        Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Loaded ${apertureValues.size} aperture values")
                     } else {
-                        Log.e(TAG, "PropertyLoader: Aperture validation missing 'values'")
+                        Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Aperture validation missing 'values'")
                         return false
                     }
                 } else {
-                    Log.e(TAG, "PropertyLoader: Aperture property missing 'validation'")
+                    Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Aperture property missing 'validation'")
                     return false
                 }
             } else {
-                Log.e(TAG, "PropertyLoader: Missing 'aperture' property in JSON")
+                Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader: Missing 'aperture' property in JSON")
                 return false
             }
 
             // Validation: Ensure we loaded expected counts
             if (isoValues.size < 10) {
-                Log.w(TAG, "PropertyLoader: Only loaded ${isoValues.size} ISO values - expected ~35")
+                Timber.tag(LogContext.CAMERA.label).w( "PropertyLoader: Only loaded ${isoValues.size} ISO values - expected ~35")
             }
             if (shutterSpeedValues.size < 10) {
-                Log.w(TAG, "PropertyLoader: Only loaded ${shutterSpeedValues.size} shutter speed values - expected ~56")
+                Timber.tag(LogContext.CAMERA.label).w( "PropertyLoader: Only loaded ${shutterSpeedValues.size} shutter speed values - expected ~56")
             }
             if (apertureValues.size < 5) {
-                Log.w(TAG, "PropertyLoader: Only loaded ${apertureValues.size} aperture values - expected ~23")
+                Timber.tag(LogContext.CAMERA.label).w( "PropertyLoader: Only loaded ${apertureValues.size} aperture values - expected ~23")
             }
 
             initialized = true
-            Log.i(TAG, "PropertyLoader: Initialization complete")
-            Log.i(TAG, "PropertyLoader: Loaded total of ${isoValues.size + shutterSpeedValues.size + apertureValues.size} property values from specification")
+            Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Initialization complete")
+            Timber.tag(LogContext.CAMERA.label).i( "PropertyLoader: Loaded total of ${isoValues.size + shutterSpeedValues.size + apertureValues.size} property values from specification")
 
             return true
 
         } catch (e: Exception) {
-            Log.e(TAG, "PropertyLoader: Unexpected error during initialization", e)
+            Timber.tag(LogContext.CAMERA.label).e(e, "PropertyLoader: Unexpected error during initialization")
             return false
         }
     }
@@ -185,7 +185,7 @@ object PropertyLoader {
      */
     fun getIsoValues(): Set<String> {
         if (!initialized) {
-            Log.e(TAG, "PropertyLoader.getIsoValues() called before initialization!")
+            Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader.getIsoValues() called before initialization!")
             return emptySet()
         }
         return isoValues.toSet()
@@ -204,7 +204,7 @@ object PropertyLoader {
      */
     fun getShutterSpeedValues(): Set<String> {
         if (!initialized) {
-            Log.e(TAG, "PropertyLoader.getShutterSpeedValues() called before initialization!")
+            Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader.getShutterSpeedValues() called before initialization!")
             return emptySet()
         }
         return shutterSpeedValues.toSet()
@@ -219,7 +219,7 @@ object PropertyLoader {
      */
     fun getApertureValues(): Set<String> {
         if (!initialized) {
-            Log.e(TAG, "PropertyLoader.getApertureValues() called before initialization!")
+            Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader.getApertureValues() called before initialization!")
             return emptySet()
         }
         return apertureValues.toSet()
@@ -234,7 +234,7 @@ object PropertyLoader {
      */
     fun isValidValue(property: String, value: String): Boolean {
         if (!initialized) {
-            Log.e(TAG, "PropertyLoader.isValidValue() called before initialization!")
+            Timber.tag(LogContext.CAMERA.label).e( "PropertyLoader.isValidValue() called before initialization!")
             return false
         }
 
@@ -247,7 +247,7 @@ object PropertyLoader {
                 apertureValues.any { it.removePrefix("f/") == normalizedValue }
             }
             else -> {
-                Log.w(TAG, "PropertyLoader.isValidValue() called with unknown property: $property")
+                Timber.tag(LogContext.CAMERA.label).w( "PropertyLoader.isValidValue() called with unknown property: $property")
                 false
             }
         }

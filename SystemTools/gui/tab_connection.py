@@ -436,6 +436,12 @@ class ConnectionTab(ttk.Frame):
             self.main_window.tcp_client = self.tcp_client
             logger.info("NETWORK", "TCP client shared with main window")
 
+            # CRITICAL FIX: Update Camera Dashboard's tcp_client reference
+            # Fixes issue where camera tab holds stale reference after reconnect
+            if hasattr(self.main_window, 'camera_tab'):
+                self.main_window.camera_tab.set_tcp_client(self.tcp_client)
+                logger.info("NETWORK", "TCP client reference updated in Camera Dashboard")
+
         return True
 
     def _create_ssh_client(self) -> bool:
@@ -562,6 +568,12 @@ class ConnectionTab(ttk.Frame):
         self.tcp_label.config(text="Connected")
         self.log.append("✓ TCP Connected", "SUCCESS")
         self._update_button_states()
+
+        # CRITICAL FIX: Update Camera Dashboard's tcp_client reference on every connection
+        # Ensures camera tab always has current tcp_client instance
+        if self.main_window and hasattr(self.main_window, 'camera_tab'):
+            self.main_window.camera_tab.set_tcp_client(self.tcp_client)
+            logger.debug("NETWORK", "Camera Dashboard tcp_client reference updated on connection")
 
     def _on_tcp_disconnected_callback(self):
         """TCP disconnected"""

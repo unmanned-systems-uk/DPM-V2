@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.ui.settings
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -9,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.model.*
 import uk.unmannedsystems.dpm_android.network.NetworkManager
 
@@ -28,9 +29,6 @@ import uk.unmannedsystems.dpm_android.network.NetworkManager
  */
 class AdvancedSettingsViewModel : ViewModel() {
 
-    companion object {
-        private const val TAG = "AdvancedSettingsVM"
-    }
 
     private val gson = Gson()
 
@@ -39,7 +37,7 @@ class AdvancedSettingsViewModel : ViewModel() {
     val uiState: StateFlow<AdvancedSettingsUiState> = _uiState.asStateFlow()
 
     init {
-        Log.i(TAG, "AdvancedSettingsViewModel initialized")
+        Timber.tag(LogContext.CONFIG.label).i( "AdvancedSettingsViewModel initialized")
         observeConnectionStatus()
     }
 
@@ -64,13 +62,13 @@ class AdvancedSettingsViewModel : ViewModel() {
      * Fetch configuration from Air-Side
      */
     fun fetchConfig() {
-        Log.i(TAG, "Fetching configuration from Air-Side")
+        Timber.tag(LogContext.CONFIG.label).i( "Fetching configuration from Air-Side")
         _uiState.update { it.copy(isLoading = true, error = null) }
 
         viewModelScope.launch {
             try {
-                // Send get_config command to Air-Side
-                val result = NetworkManager.sendCommand("get_config", emptyMap())
+                // Send get_config command to Air-Side using NetworkManager API
+                val result = NetworkManager.getConfig()
 
                 result.fold(
                     onSuccess = { response ->
@@ -89,7 +87,7 @@ class AdvancedSettingsViewModel : ViewModel() {
                                     error = null
                                 )
                             }
-                            Log.i(TAG, "Configuration fetched successfully")
+                            Timber.tag(LogContext.CONFIG.label).i( "Configuration fetched successfully")
                         } else {
                             throw Exception("Invalid response: missing 'config' field")
                         }
@@ -100,7 +98,7 @@ class AdvancedSettingsViewModel : ViewModel() {
                 )
 
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch configuration: ${e.message}", e)
+                Timber.tag(LogContext.CONFIG.label).e(e, "Failed to fetch configuration: ${e.message}")
 
                 // Check if command is not supported by Air-Side
                 val errorMsg = e.message ?: ""
@@ -109,7 +107,7 @@ class AdvancedSettingsViewModel : ViewModel() {
 
                 if (isCommandNotSupported) {
                     // Gracefully handle unsupported command - use default config
-                    Log.w(TAG, "Air-Side does not support get_config command, using default config")
+                    Timber.tag(LogContext.CONFIG.label).w( "Air-Side does not support get_config command, using default config")
                     val defaultConfig = AirSideConfig.createDefault()
                     _uiState.update {
                         it.copy(
@@ -190,14 +188,14 @@ class AdvancedSettingsViewModel : ViewModel() {
      */
     fun saveConfig() {
         val config = _uiState.value.config ?: run {
-            Log.w(TAG, "No configuration to save")
+            Timber.tag(LogContext.CONFIG.label).w( "No configuration to save")
             return
         }
 
         // Validate configuration
         val validationResult = config.validate()
         if (!validationResult.isValid) {
-            Log.w(TAG, "Configuration validation failed: ${validationResult.errorMessage}")
+            Timber.tag(LogContext.CONFIG.label).w( "Configuration validation failed: ${validationResult.errorMessage}")
             _uiState.update {
                 it.copy(
                     error = "Validation failed:\n${validationResult.errorMessage}",
@@ -207,7 +205,7 @@ class AdvancedSettingsViewModel : ViewModel() {
             return
         }
 
-        Log.i(TAG, "Saving configuration to Air-Side")
+        Timber.tag(LogContext.CONFIG.label).i( "Saving configuration to Air-Side")
         _uiState.update { it.copy(isSaving = true, error = null, validationErrors = emptyList()) }
 
         viewModelScope.launch {
@@ -216,8 +214,12 @@ class AdvancedSettingsViewModel : ViewModel() {
                 val configJson = gson.toJson(config)
                 val configMap = gson.fromJson(configJson, Map::class.java) as Map<String, Any>
 
-                // Send update_config command to Air-Side
-                val result = NetworkManager.sendCommand("update_config", mapOf("config" to configMap))
+                // Flatten nested config to dot notation format (e.g., "logging.level": "DEBUG")
+                // Air-Side expects flat keys, not nested objects
+                val flattenedConfig = flattenConfig(configMap)
+
+                // Send update_config command to Air-Side using NetworkManager API
+                val result = NetworkManager.updateConfig(flattenedConfig)
 
                 result.fold(
                     onSuccess = { response ->
@@ -231,7 +233,7 @@ class AdvancedSettingsViewModel : ViewModel() {
                                     successMessage = "Configuration saved successfully"
                                 )
                             }
-                            Log.i(TAG, "Configuration saved successfully")
+                            Timber.tag(LogContext.CONFIG.label).i( "Configuration saved successfully")
 
                             // Check if restart is required
                             if (requiresRestart(config)) {
@@ -251,7 +253,7 @@ class AdvancedSettingsViewModel : ViewModel() {
                 )
 
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to save configuration: ${e.message}", e)
+                Timber.tag(LogContext.CONFIG.label).e(e, "Failed to save configuration: ${e.message}")
                 _uiState.update {
                     it.copy(
                         isSaving = false,
@@ -266,7 +268,7 @@ class AdvancedSettingsViewModel : ViewModel() {
      * Reset configuration to defaults
      */
     fun resetToDefaults() {
-        Log.i(TAG, "Resetting configuration to defaults")
+        Timber.tag(LogContext.CONFIG.label).i( "Resetting configuration to defaults")
         val defaultConfig = AirSideConfig.createDefault()
         _uiState.update {
             it.copy(
@@ -281,7 +283,7 @@ class AdvancedSettingsViewModel : ViewModel() {
      * Discard unsaved changes
      */
     fun discardChanges() {
-        Log.i(TAG, "Discarding unsaved changes")
+        Timber.tag(LogContext.CONFIG.label).i( "Discarding unsaved changes")
         _uiState.update {
             it.copy(
                 config = it.originalConfig,
@@ -317,10 +319,10 @@ class AdvancedSettingsViewModel : ViewModel() {
                         validationErrors = emptyList()
                     )
                 }
-                Log.i(TAG, "Configuration imported successfully")
+                Timber.tag(LogContext.CONFIG.label).i( "Configuration imported successfully")
                 true
             } else {
-                Log.w(TAG, "Imported configuration is invalid: ${validationResult.errorMessage}")
+                Timber.tag(LogContext.CONFIG.label).w( "Imported configuration is invalid: ${validationResult.errorMessage}")
                 _uiState.update {
                     it.copy(
                         error = "Invalid configuration:\n${validationResult.errorMessage}",
@@ -331,7 +333,7 @@ class AdvancedSettingsViewModel : ViewModel() {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to import configuration: ${e.message}", e)
+            Timber.tag(LogContext.CONFIG.label).e(e, "Failed to import configuration: ${e.message}")
             _uiState.update {
                 it.copy(error = "Failed to import config: ${e.message}")
             }
@@ -370,6 +372,39 @@ class AdvancedSettingsViewModel : ViewModel() {
         if (newConfig.logging.fileLoggingEnabled != original.logging.fileLoggingEnabled) return true
 
         return false
+    }
+
+    /**
+     * Flatten nested configuration map to dot notation format
+     *
+     * Converts nested structure:
+     *   {"logging": {"level": "DEBUG", "file_enabled": true}}
+     * To flat dot notation:
+     *   {"logging.level": "DEBUG", "logging.file_enabled": true}
+     *
+     * Air-Side expects dot notation to update individual fields without
+     * replacing entire sections.
+     */
+    private fun flattenConfig(map: Map<String, Any>, prefix: String = ""): Map<String, Any> {
+        val result = mutableMapOf<String, Any>()
+
+        map.forEach { (key, value) ->
+            val newKey = if (prefix.isEmpty()) key else "$prefix.$key"
+
+            when (value) {
+                is Map<*, *> -> {
+                    // Recursively flatten nested maps
+                    @Suppress("UNCHECKED_CAST")
+                    result.putAll(flattenConfig(value as Map<String, Any>, newKey))
+                }
+                else -> {
+                    // Leaf value - add to result
+                    result[newKey] = value
+                }
+            }
+        }
+
+        return result
     }
 }
 

@@ -237,23 +237,37 @@ class PMAutomationTab:
 
                     # Domain details
                     for domain, status in result.get('domains', {}).items():
+                        health_status = status.get('health_status', 'UNKNOWN')
                         healthy = status.get('healthy', False)
-                        tag = "success" if healthy else "error"
+
+                        # Determine display based on health_status
+                        if health_status == 'HEALTHY':
+                            tag = "success"
+                            status_text = '✓ HEALTHY'
+                        elif health_status == 'DEGRADED':
+                            tag = "warning"
+                            status_text = '⚠ DEGRADED'
+                            if status.get('degraded_reason'):
+                                status_text += f" - {status['degraded_reason']}"
+                        elif health_status == 'UNHEALTHY':
+                            tag = "error"
+                            status_text = '✗ UNHEALTHY'
+                        else:
+                            # Fallback for domains without health_status
+                            tag = "success" if healthy else "error"
+                            status_text = '✓ HEALTHY' if healthy else '✗ UNHEALTHY'
+
                         self._append_result(f"  {domain}: ", "info")
-
-                        status_text = '✓ HEALTHY' if healthy else '✗ UNHEALTHY'
-
-                        # Add camera status for air_side
-                        if domain == 'air_side' and healthy:
-                            camera = status.get('camera', {})
-                            if camera.get('connected'):
-                                model = camera.get('model', 'Unknown')
-                                status_text += f" (Camera: ✓ {model})"
-                            else:
-                                status_text += " (Camera: ✗)"
-                                tag = "warning"  # Change to warning color
-
                         self._append_result(f"{status_text}\n", tag)
+
+                        # Show component breakdown if available
+                        if status.get('components'):
+                            for comp_name, comp_data in status['components'].items():
+                                comp_status = comp_data.get('status', 'UNKNOWN')
+                                comp_icon = "✓" if comp_status in ['UP', 'CONNECTED', 'ACTIVE', 'RUNNING'] else "✗"
+                                comp_tag = "success" if comp_icon == "✓" else "error"
+                                comp_display = comp_name.replace('_', ' ').title()
+                                self._append_result(f"    {comp_icon} {comp_display}: {comp_status}\n", comp_tag)
 
                     self._append_result("\n✅ Health check complete\n", "success")
                 else:
@@ -367,10 +381,21 @@ class PMAutomationTab:
             domains = self.last_health_check.get('domains', {})
             air_status = domains.get('air_side', {})
 
-            if air_status.get('healthy'):
+            health_status = air_status.get('health_status', 'UNKNOWN')
+
+            if health_status == 'HEALTHY':
                 self.air_status_label.config(text="✓ HEALTHY", foreground="green")
-            else:
+            elif health_status == 'DEGRADED':
+                degraded_reason = air_status.get('degraded_reason', 'System functional but not mission-ready')
+                self.air_status_label.config(text=f"⚠ DEGRADED - {degraded_reason}", foreground="orange")
+            elif health_status == 'UNHEALTHY':
                 self.air_status_label.config(text="✗ UNHEALTHY", foreground="red")
+            else:
+                # Fallback for backward compatibility
+                if air_status.get('healthy'):
+                    self.air_status_label.config(text="✓ HEALTHY", foreground="green")
+                else:
+                    self.air_status_label.config(text="✗ UNHEALTHY", foreground="red")
 
             # Update camera status
             camera = air_status.get('camera', {})

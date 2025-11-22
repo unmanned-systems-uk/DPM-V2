@@ -1,7 +1,6 @@
 package uk.unmannedsystems.dpm_android.video
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -18,6 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 
 /**
  * ViewModel for managing RTSP video stream playback using ExoPlayer
@@ -47,7 +48,6 @@ class VideoPlayerViewModel : ViewModel() {
     private var connectionStartTime: Long = 0
 
     companion object {
-        private const val TAG = "VideoPlayerViewModel"
         private const val RECONNECTION_DELAY_MS = 2000L
 
         // Latency optimization constants
@@ -76,10 +76,10 @@ class VideoPlayerViewModel : ViewModel() {
     fun initializePlayer(context: Context, rtspUrl: String, bufferDurationMs: Long = 500) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "========================================")
-                Log.d(TAG, "Initializing player for URL: $rtspUrl")
-                Log.d(TAG, "Buffer duration: ${bufferDurationMs}ms")
-                Log.d(TAG, "========================================")
+                Timber.tag(LogContext.SYSTEM.label).d("========================================")
+                Timber.tag(LogContext.SYSTEM.label).d("Initializing player for URL: $rtspUrl")
+                Timber.tag(LogContext.SYSTEM.label).d( "Buffer duration: ${bufferDurationMs}ms")
+                Timber.tag(LogContext.SYSTEM.label).d("========================================")
 
                 // Save connection parameters for auto-reconnection
                 lastContext = context
@@ -125,46 +125,46 @@ class VideoPlayerViewModel : ViewModel() {
                                         } else {
                                             "Unknown"
                                         }
-                                        Log.d(TAG, "Video ready: $resolution - Playing: ${this@apply.isPlaying}")
+                                        Timber.tag(LogContext.SYSTEM.label).d( "Video ready: $resolution - Playing: ${this@apply.isPlaying}")
                                         _videoState.value = VideoState.Connected(resolution)
                                         // Reset reconnection attempts on successful connection
                                         reconnectionAttempts = 0
                                     }
                                     Player.STATE_BUFFERING -> {
-                                        Log.d(TAG, "Video buffering...")
+                                        Timber.tag(LogContext.SYSTEM.label).d( "Video buffering...")
                                         _videoState.value = VideoState.Connecting
                                     }
                                     Player.STATE_ENDED -> {
-                                        Log.d(TAG, "Video ended")
+                                        Timber.tag(LogContext.SYSTEM.label).d( "Video ended")
                                     }
                                     Player.STATE_IDLE -> {
-                                        Log.d(TAG, "Player idle")
+                                        Timber.tag(LogContext.SYSTEM.label).d( "Player idle")
                                     }
                                 }
                             }
 
                             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                                Log.d(TAG, "Playback state changed - isPlaying: $isPlaying")
+                                Timber.tag(LogContext.SYSTEM.label).d( "Playback state changed - isPlaying: $isPlaying")
                                 if (isPlaying && !hasRenderedFirstFrame) {
                                     // Trigger PlayerView surface update ONLY before first frame
                                     _surfaceUpdateTrigger.value++
-                                    Log.d(TAG, "Surface update triggered (pre-first-frame)")
+                                    Timber.tag(LogContext.SYSTEM.label).d( "Surface update triggered (pre-first-frame)")
                                 }
                             }
 
                             override fun onRenderedFirstFrame() {
-                                Log.d(TAG, "✓✓✓ FIRST FRAME RENDERED ✓✓✓")
+                                Timber.tag(LogContext.SYSTEM.label).d( "✓✓✓ FIRST FRAME RENDERED ✓✓✓")
                                 hasRenderedFirstFrame = true
                             }
 
                             override fun onPlayerError(error: PlaybackException) {
                                 val errorMsg = error.message ?: "Unknown playback error"
-                                Log.e(TAG, "Player error: $errorMsg", error)
+                                Timber.tag(LogContext.SYSTEM.label).e(error, "Player error: $errorMsg")
 
                                 // Attempt automatic reconnection for network errors
                                 if (lastContext != null && lastRtspUrl != null && reconnectionAttempts < maxReconnectionAttempts) {
                                     reconnectionAttempts++
-                                    Log.d(TAG, "Attempting auto-reconnection (attempt $reconnectionAttempts/$maxReconnectionAttempts)")
+                                    Timber.tag(LogContext.SYSTEM.label).d( "Attempting auto-reconnection (attempt $reconnectionAttempts/$maxReconnectionAttempts)")
 
                                     viewModelScope.launch {
                                         kotlinx.coroutines.delay(RECONNECTION_DELAY_MS)
@@ -172,7 +172,7 @@ class VideoPlayerViewModel : ViewModel() {
                                     }
                                 } else {
                                     if (reconnectionAttempts >= maxReconnectionAttempts) {
-                                        Log.e(TAG, "Max reconnection attempts reached")
+                                        Timber.tag(LogContext.SYSTEM.label).e("Max reconnection attempts reached")
                                     }
                                     _videoState.value = VideoState.Error(errorMsg)
                                 }
@@ -189,10 +189,10 @@ class VideoPlayerViewModel : ViewModel() {
                 startLatencyMonitoring()
                 startPeriodicReconnect()
 
-                Log.d(TAG, "Player initialized successfully with latency optimizations")
+                Timber.tag(LogContext.SYSTEM.label).d( "Player initialized successfully with latency optimizations")
             } catch (e: Exception) {
                 val errorMsg = e.message ?: "Failed to initialize player"
-                Log.e(TAG, "Failed to initialize player", e)
+                Timber.tag(LogContext.SYSTEM.label).e(e, "Failed to initialize player")
                 _videoState.value = VideoState.Error(errorMsg)
             }
         }
@@ -202,7 +202,7 @@ class VideoPlayerViewModel : ViewModel() {
      * Release ExoPlayer resources and disconnect from stream
      */
     fun releasePlayer() {
-        Log.d(TAG, "Releasing player")
+        Timber.tag(LogContext.SYSTEM.label).d( "Releasing player")
 
         // Cancel monitoring jobs
         latencyMonitorJob?.cancel()
@@ -224,7 +224,7 @@ class VideoPlayerViewModel : ViewModel() {
      * Reconnect to the stream (useful after network interruption)
      */
     fun reconnect(context: Context, rtspUrl: String, bufferDurationMs: Long = 500) {
-        Log.d(TAG, "Reconnecting to stream")
+        Timber.tag(LogContext.SYSTEM.label).d( "Reconnecting to stream")
         releasePlayer()
         initializePlayer(context, rtspUrl, bufferDurationMs)
     }
@@ -251,22 +251,22 @@ class VideoPlayerViewModel : ViewModel() {
                     // Calculate latency (how far behind live edge we are)
                     val bufferAhead = bufferedPosition - currentPosition
 
-                    Log.d(TAG, "[Latency Monitor] Buffer: ${totalBuffer}ms | Buffer ahead: ${bufferAhead}ms | Position: ${currentPosition}ms")
+                    Timber.tag(LogContext.SYSTEM.label).d( "[Latency Monitor] Buffer: ${totalBuffer}ms | Buffer ahead: ${bufferAhead}ms | Position: ${currentPosition}ms")
 
                     // ONLY seek if buffer is growing beyond acceptable limits
                     // No periodic seeks - only reactive correction when needed
                     if (bufferAhead > MAX_ACCEPTABLE_LATENCY_MS) {
-                        Log.w(TAG, "[Latency Monitor] High latency detected ($bufferAhead ms) - seeking to live edge")
+                        Timber.tag(LogContext.SYSTEM.label).w( "[Latency Monitor] High latency detected ($bufferAhead ms) - seeking to live edge")
                         seekToLiveEdge()
                     }
 
                 } catch (e: Exception) {
-                    Log.e(TAG, "[Latency Monitor] Error during latency check", e)
+                    Timber.tag(LogContext.SYSTEM.label).e(e, "[Latency Monitor] Error during latency check")
                 }
             }
         }
 
-        Log.d(TAG, "Latency monitoring started - reactive correction only (threshold: ${MAX_ACCEPTABLE_LATENCY_MS}ms)")
+        Timber.tag(LogContext.SYSTEM.label).d( "Latency monitoring started - reactive correction only (threshold: ${MAX_ACCEPTABLE_LATENCY_MS}ms)")
     }
 
     /**
@@ -280,7 +280,7 @@ class VideoPlayerViewModel : ViewModel() {
                 delay(PERIODIC_RECONNECT_INTERVAL_MS)
 
                 val timeSinceStart = System.currentTimeMillis() - connectionStartTime
-                Log.d(TAG, "[Periodic Reconnect] Triggering full reconnection after ${timeSinceStart / 60000} minutes")
+                Timber.tag(LogContext.SYSTEM.label).d( "[Periodic Reconnect] Triggering full reconnection after ${timeSinceStart / 60000} minutes")
 
                 // Reconnect to flush all buffers and reset state
                 val ctx = lastContext
@@ -293,7 +293,7 @@ class VideoPlayerViewModel : ViewModel() {
             }
         }
 
-        Log.d(TAG, "Periodic reconnection scheduled (every ${PERIODIC_RECONNECT_INTERVAL_MS / 60000} minutes)")
+        Timber.tag(LogContext.SYSTEM.label).d( "Periodic reconnection scheduled (every ${PERIODIC_RECONNECT_INTERVAL_MS / 60000} minutes)")
     }
 
     /**
@@ -307,15 +307,15 @@ class VideoPlayerViewModel : ViewModel() {
             // For live streams, seek to default position (live edge)
             player.seekToDefaultPosition()
 
-            Log.d(TAG, "[Seek] Seeking to live edge - discarding buffer")
+            Timber.tag(LogContext.SYSTEM.label).d( "[Seek] Seeking to live edge - discarding buffer")
         } catch (e: Exception) {
-            Log.e(TAG, "[Seek] Failed to seek to live edge", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "[Seek] Failed to seek to live edge")
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        Log.d(TAG, "ViewModel cleared, releasing player")
+        Timber.tag(LogContext.SYSTEM.label).d( "ViewModel cleared, releasing player")
         releasePlayer()
     }
 }

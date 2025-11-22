@@ -1,7 +1,6 @@
 package uk.unmannedsystems.dpm_android.settings
 
 import android.content.Context
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -13,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.network.AspectRatioMode
 import uk.unmannedsystems.dpm_android.network.NetworkSettings
 import uk.unmannedsystems.dpm_android.network.VideoStreamSettings
@@ -308,7 +309,7 @@ class SettingsRepository(private val context: Context) {
     val systemToolsLogHostFlow: Flow<String> = context.dataStore.data
         .map { preferences ->
             val host = preferences[SYSTEMTOOLS_LOG_HOST] ?: DEFAULT_SYSTEMTOOLS_LOG_HOST
-            Log.d("SettingsRepository", "SystemTools host flow emitting: $host")
+            Timber.tag(LogContext.CONFIG.label).d("SystemTools host flow emitting: $host")
             host
         }
 
@@ -316,11 +317,11 @@ class SettingsRepository(private val context: Context) {
      * Save SystemTools log host
      */
     suspend fun saveSystemToolsLogHost(host: String) {
-        Log.d("SettingsRepository", "Saving SystemTools host: $host")
+        Timber.tag(LogContext.CONFIG.label).d("Saving SystemTools host: $host")
         context.dataStore.edit { preferences ->
             preferences[SYSTEMTOOLS_LOG_HOST] = host
         }
-        Log.d("SettingsRepository", "SystemTools host saved: $host")
+        Timber.tag(LogContext.CONFIG.label).d("SystemTools host saved: $host")
     }
 
     /**
@@ -334,7 +335,7 @@ class SettingsRepository(private val context: Context) {
     val systemToolsLogPortFlow: Flow<Int> = context.dataStore.data
         .map { preferences ->
             val port = preferences[SYSTEMTOOLS_LOG_PORT] ?: DEFAULT_SYSTEMTOOLS_LOG_PORT
-            Log.d("SettingsRepository", "SystemTools port flow emitting: $port")
+            Timber.tag(LogContext.CONFIG.label).d("SystemTools port flow emitting: $port")
             port
         }
 
@@ -342,11 +343,11 @@ class SettingsRepository(private val context: Context) {
      * Save SystemTools log port
      */
     suspend fun saveSystemToolsLogPort(port: Int) {
-        Log.d("SettingsRepository", "Saving SystemTools port: $port")
+        Timber.tag(LogContext.CONFIG.label).d("Saving SystemTools port: $port")
         context.dataStore.edit { preferences ->
             preferences[SYSTEMTOOLS_LOG_PORT] = port
         }
-        Log.d("SettingsRepository", "SystemTools port saved: $port")
+        Timber.tag(LogContext.CONFIG.label).d("SystemTools port saved: $port")
     }
 
     /**

@@ -115,6 +115,51 @@ def pm_health_check(include_ground_side=False):
         if 'air_side' in data.get('domains', {}):
             data['domains']['air_side']['camera'] = camera_status
 
+            # CRITICAL: Camera is essential for Air-Side operational readiness
+            # Implement tiered health status: HEALTHY / DEGRADED / UNHEALTHY
+            air_side = data['domains']['air_side']
+            tcp_connected = air_side.get('connected', False)
+            camera_connected = camera_status.get('connected', False)
+            udp_broadcasts_active = broadcast_status is not None
+
+            if tcp_connected:
+                if camera_connected and udp_broadcasts_active:
+                    # Full operational readiness
+                    air_side['health_status'] = 'HEALTHY'
+                    air_side['health_level'] = 'operational'
+                elif not camera_connected or not udp_broadcasts_active:
+                    # System functional but not mission-ready
+                    air_side['health_status'] = 'DEGRADED'
+                    air_side['health_level'] = 'degraded'
+                    air_side['healthy'] = False  # Override - not truly healthy without camera
+
+                    # Update reasons for degraded status
+                    degraded_reasons = []
+                    if not camera_connected:
+                        degraded_reasons.append('Camera disconnected')
+                    if not udp_broadcasts_active:
+                        degraded_reasons.append('No UDP broadcasts (payload-manager not running)')
+                    air_side['degraded_reason'] = ', '.join(degraded_reasons)
+            else:
+                # TCP down = UNHEALTHY
+                air_side['health_status'] = 'UNHEALTHY'
+                air_side['health_level'] = 'unhealthy'
+
+            # Add component-level details
+            air_side['components'] = {
+                'tcp_server': {'status': 'UP' if tcp_connected else 'DOWN', 'critical': True},
+                'camera': {'status': 'CONNECTED' if camera_connected else 'DISCONNECTED', 'critical': True},
+                'udp_broadcasts': {'status': 'ACTIVE' if udp_broadcasts_active else 'OFFLINE', 'critical': True},
+                'payload_manager': {'status': 'RUNNING' if udp_broadcasts_active else 'NOT RUNNING', 'critical': True}
+            }
+
+        # Recalculate overall health considering DEGRADED status
+        overall_healthy = all(
+            domain.get('healthy', False) and domain.get('health_status') != 'DEGRADED'
+            for domain in data.get('domains', {}).values()
+        )
+        data['overall_healthy'] = overall_healthy
+
         # Print overall status
         print(f"\n{'='*80}")
         if overall_healthy:
@@ -128,14 +173,48 @@ def pm_health_check(include_ground_side=False):
         print("-" * 80)
 
         for domain, status in data.get('domains', {}).items():
+            health_status = status.get('health_status', 'UNKNOWN')
             healthy = status.get('healthy', False)
             connected = status.get('connected', 'Unknown')
 
-            health_icon = "✓" if healthy else "✗"
-            print(f"\n  {domain.upper()}:")
-            print(f"    Health: {health_icon} {'HEALTHY' if healthy else 'UNHEALTHY'}")
+            # Determine icon based on health status
+            if health_status == 'HEALTHY':
+                health_icon = "✓"
+                health_display = "HEALTHY"
+            elif health_status == 'DEGRADED':
+                health_icon = "⚠"
+                health_display = "DEGRADED"
+                if status.get('degraded_reason'):
+                    health_display += f" - {status['degraded_reason']}"
+            elif health_status == 'UNHEALTHY':
+                health_icon = "✗"
+                health_display = "UNHEALTHY"
+            else:
+                # Fallback for domains without health_status
+                health_icon = "✓" if healthy else "✗"
+                health_display = "HEALTHY" if healthy else "UNHEALTHY"
 
-            if isinstance(connected, bool):
+            print(f"\n  {domain.upper()}:")
+            print(f"    Health: {health_icon} {health_display}")
+
+            # Show component breakdown if available (Air-Side)
+            if status.get('components'):
+                print(f"    Components:")
+                for comp_name, comp_data in status['components'].items():
+                    comp_status = comp_data.get('status', 'UNKNOWN')
+                    is_critical = comp_data.get('critical', False)
+
+                    # Icon based on status
+                    if comp_status in ['UP', 'CONNECTED', 'ACTIVE', 'RUNNING']:
+                        comp_icon = "✓"
+                    else:
+                        comp_icon = "✗"
+
+                    crit_marker = " [CRITICAL]" if is_critical else ""
+                    print(f"      {comp_icon} {comp_name.replace('_', ' ').title()}: {comp_status}{crit_marker}")
+
+            # Show connection status for non-component domains
+            elif isinstance(connected, bool):
                 conn_icon = "✓" if connected else "✗"
                 print(f"    Connected: {conn_icon} {'YES' if connected else 'NO'}")
 
@@ -152,10 +231,37 @@ def pm_health_check(include_ground_side=False):
             print("RECOMMENDATIONS:")
             print("-" * 80)
             for domain, status in data.get('domains', {}).items():
-                if not status.get('healthy', False):
-                    print(f"  • Check {domain.upper()} connectivity and logs")
+                health_status = status.get('health_status')
+
+                if health_status == 'DEGRADED':
+                    print(f"  • {domain.upper()} - DEGRADED (System functional but not mission-ready)")
+                    if status.get('degraded_reason'):
+                        print(f"    Reason: {status['degraded_reason']}")
+
+                    # Specific recommendations based on components
+                    if status.get('components'):
+                        failed_components = [
+                            name for name, data in status['components'].items()
+                            if data.get('status') not in ['UP', 'CONNECTED', 'ACTIVE', 'RUNNING']
+                        ]
+                        if failed_components:
+                            print(f"    Action: Fix these components:")
+                            for comp in failed_components:
+                                if comp == 'camera':
+                                    print(f"      - Connect Sony camera to USB")
+                                    print(f"      - Verify camera power and USB cable")
+                                elif comp == 'payload_manager':
+                                    print(f"      - Start payload-manager container: docker start payload-manager")
+                                    print(f"      - Check Docker status: docker ps")
+                                elif comp == 'udp_broadcasts':
+                                    print(f"      - Verify payload-manager is running")
+                                    print(f"      - Check UDP port 5001 is not blocked")
+
+                elif not status.get('healthy', False):
+                    print(f"  • {domain.upper()} - UNHEALTHY")
                     if status.get('error'):
                         print(f"    Error: {status['error']}")
+                    print(f"    Action: Check {domain.upper()} connectivity and logs")
             print()
 
         return {

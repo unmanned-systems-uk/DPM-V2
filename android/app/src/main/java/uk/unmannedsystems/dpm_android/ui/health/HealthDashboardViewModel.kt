@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.ui.health
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,6 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.model.HealthSnapshot
 import uk.unmannedsystems.dpm_android.model.HealthStatus
 import uk.unmannedsystems.dpm_android.network.HealthListener
@@ -27,10 +28,6 @@ import uk.unmannedsystems.dpm_android.network.HealthListener
  */
 class HealthDashboardViewModel : ViewModel() {
 
-    companion object {
-        private const val TAG = "HealthDashboardVM"
-    }
-
     private val healthListener = HealthListener()
 
     // UI State
@@ -38,7 +35,7 @@ class HealthDashboardViewModel : ViewModel() {
     val uiState: StateFlow<HealthDashboardUiState> = _uiState.asStateFlow()
 
     init {
-        Log.i(TAG, "HealthDashboardViewModel initialized")
+        Timber.tag(LogContext.HEALTH.label).i("HealthDashboardViewModel initialized")
         startHealthMonitoring()
     }
 
@@ -46,7 +43,7 @@ class HealthDashboardViewModel : ViewModel() {
      * Start health monitoring
      */
     private fun startHealthMonitoring() {
-        Log.i(TAG, "Starting health monitoring")
+        Timber.tag(LogContext.HEALTH.label).i("Starting health monitoring")
 
         // Start the health listener
         healthListener.start()
@@ -61,7 +58,7 @@ class HealthDashboardViewModel : ViewModel() {
                     )
                 }
                 if (health != null) {
-                    Log.v(TAG, "Health data updated: CPU=${health.system.cpuPercent}%, " +
+                    Timber.tag(LogContext.HEALTH.label).v("Health data updated: CPU=${health.system.cpuPercent}%, " +
                             "MEM=${health.system.memoryPercent.toInt()}%")
                 }
             }
@@ -71,7 +68,7 @@ class HealthDashboardViewModel : ViewModel() {
         viewModelScope.launch {
             healthListener.isConnected.collect { connected ->
                 _uiState.update { it.copy(isConnected = connected) }
-                Log.d(TAG, "Connection state: ${if (connected) "CONNECTED" else "DISCONNECTED"}")
+                Timber.tag(LogContext.HEALTH.label).d("Connection state: ${if (connected) "CONNECTED" else "DISCONNECTED"}")
             }
         }
 
@@ -80,7 +77,7 @@ class HealthDashboardViewModel : ViewModel() {
             healthListener.isStale.collect { stale ->
                 _uiState.update { it.copy(isStale = stale) }
                 if (stale) {
-                    Log.w(TAG, "Health data is STALE")
+                    Timber.tag(LogContext.HEALTH.label).w("Health data is STALE")
                 }
             }
         }
@@ -90,7 +87,7 @@ class HealthDashboardViewModel : ViewModel() {
             healthListener.errorCount.collect { errors ->
                 _uiState.update { it.copy(errorCount = errors) }
                 if (errors > 0) {
-                    Log.w(TAG, "Health listener error count: $errors")
+                    Timber.tag(LogContext.HEALTH.label).w("Health listener error count: $errors")
                 }
             }
         }
@@ -142,14 +139,14 @@ class HealthDashboardViewModel : ViewModel() {
      * Restart health monitoring (for troubleshooting)
      */
     fun restartHealthMonitoring() {
-        Log.i(TAG, "Restarting health monitoring")
+        Timber.tag(LogContext.HEALTH.label).i("Restarting health monitoring")
         healthListener.stop()
         healthListener.start()
     }
 
     override fun onCleared() {
         super.onCleared()
-        Log.i(TAG, "HealthDashboardViewModel cleared - stopping health listener")
+        Timber.tag(LogContext.HEALTH.label).i("HealthDashboardViewModel cleared - stopping health listener")
         healthListener.stop()
     }
 }
