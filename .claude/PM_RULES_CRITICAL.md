@@ -46,6 +46,7 @@
 
 - **Rule 10:** Architecture documentation updates (Wed/Fri)
 - **Rule 11:** Protocol enforcement & cross-domain compliance
+- **Rule 12:** MANDATORY branch creation for all development work
 
 **Key:** Enforce `protocol/*.json` as single source of truth.
 
@@ -65,9 +66,21 @@
 
 **When assigning work:**
 1. ✅ Create/update GitHub issue FIRST
-2. ✅ Send clear instructions via tmux
-3. ✅ Verify agent received and acknowledged
-4. ✅ Monitor progress periodically
+2. ✅ **Create new branch** for development/enhancement/feature work
+3. ✅ Send clear instructions via tmux
+4. ✅ Verify agent received and acknowledged
+5. ✅ Monitor progress periodically
+
+**CRITICAL - Branch Creation (Rule 12):**
+- ❌ **NEVER** develop directly on `main` branch
+- ✅ **ALWAYS** create feature/fix branch for:
+  - New features/enhancements
+  - Bug fixes (except critical hotfixes)
+  - Protocol changes
+  - Architecture updates
+- ✅ Branch naming: `feature/description`, `fix/issue-XXX`, `protocol/change-name`
+- ✅ Only merge to `main` via PR or after testing
+- ⚠️ Exception: Documentation-only commits may use `main` (PM workflow sessions)
 
 ---
 
@@ -94,3 +107,4 @@ cat .claude/PM_MONITORING_PROTOCOL.md
 
 **Last Updated:** 2025-11-22
 **Status:** Refactored from 706-line monolithic file
+**Latest Rule:** Rule 12 - MANDATORY branch creation (2025-11-22)
