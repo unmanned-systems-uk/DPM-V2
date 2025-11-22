@@ -156,10 +156,10 @@ data class TimingConfig(
  * Logging configuration
  */
 data class LoggingConfig(
-    @SerializedName("log_level") val logLevel: String,
-    @SerializedName("file_logging_enabled") val fileLoggingEnabled: Boolean,
+    @SerializedName("level") val logLevel: String,
+    @SerializedName("file_enabled") val fileLoggingEnabled: Boolean,
     @SerializedName("file_max_size_mb") val fileMaxSizeMb: Int,
-    @SerializedName("network_logging_enabled") val networkLoggingEnabled: Boolean
+    @SerializedName("network_ground_enabled") val networkLoggingEnabled: Boolean
 ) {
     fun validate(): ConfigValidationResult {
         val errors = mutableListOf<String>()

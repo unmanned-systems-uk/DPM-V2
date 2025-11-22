@@ -1,7 +1,6 @@
 package uk.unmannedsystems.dpm_android.network
 
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -9,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 
 /**
  * Singleton manager for network connection
@@ -16,8 +17,6 @@ import kotlinx.coroutines.launch
  * Supports diagnostic command handling
  */
 object NetworkManager {
-    private const val TAG = "NetworkManager"
-
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private var networkClient: NetworkClient? = null
@@ -49,7 +48,7 @@ object NetworkManager {
      * Initialize or reinitialize network client with new settings
      */
     fun initialize(context: Context, settings: NetworkSettings, clientId: String = "H16") {
-        Log.d(TAG, "Initializing with settings: ${settings.targetIp}:${settings.commandPort}, clientId: $clientId")
+        Timber.tag(LogContext.NETWORK.label).d("Initializing with settings: ${settings.targetIp}:${settings.commandPort}, clientId: $clientId")
 
         // Store application context
         appContext = context.applicationContext
@@ -68,7 +67,7 @@ object NetworkManager {
         scope.launch {
             networkClient?.connectionStatus?.collect { status ->
                 _connectionStatus.value = status
-                Log.d(TAG, "Connection status updated: ${status.state}")
+                Timber.tag(LogContext.NETWORK.label).d("Connection status updated: ${status.state}")
             }
         }
 
@@ -91,16 +90,16 @@ object NetworkManager {
      * Connect to Air-Side
      */
     fun connect() {
-        Log.d(TAG, "Connect requested")
+        Timber.tag(LogContext.NETWORK.label).d("Connect requested")
         isManualDisconnect = false  // Reset manual disconnect flag
-        networkClient?.connect() ?: Log.w(TAG, "NetworkClient not initialized")
+        networkClient?.connect() ?: Timber.tag(LogContext.NETWORK.label).w("NetworkClient not initialized")
     }
 
     /**
      * Disconnect from Air-Side
      */
     fun disconnect() {
-        Log.d(TAG, "Disconnect requested")
+        Timber.tag(LogContext.NETWORK.label).d("Disconnect requested")
         isManualDisconnect = true
         stopAutoReconnect()
         networkClient?.disconnect()
@@ -113,6 +112,34 @@ object NetworkManager {
         val client = networkClient
         return if (client != null) {
             client.getSystemStatus()
+        } else {
+            Result.failure(Exception("NetworkClient not initialized"))
+        }
+    }
+
+    /**
+     * Get Air-Side configuration
+     * Part of Issue #170 - Phase 1: Configuration Management
+     */
+    suspend fun getConfig(): Result<ResponsePayload> {
+        val client = networkClient
+        return if (client != null) {
+            client.getConfig()
+        } else {
+            Result.failure(Exception("NetworkClient not initialized"))
+        }
+    }
+
+    /**
+     * Update Air-Side configuration
+     * Part of Issue #170 - Phase 1: Configuration Management
+     *
+     * @param updates Configuration updates in nested key format
+     */
+    suspend fun updateConfig(updates: Map<String, Any>): Result<ResponsePayload> {
+        val client = networkClient
+        return if (client != null) {
+            client.updateConfig(updates)
         } else {
             Result.failure(Exception("NetworkClient not initialized"))
         }
@@ -144,7 +171,7 @@ object NetworkManager {
      * Configure auto-reconnect settings
      */
     fun configureAutoReconnect(enabled: Boolean, intervalSeconds: Int) {
-        Log.d(TAG, "Configuring auto-reconnect: enabled=$enabled, interval=${intervalSeconds}s")
+        Timber.tag(LogContext.NETWORK.label).d("Configuring auto-reconnect: enabled=$enabled, interval=${intervalSeconds}s")
         autoReconnectEnabled = enabled
         autoReconnectIntervalSeconds = intervalSeconds
 
@@ -173,7 +200,7 @@ object NetworkManager {
                     !isManualDisconnect &&
                     (status.state == ConnectionState.DISCONNECTED || status.state == ConnectionState.ERROR)) {
 
-                    Log.d(TAG, "Connection lost, will attempt reconnect in ${autoReconnectIntervalSeconds}s")
+                    Timber.tag(LogContext.NETWORK.label).d("Connection lost, will attempt reconnect in ${autoReconnectIntervalSeconds}s")
                     kotlinx.coroutines.delay(autoReconnectIntervalSeconds * 1000L)
 
                     // Check again after delay to make sure we still need to reconnect
@@ -182,7 +209,7 @@ object NetworkManager {
                         (connectionStatus.value.state == ConnectionState.DISCONNECTED ||
                          connectionStatus.value.state == ConnectionState.ERROR)) {
 
-                        Log.d(TAG, "Attempting auto-reconnect...")
+                        Timber.tag(LogContext.NETWORK.label).d("Attempting auto-reconnect...")
                         isManualDisconnect = false  // Reset manual disconnect flag
                         networkClient?.connect()
                     }
@@ -195,7 +222,7 @@ object NetworkManager {
      * Stop auto-reconnect monitoring
      */
     private fun stopAutoReconnect() {
-        Log.d(TAG, "Stopping auto-reconnect")
+        Timber.tag(LogContext.NETWORK.label).d("Stopping auto-reconnect")
         reconnectJob?.cancel()
         reconnectJob = null
     }

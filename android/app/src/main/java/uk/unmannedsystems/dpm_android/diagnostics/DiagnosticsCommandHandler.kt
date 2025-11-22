@@ -1,7 +1,8 @@
 package uk.unmannedsystems.dpm_android.diagnostics
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.network.ResponsePayload
 import uk.unmannedsystems.dpm_android.network.ErrorInfo
 import java.text.SimpleDateFormat
@@ -19,8 +20,6 @@ import java.util.*
  */
 class DiagnosticsCommandHandler(private val context: Context) {
     companion object {
-        private const val TAG = "DiagnosticsHandler"
-
         // Diagnostic error codes (6000-6999)
         const val ERROR_NOT_AVAILABLE = 6000
         const val ERROR_TIMEOUT = 6001
@@ -56,7 +55,7 @@ class DiagnosticsCommandHandler(private val context: Context) {
      * @return ResponsePayload with success/error and data
      */
     fun handleCommand(command: String, parameters: Map<String, Any>): ResponsePayload {
-        Log.d(TAG, "Handling diagnostic command: $command")
+        Timber.tag(LogContext.COMMAND.label).d("Handling diagnostic command: $command")
 
         return try {
             when (command) {
@@ -76,7 +75,7 @@ class DiagnosticsCommandHandler(private val context: Context) {
                 )
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling diagnostic command: $command", e)
+            Timber.tag(LogContext.COMMAND.label).e(e, "Error handling diagnostic command: $command")
             ResponsePayload(
                 command = command,
                 status = "error",
@@ -115,7 +114,7 @@ class DiagnosticsCommandHandler(private val context: Context) {
         // Check cache first
         val cached = systemInfoCache
         if (cached != null && cached.isValid(CACHE_TTL_MS)) {
-            Log.d(TAG, "Returning cached system info")
+            Timber.tag(LogContext.COMMAND.label).d("Returning cached system info")
             return ResponsePayload(
                 command = "diagnostics.get_system_info",
                 status = "success",
@@ -144,7 +143,7 @@ class DiagnosticsCommandHandler(private val context: Context) {
         // Check cache first
         val cached = appStatusCache
         if (cached != null && cached.isValid(CACHE_TTL_MS)) {
-            Log.d(TAG, "Returning cached app status")
+            Timber.tag(LogContext.COMMAND.label).d("Returning cached app status")
             return ResponsePayload(
                 command = "diagnostics.get_app_status",
                 status = "success",
@@ -222,6 +221,6 @@ class DiagnosticsCommandHandler(private val context: Context) {
     fun clearCache() {
         systemInfoCache = null
         appStatusCache = null
-        Log.d(TAG, "Diagnostic caches cleared")
+        Timber.tag(LogContext.COMMAND.label).d("Diagnostic caches cleared")
     }
 }

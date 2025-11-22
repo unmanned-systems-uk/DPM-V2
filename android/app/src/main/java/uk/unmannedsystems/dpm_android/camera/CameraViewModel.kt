@@ -1,6 +1,5 @@
 package uk.unmannedsystems.dpm_android.camera
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -11,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.network.ConnectionState
 import uk.unmannedsystems.dpm_android.network.NetworkManager
 import uk.unmannedsystems.dpm_android.settings.SettingsManager
@@ -30,7 +31,6 @@ class CameraViewModel : ViewModel() {
     private var isCurrentlyOperational = false // Track operational state to prevent unnecessary restarts
 
     companion object {
-        private const val TAG = "CameraViewModel"
         private const val DEFAULT_QUERY_FREQUENCY_HZ = 0.5f // 0.5Hz = every 2 seconds
     }
 
@@ -93,17 +93,17 @@ class CameraViewModel : ViewModel() {
             if (currentState == ConnectionState.CONNECTED ||
                 currentState == ConnectionState.OPERATIONAL ||
                 currentState == ConnectionState.CONNECTING) {
-                Log.d(TAG, "Auto-connect skipped - already connected/connecting (state: $currentState)")
+                Timber.tag(LogContext.CAMERA.label).d("Auto-connect skipped - already connected/connecting (state: $currentState)")
                 return@launch
             }
 
             // Check if NetworkManager is initialized
             if (!NetworkManager.isInitialized()) {
-                Log.w(TAG, "Auto-connect skipped - NetworkManager not initialized")
+                Timber.tag(LogContext.CAMERA.label).w("Auto-connect skipped - NetworkManager not initialized")
                 return@launch
             }
 
-            Log.d(TAG, "Starting auto-connect to Air-Side...")
+            Timber.tag(LogContext.CAMERA.label).d("Starting auto-connect to Air-Side...")
             NetworkManager.connect()
         }
     }
@@ -376,18 +376,18 @@ class CameraViewModel : ViewModel() {
     fun captureImage() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Triggering camera capture...")
+                Timber.tag(LogContext.CAMERA.label).d("Triggering camera capture...")
                 val result = NetworkManager.getClient()?.captureImage()
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Capture successful: ${response.status} - ${response.result}")
+                        Timber.tag(LogContext.CAMERA.label).d("Capture successful: ${response.status} - ${response.result}")
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Capture failed", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Capture failed")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending capture command", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending capture command")
             }
         }
     }
@@ -399,19 +399,19 @@ class CameraViewModel : ViewModel() {
     fun focusNear(speed: Int = 3) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Focusing NEAR at speed $speed")
+                Timber.tag(LogContext.CAMERA.label).d("Focusing NEAR at speed $speed")
                 val result = NetworkManager.getClient()?.focusCamera("near", speed)
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Focus NEAR successful: ${response.result}")
+                        Timber.tag(LogContext.CAMERA.label).d("Focus NEAR successful: ${response.result}")
                         parseFocusDistance(response.result)
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Focus NEAR failed", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Focus NEAR failed")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending focus NEAR command", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending focus NEAR command")
             }
         }
     }
@@ -423,19 +423,19 @@ class CameraViewModel : ViewModel() {
     fun focusFar(speed: Int = 3) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Focusing FAR at speed $speed")
+                Timber.tag(LogContext.CAMERA.label).d("Focusing FAR at speed $speed")
                 val result = NetworkManager.getClient()?.focusCamera("far", speed)
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Focus FAR successful: ${response.result}")
+                        Timber.tag(LogContext.CAMERA.label).d("Focus FAR successful: ${response.result}")
                         parseFocusDistance(response.result)
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Focus FAR failed", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Focus FAR failed")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending focus FAR command", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending focus FAR command")
             }
         }
     }
@@ -446,19 +446,19 @@ class CameraViewModel : ViewModel() {
     fun focusStop() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Stopping focus")
+                Timber.tag(LogContext.CAMERA.label).d("Stopping focus")
                 val result = NetworkManager.getClient()?.focusCamera("stop")
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Focus STOP successful")
+                        Timber.tag(LogContext.CAMERA.label).d("Focus STOP successful")
                         parseFocusDistance(response.result)
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Focus STOP failed", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Focus STOP failed")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending focus STOP command", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending focus STOP command")
             }
         }
     }
@@ -470,18 +470,18 @@ class CameraViewModel : ViewModel() {
     fun setAutoFocusHold(state: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Auto-focus hold: $state")
+                Timber.tag(LogContext.CAMERA.label).d("Auto-focus hold: $state")
                 val result = NetworkManager.getClient()?.setAutoFocusHold(state)
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Auto-focus hold $state successful")
+                        Timber.tag(LogContext.CAMERA.label).d("Auto-focus hold $state successful")
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Auto-focus hold $state failed", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Auto-focus hold $state failed")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending auto-focus hold command", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending auto-focus hold command")
             }
         }
     }
@@ -496,14 +496,14 @@ class CameraViewModel : ViewModel() {
                 is Number -> {
                     val distanceM = distance.toFloat()
                     _focusDistanceM.value = distanceM
-                    Log.d(TAG, "Focus distance: ${distanceM}m")
+                    Timber.tag(LogContext.CAMERA.label).d("Focus distance: ${distanceM}m")
                 }
                 "infinity" -> {
                     _focusDistanceM.value = -1f  // -1 represents infinity
-                    Log.d(TAG, "Focus distance: infinity")
+                    Timber.tag(LogContext.CAMERA.label).d("Focus distance: infinity")
                 }
                 else -> {
-                    Log.w(TAG, "Unknown focus_distance_m value: $distance")
+                    Timber.tag(LogContext.CAMERA.label).w("Unknown focus_distance_m value: $distance")
                 }
             }
         }
@@ -534,24 +534,24 @@ class CameraViewModel : ViewModel() {
             try {
                 // Validate property value against JSON specification
                 if (!PropertyLoader.isValidValue(property, value)) {
-                    Log.e(TAG, "Invalid $property value '$value' - not in specification (camera_properties.json)")
-                    Log.e(TAG, "Valid values are defined in assets/camera_properties.json")
+                    Timber.tag(LogContext.CAMERA.label).e("Invalid $property value '$value' - not in specification (camera_properties.json)")
+                    Timber.tag(LogContext.CAMERA.label).e("Valid values are defined in assets/camera_properties.json")
                     // TODO: Notify user via UI about invalid property value
                     return@launch
                 }
 
-                Log.d(TAG, "Setting camera property: $property = $value")
+                Timber.tag(LogContext.CAMERA.label).d("Setting camera property: $property = $value")
                 val result = NetworkManager.getClient()?.setCameraProperty(property, value)
                 result?.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Property set successfully: $property = $value")
+                        Timber.tag(LogContext.CAMERA.label).d("Property set successfully: $property = $value")
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Failed to set property: $property = $value", error)
+                        Timber.tag(LogContext.CAMERA.label).e(error, "Failed to set property: $property = $value")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error sending property command: $property = $value", e)
+                Timber.tag(LogContext.CAMERA.label).e(e, "Error sending property command: $property = $value")
             }
         }
     }
@@ -570,7 +570,7 @@ class CameraViewModel : ViewModel() {
                     it.displayValue == settings.shutterSpeed
                 }
                 if (shutterSpeed != null && shutterSpeed != state.shutterSpeed) {
-                    Log.d(TAG, "Syncing shutter speed: ${settings.shutterSpeed}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing shutter speed: ${settings.shutterSpeed}")
                     newState = newState.copy(shutterSpeed = shutterSpeed)
                 }
             }
@@ -583,7 +583,7 @@ class CameraViewModel : ViewModel() {
                     it.displayValue == apertureValue
                 }
                 if (aperture != null && aperture != state.aperture) {
-                    Log.d(TAG, "Syncing aperture: ${settings.aperture}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing aperture: ${settings.aperture}")
                     newState = newState.copy(aperture = aperture)
                 }
             }
@@ -594,7 +594,7 @@ class CameraViewModel : ViewModel() {
                     it.displayValue == settings.iso
                 }
                 if (iso != null && iso != state.iso) {
-                    Log.d(TAG, "Syncing ISO: ${settings.iso}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing ISO: ${settings.iso}")
                     newState = newState.copy(iso = iso)
                 }
             }
@@ -618,7 +618,7 @@ class CameraViewModel : ViewModel() {
                     else -> null
                 }
                 if (whiteBalance != null && whiteBalance != state.whiteBalance) {
-                    Log.d(TAG, "Syncing white balance: ${settings.whiteBalance}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing white balance: ${settings.whiteBalance}")
                     newState = newState.copy(whiteBalance = whiteBalance)
                 }
             }
@@ -632,7 +632,7 @@ class CameraViewModel : ViewModel() {
                     else -> null
                 }
                 if (focusMode != null && focusMode != state.focusMode) {
-                    Log.d(TAG, "Syncing focus mode: ${settings.focusMode}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing focus mode: ${settings.focusMode}")
                     newState = newState.copy(focusMode = focusMode)
                 }
             }
@@ -646,7 +646,7 @@ class CameraViewModel : ViewModel() {
                     else -> null
                 }
                 if (fileFormat != null && fileFormat != state.fileFormat) {
-                    Log.d(TAG, "Syncing file format: ${settings.fileFormat}")
+                    Timber.tag(LogContext.CAMERA.label).d("Syncing file format: ${settings.fileFormat}")
                     newState = newState.copy(fileFormat = fileFormat)
                 }
             }
@@ -663,7 +663,7 @@ class CameraViewModel : ViewModel() {
                     distance < 1.0f -> "${(distance * 100).toInt()}cm"
                     else -> String.format("%.1fm", distance)
                 }
-                Log.d(TAG, "Syncing focal distance: $distanceStr (raw: $distance)")
+                Timber.tag(LogContext.CAMERA.label).d("Syncing focal distance: $distanceStr (raw: $distance)")
             }
 
             newState
@@ -682,7 +682,7 @@ class CameraViewModel : ViewModel() {
         // Check if property querying is enabled
         val isEnabled = SettingsManager.getPropertyQueryEnabled()
         if (!isEnabled) {
-            Log.d(TAG, "Property polling disabled in settings")
+            Timber.tag(LogContext.CAMERA.label).d("Property polling disabled in settings")
             return
         }
 
@@ -690,7 +690,7 @@ class CameraViewModel : ViewModel() {
         val frequencyHz = SettingsManager.getPropertyQueryFrequency() ?: DEFAULT_QUERY_FREQUENCY_HZ
         val intervalMs = (1000 / frequencyHz).toLong()
 
-        Log.d(TAG, "Starting property polling at ${frequencyHz}Hz (every ${intervalMs}ms)")
+        Timber.tag(LogContext.CAMERA.label).d("Starting property polling at ${frequencyHz}Hz (every ${intervalMs}ms)")
 
         propertyPollingJob = viewModelScope.launch {
             while (isActive) {
@@ -709,7 +709,7 @@ class CameraViewModel : ViewModel() {
     fun stopPropertyPolling() {
         propertyPollingJob?.cancel()
         propertyPollingJob = null
-        Log.d(TAG, "Property polling stopped")
+        Timber.tag(LogContext.CAMERA.label).d("Property polling stopped")
     }
 
     /**
@@ -737,7 +737,7 @@ class CameraViewModel : ViewModel() {
                             5005 -> "Camera not connected"
                             else -> error.message
                         }
-                        Log.w(TAG, "Camera error: $errorMessage (code: ${error.code})")
+                        Timber.tag(LogContext.CAMERA.label).w("Camera error: $errorMessage (code: ${error.code})")
 
                         // Update state with error message
                         _cameraState.update { state ->
@@ -757,19 +757,19 @@ class CameraViewModel : ViewModel() {
 
                     // Parse successful response
                     response.result?.let { resultMap ->
-                        Log.d(TAG, "Property query response: $resultMap")
+                        Timber.tag(LogContext.CAMERA.label).d("Property query response: $resultMap")
                         parseAndUpdateProperties(resultMap)
                     }
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "Property query failed", error)
+                    Timber.tag(LogContext.CAMERA.label).e(error, "Property query failed")
                     _cameraState.update { state ->
                         state.copy(cameraError = "Communication error: ${error.message}")
                     }
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Error querying properties", e)
+            Timber.tag(LogContext.CAMERA.label).e(e, "Error querying properties")
             _cameraState.update { state ->
                 state.copy(cameraError = "Query error: ${e.message}")
             }
@@ -791,7 +791,7 @@ class CameraViewModel : ViewModel() {
                         it.displayValue == shutterSpeedStr
                     }
                     if (shutterSpeed != null && shutterSpeed != state.shutterSpeed) {
-                        Log.d(TAG, "Updating shutter speed from query: $shutterSpeedStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating shutter speed from query: $shutterSpeedStr")
                         newState = newState.copy(shutterSpeed = shutterSpeed)
                     }
                 }
@@ -806,7 +806,7 @@ class CameraViewModel : ViewModel() {
                         it.displayValue == apertureValue
                     }
                     if (aperture != null && aperture != state.aperture) {
-                        Log.d(TAG, "Updating aperture from query: $apertureStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating aperture from query: $apertureStr")
                         newState = newState.copy(aperture = aperture)
                     }
                 }
@@ -819,7 +819,7 @@ class CameraViewModel : ViewModel() {
                         it.displayValue == isoStr
                     }
                     if (iso != null && iso != state.iso) {
-                        Log.d(TAG, "Updating ISO from query: $isoStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating ISO from query: $isoStr")
                         newState = newState.copy(iso = iso)
                     }
                 }
@@ -845,7 +845,7 @@ class CameraViewModel : ViewModel() {
                         else -> null
                     }
                     if (whiteBalance != null && whiteBalance != state.whiteBalance) {
-                        Log.d(TAG, "Updating white balance from query: $wbStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating white balance from query: $wbStr")
                         newState = newState.copy(whiteBalance = whiteBalance)
                     }
                 }
@@ -861,7 +861,7 @@ class CameraViewModel : ViewModel() {
                         else -> null
                     }
                     if (focusMode != null && focusMode != state.focusMode) {
-                        Log.d(TAG, "Updating focus mode from query: $focusStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating focus mode from query: $focusStr")
                         newState = newState.copy(focusMode = focusMode)
                     }
                 }
@@ -877,7 +877,7 @@ class CameraViewModel : ViewModel() {
                         else -> null
                     }
                     if (fileFormat != null && fileFormat != state.fileFormat) {
-                        Log.d(TAG, "Updating file format from query: $formatStr")
+                        Timber.tag(LogContext.CAMERA.label).d("Updating file format from query: $formatStr")
                         newState = newState.copy(fileFormat = fileFormat)
                     }
                 }

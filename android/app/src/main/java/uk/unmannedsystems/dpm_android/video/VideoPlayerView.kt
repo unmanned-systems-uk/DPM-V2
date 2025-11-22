@@ -26,6 +26,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import timber.log.Timber
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.network.AspectRatioMode
 import uk.unmannedsystems.dpm_android.network.VideoStreamSettings
 
@@ -73,7 +75,7 @@ fun FullScreenVideoPlayer(
             key(videoSettings.rtspUrl) {
                 AndroidView(
                     factory = { context ->
-                        android.util.Log.d("VideoPlayerView", "Creating NEW PlayerView for URL: ${videoSettings.rtspUrl}")
+                        Timber.tag(LogContext.UI.label).d("Creating NEW PlayerView for URL: ${videoSettings.rtspUrl}")
 
                         PlayerView(context).apply {
                             // Explicitly use SurfaceView for better RTSP compatibility
@@ -101,21 +103,21 @@ fun FullScreenVideoPlayer(
                             val currentPlayer = videoPlayerViewModel.getPlayer()
                             if (currentPlayer != null) {
                                 player = currentPlayer
-                                android.util.Log.d("VideoPlayerView", "Player bound in factory - Playing: ${currentPlayer.isPlaying}, Tracks: ${currentPlayer.currentTracks.groups.size}")
+                                Timber.tag(LogContext.UI.label).d("Player bound in factory - Playing: ${currentPlayer.isPlaying}, Tracks: ${currentPlayer.currentTracks.groups.size}")
                             } else {
-                                android.util.Log.w("VideoPlayerView", "No player available in factory!")
+                                Timber.tag(LogContext.UI.label).w("No player available in factory!")
                             }
                         }
                     },
                     update = { playerView ->
                         val currentPlayer = videoPlayerViewModel.getPlayer()
 
-                        android.util.Log.d("VideoPlayerView", "Update (trigger=$surfaceUpdateTrigger) - Player exists: ${currentPlayer != null}, Currently bound: ${playerView.player != null}, Playing: ${currentPlayer?.isPlaying}")
+                        Timber.tag(LogContext.UI.label).d("Update (trigger=$surfaceUpdateTrigger) - Player exists: ${currentPlayer != null}, Currently bound: ${playerView.player != null}, Playing: ${currentPlayer?.isPlaying}")
 
                         // Bind player if not already bound (don't rebind during playback)
                         if (currentPlayer != null && playerView.player != currentPlayer) {
                             playerView.player = currentPlayer
-                            android.util.Log.d("VideoPlayerView", "Player bound - Tracks: ${currentPlayer.currentTracks.groups.size}")
+                            Timber.tag(LogContext.UI.label).d("Player bound - Tracks: ${currentPlayer.currentTracks.groups.size}")
                         }
 
                         // Update resize mode

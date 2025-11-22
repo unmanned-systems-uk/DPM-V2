@@ -1,7 +1,6 @@
 package uk.unmannedsystems.dpm_android
 
 import android.app.Application
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -9,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import uk.unmannedsystems.dpm_android.camera.PropertyLoader
+import uk.unmannedsystems.dpm_android.logging.LogContext
 import uk.unmannedsystems.dpm_android.logging.LogLevel
 import uk.unmannedsystems.dpm_android.logging.StructuredLogger
 import uk.unmannedsystems.dpm_android.logging.UdpLogReceiver
@@ -28,8 +28,6 @@ class DPMApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
-        private const val TAG = "DPMApplication"
-
         // MemorySink for Log Viewer UI access
         lateinit var memorySink: MemorySink
             private set
@@ -40,14 +38,14 @@ class DPMApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "═══════════════════════════════════════════════════")
-        Log.i(TAG, "DPM Application Starting - Build: ${BuildConfig.BUILD_DATE}")
-        Log.i(TAG, "Platform: SkyDroid H16 (Ground-Side)")
-        Log.i(TAG, "═══════════════════════════════════════════════════")
+        Timber.tag(LogContext.SYSTEM.label).i("═══════════════════════════════════════════════════")
+        Timber.tag(LogContext.SYSTEM.label).i("DPM Application Starting - Build: ${BuildConfig.BUILD_DATE}")
+        Timber.tag(LogContext.SYSTEM.label).i("Platform: SkyDroid H16 (Ground-Side)")
+        Timber.tag(LogContext.SYSTEM.label).i("═══════════════════════════════════════════════════")
 
         // Initialize SettingsManager
         SettingsManager.initialize(this)
-        Log.d(TAG, "✅ SettingsManager initialized")
+        Timber.tag(LogContext.SYSTEM.label).d("✅ SettingsManager initialized")
 
         // Plant Timber tree for Android Logcat integration (before StructuredLogger)
         if (Timber.treeCount == 0) {
@@ -55,13 +53,13 @@ class DPMApplication : Application() {
         }
 
         // Initialize PropertyLoader (specification-first architecture)
-        Log.d(TAG, "Loading camera property specifications from camera_properties.json...")
+        Timber.tag(LogContext.SYSTEM.label).d("Loading camera property specifications from camera_properties.json...")
         if (!PropertyLoader.initialize(this)) {
-            Log.e(TAG, "❌ Failed to initialize PropertyLoader - camera property validation unavailable")
+            Timber.tag(LogContext.SYSTEM.label).e("❌ Failed to initialize PropertyLoader - camera property validation unavailable")
             // Continue anyway - app can still function, but property validation will fail
         } else {
-            Log.d(TAG, "✅ PropertyLoader initialized successfully")
-            Log.d(TAG, "   Loaded properties: ISO=${PropertyLoader.getValueCount("iso")}, " +
+            Timber.tag(LogContext.SYSTEM.label).d("✅ PropertyLoader initialized successfully")
+            Timber.tag(LogContext.SYSTEM.label).d("   Loaded properties: ISO=${PropertyLoader.getValueCount("iso")}, " +
                     "Shutter=${PropertyLoader.getValueCount("shutter_speed")}, " +
                     "Aperture=${PropertyLoader.getValueCount("aperture")}")
         }
@@ -82,24 +80,24 @@ class DPMApplication : Application() {
                 val systemToolsLogPort = settingsRepository.systemToolsLogPortFlow.first()
                 val systemToolsLogEnabled = settingsRepository.systemToolsLogEnabledFlow.first()
 
-                Log.i(TAG, "───────────────────────────────────────────────────")
-                Log.i(TAG, "Settings Loaded:")
-                Log.i(TAG, "  Air-Side: ${savedSettings.targetIp}:${savedSettings.commandPort}")
-                Log.i(TAG, "  Client ID: $clientId")
-                Log.i(TAG, "  Auto-connect: $autoConnectEnabled")
-                Log.i(TAG, "  Auto-reconnect: $autoReconnectEnabled (${autoReconnectInterval}s)")
-                Log.i(TAG, "  SystemTools: $systemToolsLogHost:$systemToolsLogPort (enabled: $systemToolsLogEnabled)")
-                Log.i(TAG, "───────────────────────────────────────────────────")
+                Timber.tag(LogContext.SYSTEM.label).i("───────────────────────────────────────────────────")
+                Timber.tag(LogContext.SYSTEM.label).i("Settings Loaded:")
+                Timber.tag(LogContext.SYSTEM.label).i("  Air-Side: ${savedSettings.targetIp}:${savedSettings.commandPort}")
+                Timber.tag(LogContext.SYSTEM.label).i("  Client ID: $clientId")
+                Timber.tag(LogContext.SYSTEM.label).i("  Auto-connect: $autoConnectEnabled")
+                Timber.tag(LogContext.SYSTEM.label).i("  Auto-reconnect: $autoReconnectEnabled (${autoReconnectInterval}s)")
+                Timber.tag(LogContext.SYSTEM.label).i("  SystemTools: $systemToolsLogHost:$systemToolsLogPort (enabled: $systemToolsLogEnabled)")
+                Timber.tag(LogContext.SYSTEM.label).i("───────────────────────────────────────────────────")
 
                 // Initialize StructuredLogger with dynamic SystemTools settings (Issue #99)
-                Log.d(TAG, "Initializing StructuredLogger...")
+                Timber.tag(LogContext.SYSTEM.label).d("Initializing StructuredLogger...")
                 initializeStructuredLogger(systemToolsLogHost, systemToolsLogPort, systemToolsLogEnabled && BuildConfig.DEBUG)
-                Log.d(TAG, "✅ StructuredLogger initialized")
+                Timber.tag(LogContext.SYSTEM.label).d("✅ StructuredLogger initialized")
 
                 // Plant StructuredLogger Timber tree
                 if (Timber.treeCount == 1) {  // Only DebugTree is planted
                     Timber.plant(StructuredLogger.TimberTree())
-                    Log.d(TAG, "✅ StructuredLogger Timber tree planted")
+                    Timber.tag(LogContext.SYSTEM.label).d("✅ StructuredLogger Timber tree planted")
                 }
 
                 // Log app startup with structured logger
@@ -108,9 +106,9 @@ class DPMApplication : Application() {
                 Timber.i("SystemTools logging: $systemToolsLogHost:$systemToolsLogPort")
 
                 // Initialize NetworkManager with context, saved settings and client ID
-                Log.d(TAG, "Initializing NetworkManager...")
+                Timber.tag(LogContext.SYSTEM.label).d("Initializing NetworkManager...")
                 NetworkManager.initialize(this@DPMApplication, savedSettings, clientId)
-                Log.d(TAG, "✅ NetworkManager initialized")
+                Timber.tag(LogContext.SYSTEM.label).d("✅ NetworkManager initialized")
 
                 // Configure auto-reconnect
                 NetworkManager.configureAutoReconnect(autoReconnectEnabled, autoReconnectInterval)
@@ -118,20 +116,20 @@ class DPMApplication : Application() {
 
                 // Auto-connect on startup if enabled
                 if (autoConnectEnabled) {
-                    Log.i(TAG, "🔄 Auto-connecting to Air-Side on app startup...")
+                    Timber.tag(LogContext.SYSTEM.label).i("🔄 Auto-connecting to Air-Side on app startup...")
                     Timber.i("Auto-connect enabled - connecting to ${savedSettings.targetIp}:${savedSettings.commandPort}")
                     NetworkManager.connect()
                 } else {
-                    Log.i(TAG, "⏸️  Auto-connect disabled, skipping initial connection")
+                    Timber.tag(LogContext.SYSTEM.label).i("⏸️  Auto-connect disabled, skipping initial connection")
                     Timber.i("Auto-connect disabled - manual connection required")
                 }
 
-                Log.i(TAG, "═══════════════════════════════════════════════════")
-                Log.i(TAG, "DPM Application Initialization Complete")
-                Log.i(TAG, "═══════════════════════════════════════════════════")
+                Timber.tag(LogContext.SYSTEM.label).i("═══════════════════════════════════════════════════")
+                Timber.tag(LogContext.SYSTEM.label).i("DPM Application Initialization Complete")
+                Timber.tag(LogContext.SYSTEM.label).i("═══════════════════════════════════════════════════")
 
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Error initializing application", e)
+                Timber.tag(LogContext.SYSTEM.label).e(e, "❌ Error initializing application")
                 Timber.e(e, "Application initialization failed")
             }
         }
@@ -178,7 +176,7 @@ class DPMApplication : Application() {
                 enabled = networkSinkEnabled
             )
 
-            Log.i(TAG, "NetworkSink configuration: host=$systemToolsHost, port=$systemToolsPort, enabled=$networkSinkEnabled")
+            Timber.tag(LogContext.SYSTEM.label).i("NetworkSink configuration: host=$systemToolsHost, port=$systemToolsPort, enabled=$networkSinkEnabled")
 
             // Initialize StructuredLogger with sinks
             val sinks = buildList {
@@ -194,22 +192,22 @@ class DPMApplication : Application() {
                 sinks = sinks
             )
 
-            Log.i(TAG, "✅ StructuredLogger initialized with ${sinks.size} sinks")
-            Log.i(TAG, "   - FileSink: ${logDir.absolutePath}")
-            Log.i(TAG, "   - MemorySink: 1000 entries max")
+            Timber.tag(LogContext.SYSTEM.label).i("✅ StructuredLogger initialized with ${sinks.size} sinks")
+            Timber.tag(LogContext.SYSTEM.label).i("   - FileSink: ${logDir.absolutePath}")
+            Timber.tag(LogContext.SYSTEM.label).i("   - MemorySink: 1000 entries max")
             if (networkSinkEnabled) {
-                Log.i(TAG, "   - NetworkSink: $systemToolsHost:$systemToolsPort ✅ ENABLED")
+                Timber.tag(LogContext.SYSTEM.label).i("   - NetworkSink: $systemToolsHost:$systemToolsPort ✅ ENABLED")
             } else {
-                Log.i(TAG, "   - NetworkSink: ❌ DISABLED (not a DEBUG build or disabled in settings)")
+                Timber.tag(LogContext.SYSTEM.label).i("   - NetworkSink: ❌ DISABLED (not a DEBUG build or disabled in settings)")
             }
 
             // Start UDP log receiver for Air-Side logs
             udpLogReceiver = UdpLogReceiver(port = 5005)
             udpLogReceiver?.start()
-            Log.i(TAG, "✅ UDP log receiver started on port 5005 (Air-Side logs)")
+            Timber.tag(LogContext.SYSTEM.label).i("✅ UDP log receiver started on port 5005 (Air-Side logs)")
 
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to initialize StructuredLogger", e)
+            Timber.tag(LogContext.SYSTEM.label).e(e, "❌ Failed to initialize StructuredLogger")
         }
     }
 }
