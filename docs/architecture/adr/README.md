@@ -62,6 +62,7 @@ An Architecture Decision Record (ADR) captures an important architectural decisi
 | ADR | Title | Status | Key Benefit | Trade-Off |
 |-----|-------|--------|-------------|-----------|
 | [ADR-016](ADR-016-adaptive-sync-usb-traffic-management.md) | Adaptive Sync for USB Traffic Management | Accepted | 80-94% bandwidth reduction, scales to 50+ params | UI state tracking, ~200ms extended param latency |
+| [ADR-017](ADR-017-systemtools-json-filter-config-management.md) | SystemTools JSON Filters and Config Management | Accepted | No GUI freeze, JSON-driven filters, remote config, testing tools | Added complexity, learning curve, SQLite storage |
 
 ---
 
@@ -267,15 +268,16 @@ What did we decide? Why did we choose this approach?
 
 ## ADR Statistics
 
-**Total ADRs:** 15
-**Accepted:** 15
+**Total ADRs:** 17
+**Accepted:** 17
 **Deprecated:** 0
 **Superseded:** 0
 
 **By Category:**
-- Core Architecture: 5 (33%)
-- Component Architecture: 5 (33%)
-- Protocol & Patterns: 5 (33%)
+- Core Architecture: 5 (29%)
+- Component Architecture: 5 (29%)
+- Protocol & Patterns: 5 (29%)
+- Optimization & Scalability: 2 (12%)
 
 **Key Metrics:**
 - Average ADR length: ~300 lines
@@ -302,5 +304,5 @@ What did we decide? Why did we choose this approach?
 ---
 
 **Maintained by:** DPM-V2 Development Team
-**Last Updated:** 2025-11-11
-**Version:** 1.0
+**Last Updated:** 2025-11-18
+**Version:** 1.1

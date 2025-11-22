@@ -1,10 +1,23 @@
 @startuml Dev-Tools Component Diagram
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-' Dev-Tools Component Diagram (C4 Level 3)
+' Dev-Tools (SystemTools) Component Diagram (C4 Level 3)
 ' Shows internal components of the SystemTools diagnostic suite
+'
+' WHO: CC-Dev-Tools
+' Date: 2025-11-18
+' Time: 23:00 UTC
+' Updated: SystemTools architecture refresh - Issues #74, #105, #115, #116, #136, #147, #149
+' Changes:
+'   - Updated to DPM_Management_System.py (from main.py)
+'   - Added LogFilterManager (JSON-based dynamic filters)
+'   - Added PerformanceDatabase (SQLite analytics)
+'   - Updated tab structure (8 tabs + integrated log viewer)
+'   - Added config management components (Issues #115, #116)
+'   - Added file browser enhancements (Issue #136)
+'   - Updated version to 1.11.0+
 
-title Dev-Tools (SystemTools) Component Diagram
+title Dev-Tools (SystemTools) Component Diagram [v1.3 - 2025-11-18]
 
 Container_Boundary(dev_tools, "SystemTools (Python, Cross-platform Diagnostic Suite)") {
     Component(main_window, "MainWindow", "Tkinter", "Application main window with tabbed interface (GUI mode)")
@@ -165,23 +178,26 @@ note right of connection_monitor
 end note
 
 note right of main_window
-  **SystemTools Version 1.9.0+**
+  **SystemTools Version 1.11.0+**
   **Platform:** Cross-platform (Linux/Windows/macOS)
-  **Phase 2 Complete** - Full monitoring operational
+  **Main App:** DPM_Management_System.py
+  **Phase 5 Complete** - Full monitoring + config mgmt + testing
 
-  **12 Tabs:**
-  1. Connection - Multi-domain management
-  2. Config - Settings
-  3. Protocol - Message inspection
-  4. Command - Interactive sending
-  5. Camera - Debug testing
-  6. System - Resource monitoring
-  7. Logs - Log viewing
-  8. Activity - Event timeline
-  9. Remote Control - Remote features
-  10. H16 Diagnostics - ADB troubleshooting
-  11. GitHub Integration - Issue management
-  12. Git Helper - Workflow assistance
+  **8 Tabs + Log Viewer:**
+  1. Dashboard - Multi-domain status + quick actions
+  2. Advanced Settings - Air-Side config mgmt (#115, #116)
+  3. Performance Analytics - SQLite metrics database
+  4. File Browser - Multi-source transfer (#136)
+  5. Command Sender - Interactive testing
+  6. Log Viewer - Tri-domain + JSON filters (#147)
+  7. Docker Logs (SSH) - Direct Air-Side access
+  8. Air-Side Remote - SSH exec + testing (#149)
+
+  **New Features (2025-11-18):**
+  - JSON-based dynamic filter system (Issue #147)
+  - Config management (system.get_config/update_config)
+  - Performance analytics database
+  - Invalid command testing capability
 end note
 
 @enduml

@@ -3,8 +3,14 @@
 
 ' Ground-Side Component Diagram (C4 Level 3)
 ' Shows internal components of the Ground-Side Android application
+'
+' **DEPRECATED:** 2025-11-18
+' **WHO:** CC-Ground-Side
+' **REASON:** Missing SystemTools logging integration components added in commit a2e3bdb
+' **USE INSTEAD:** c4-level3-ground-side-components-UPDATED-20251118.puml
+' **KEEPING FOR:** Historical reference, will be removed after validation period
 
-title Ground-Side (Android H16) Component Diagram
+title Ground-Side (Android H16) Component Diagram [DEPRECATED - See UPDATED-20251118 version]
 
 Container_Boundary(ground_side, "Ground-Side Application (Kotlin, Jetpack Compose on Android)") {
     ' UI Layer

@@ -326,7 +326,127 @@ class CameraViewModel : ViewModel() {
 **DataStore:**
 - Persistent key-value storage (AndroidX Preferences DataStore)
 - User settings (network IP, preferences)
+- **[ENHANCED 2025-11-18]** SystemTools logging configuration (host, port, enabled)
 - Survives app restarts
+
+---
+
+#### Logging Layer (NEW: Tri-Domain Observability - 2025-11-18)
+
+**WHO:** CC-Ground-Side
+**DATE:** 2025-11-18
+**TIME:** 18:15 UTC
+**ISSUES:** #99 (SystemTools Logging Integration), #113 (Timber Coverage Expansion)
+**COMMIT:** a2e3bdb
+
+**Technology:** Kotlin + Timber + Custom Sinks
+**Pattern:** Multi-sink logging architecture
+
+**Background:**
+Ground-Side now participates in tri-domain log aggregation, forwarding both local logs and relayed Air-Side logs to SystemTools for centralized observability and debugging.
+
+**Components:**
+
+**LogHelper:**
+- **Purpose:** Unified logging API with dynamic control
+- **Technology:** Kotlin wrapper around Android Log + Timber
+- **Features:**
+  - Parallel operation support (logcat + Timber simultaneously)
+  - Runtime enable/disable of each logging channel
+  - Consistent API across codebase (`LogHelper.d()`, `LogHelper.i()`, etc.)
+  - Gradual migration path from `Log.d()` to `Timber.d()`
+
+**StructuredLogger:**
+- **Purpose:** Multi-sink structured logging system
+- **Technology:** Timber with custom Tree implementation
+- **Sinks:**
+  1. **FileSink:** Local file logging with rotation (50MB max, 3 files)
+  2. **MemorySink:** Ring buffer for LogViewer UI (1000 entries)
+  3. **NetworkSink:** TCP relay to SystemTools (port 5008)
+- **Log Levels:** DEBUG, INFO, WARN, ERROR (configurable minimum)
+- **Metadata:** Timestamp, level, tag, context, message
+
+**NetworkSink:**
+- **Purpose:** Real-time log streaming to SystemTools
+- **Technology:** TCP client (Kotlin coroutines)
+- **Configuration:**
+  - **Host:** `localhost` (default, via ADB reverse) or user-configured IP
+  - **Port:** 5008 (SystemTools log aggregator)
+  - **Setup:** `adb reverse tcp:5008 tcp:5008` (development mode)
+- **Features:**
+  - Automatic connection management
+  - Graceful degradation (continues if SystemTools unavailable)
+  - Settings UI for dynamic configuration
+  - Enable/disable via Advanced Settings
+
+**UdpLogReceiver (Enhanced):**
+- **Purpose:** Relay Air-Side logs to SystemTools
+- **Receives:** UDP logs from Air-Side (port 5005)
+- **Processing:**
+  - Tags with "AIR-SIDE" context
+  - Forwards to Timber → StructuredLogger
+  - NetworkSink relays to SystemTools
+- **Result:** SystemTools sees both Ground-Side and Air-Side logs in unified view
+
+**AdvancedSettingsScreen (Enhanced):**
+- **Purpose:** SystemTools logging configuration UI
+- **Settings:**
+  - SystemTools host (default: `localhost`)
+  - SystemTools port (default: 5008)
+  - Enable/disable network logging
+- **Persistence:** DataStore flows
+- **Reactivity:** Changes applied immediately on save
+
+**AdvancedSettingsViewModel (Enhanced):**
+- **Manages:** SystemTools configuration state
+- **Functions:**
+  - Load/save SystemTools settings
+  - Validate configuration
+  - Test connection to SystemTools
+- **State:** Flows from SettingsRepository
+
+**SettingsRepository (Enhanced):**
+- **New Flows:**
+  - `systemToolsLogHostFlow: Flow<String>` (default: "localhost")
+  - `systemToolsLogPortFlow: Flow<Int>` (default: 5008)
+  - `systemToolsLogEnabledFlow: Flow<Boolean>` (default: false)
+- **Persistence:** DataStore backend
+- **Migration:** Backward compatible (new settings opt-in)
+
+**Logging Flow (Tri-Domain Observability):**
+```
+Ground-Side Log:
+  App Code → LogHelper → Timber → StructuredLogger → NetworkSink → SystemTools (TCP port 5008)
+                                                    → FileSink → Local files
+                                                    → MemorySink → LogViewer UI
+
+Air-Side Log Relay:
+  Air-Side → UDP port 5005 → UdpLogReceiver → LogHelper → Timber → StructuredLogger → NetworkSink → SystemTools
+```
+
+**Configuration:**
+- **Development Mode:** ADB reverse for localhost connectivity
+- **Production Mode:** Direct IP configuration via settings
+- **Default:** NetworkSink disabled (opt-in for debugging)
+
+**Benefits:**
+- **Centralized Observability:** All logs in SystemTools
+- **Real-time Debugging:** Live log streaming
+- **Multi-domain Correlation:** See Air/Ground logs together
+- **No Code Changes:** Dynamic configuration via UI
+- **Backward Compatible:** Existing code unaffected
+
+**Testing:**
+- Enable SystemTools logging in Advanced Settings
+- Configure host/port (or use default with ADB reverse)
+- Observe Ground-Side logs in SystemTools
+- Air-Side logs automatically relayed when UDP receiver active
+
+**Future Extensions:**
+- Filtering by log level in UI
+- Custom log contexts/tags
+- Log export/sharing
+- Performance metrics integration
 
 ---
 

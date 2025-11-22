@@ -4,9 +4,9 @@
 **Document Standard:** ISO/IEC/IEEE 42010:2011
 **Conforms To:** Organization Architecture Documentation Standard v1.0
 **Template:** `docs/standards/SOFTWARE_ARCHITECTURE_DOCUMENT_TEMPLATE.md`
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2025-11-11
-**Updated:** 2025-11-14 (Added Tri-Domain Log Aggregation - Issue #103)
+**Updated:** 2025-11-18 (Updated SystemTools Architecture - Issues #74, #105, #115, #116, #136, #147, #149)
 **Status:** Draft
 **Classification:** Internal Use
 
@@ -21,6 +21,7 @@
 | 1.0 | 2025-11-11 | DPM-V2 Team | Initial consolidated SAD |
 | 1.1 | 2025-11-12 | DPM-V2 Team | Added reference to organization architecture standards |
 | 1.2 | 2025-11-14 | CC-PM | Added Pattern 4: Tri-Domain Log Aggregation (Issue #103) |
+| 1.3 | 2025-11-18 | CC-Dev-Tools | Updated SystemTools Architecture - JSON filters, config mgmt, testing (#74, #105, #115, #116, #136, #147, #149) |
 
 **Approval:**
 - [ ] Development Team Lead
@@ -658,6 +659,14 @@ See `docs/architecture/c4-level1-context.puml` for visual representation.
    - MessageSerializer: JSON serialization (Gson)
    - DataStore: Persistent settings (AndroidX)
 
+<!-- DEPRECATED: 2025-11-18 by CC-Dev-Tools
+     Reason: Outdated architecture - main.py replaced by DPM_Management_System.py,
+             missing JSON filter system (#147), missing log_filter_manager,
+             missing config management (#115, #116), outdated tab names (#149),
+             missing performance analytics database, missing file browser enhancements (#136)
+     Superseded by: § 4.2.3 Dev-Tools Architecture (2025-11-18 Update below)
+     Related Issues: #74, #105, #115, #116, #136, #147, #149
+
 ### Dev-Tools Architecture
 
 **Pattern:** Multi-mode diagnostic suite (GUI + CLI + Log Aggregator)
@@ -692,6 +701,92 @@ See `docs/architecture/c4-level1-context.puml` for visual representation.
 - SSHClient: Air-Side Docker logs and system access
 - ADBClient: H16 diagnostics and app management
 - UdpListener: Status/heartbeat monitoring
+-->
+
+### Dev-Tools (SystemTools) Architecture
+
+**WHO:** CC-Dev-Tools
+**Date:** 2025-11-18
+**Time:** 22:45 UTC
+**Supersedes:** § 4.2.2 Dev-Tools Architecture (deprecated above)
+**Related Issues:** #74, #105, #115, #116, #136, #147, #149
+
+**Pattern:** Multi-mode professional diagnostic suite (GUI + CLI + Log Aggregator)
+
+**Platform:** Cross-platform (Linux/Windows/macOS)
+
+**Runtime:** Python 3.12.3+
+
+**Architecture Evolution:**
+- **Phase 1** (Issue #74): Tri-domain log aggregation foundation
+- **Phase 2** (Issue #105): GUI integration with real-time monitoring
+- **Phase 3** (Issues #115, #116): Air-Side config management integration
+- **Phase 4** (Issue #147): JSON-based dynamic filter system
+- **Phase 5** (Issue #149): Enhanced testing capabilities
+
+**Main Components:**
+
+1. **Primary GUI Application (DPM_Management_System.py):**
+   - Professional Tkinter-based interface
+   - 8 core tabs + Log Viewer integration:
+     1. Dashboard - Multi-domain status and quick actions
+     2. Advanced Settings - Air-Side config management (system.get_config, system.update_config)
+     3. Performance Analytics - System metrics with SQLite persistence
+     4. File Browser - Multi-source file transfer (Images + Docker Logs via SSH/SFTP)
+     5. Command Sender - Interactive command testing
+     6. Log Viewer - Integrated tri-domain log streaming with JSON filter system
+     7. Docker Logs (SSH) - Direct Air-Side log access
+     8. Air-Side Remote - SSH command execution + invalid command testing (Issue #149)
+
+   **Key Features:**
+   - Real-time Air-Side TCP connection (port 5000) for commands + config management
+   - Air-Side UDP log streaming (port 5007) for structured logs
+   - Ground-Side TCP log streaming (port 5008) for Android logs
+   - SSH integration for Air-Side Docker access and file transfer
+   - ADB integration for Ground-Side diagnostics
+   - JSON-based dynamic filter system (Issue #147) - prevents GUI freeze, customizable filters
+   - SQLite performance analytics database
+
+2. **Standalone Log Aggregator (log_aggregator.py):**
+   - Headless tri-domain log collection
+   - UDP listener for Air-Side logs (port 5007)
+   - TCP listener for Ground-Side logs (port 5008)
+   - Unified chronological timeline display
+   - Real-time filtering (level, domain, context, text search)
+   - Export capabilities (JSON, CSV, text)
+   - Buffer: 10,000 entries (configurable)
+
+3. **CLI Mode (cli_interface.py):**
+   - Command-line interface for headless deployment
+   - Scriptable operations for automation
+
+**Enhanced Features (2025-11-18):**
+
+- **JSON-Based Dynamic Filter System (Issue #147):**
+  - Component: `utils/log_filter_manager.py`
+  - Config: `config/log_filter_labels.json`
+  - Multi-select context/level checkboxes with AND/OR logic
+  - 7 preset filters, Apply button prevents real-time freeze
+
+- **Air-Side Configuration Management (Issues #115, #116):**
+  - Commands: system.get_config, system.update_config
+  - Flat dotted-key format with protocol compliance
+  - [COMMAND] log context per protocol spec
+
+- **Performance Analytics:**
+  - SQLite database (`data/performance.db`)
+  - System metrics, command latency, connection health tracking
+
+- **File Browser Enhancements (Issue #136):**
+  - 3 log sources: Host-mounted, Container-internal, Docker container logs
+  - Sub-tab organization, progress tracking, auto-cleanup
+
+**Network Clients:**
+- AirSideManager: TCP command client + config management (port 5000)
+- GroundSideManager: TCP log receiver (port 5008)
+- SSHClient: Air-Side Docker log access + SFTP file transfer
+- ADBClient: H16 diagnostics and app management
+- UdpListener: Status/heartbeat/log monitoring (ports 5001, 5002, 5007)
 
 ### Component Interactions
 
@@ -717,7 +812,9 @@ See `docs/architecture/c4-level1-context.puml` for visual representation.
 See:
 - `c4-level2-container.puml`: Container architecture
 - `c4-level3-air-side-components.puml`: Air-Side components
-- `c4-level3-ground-side-components.puml`: Ground-Side MVVM layers
+- `c4-level3-ground-side-components-UPDATED-20251118.puml`: **[UPDATED 2025-11-18]** Ground-Side MVVM + Logging layers
+  - **WHO:** CC-Ground-Side | **DATE:** 2025-11-18 | **ISSUES:** #99, #113
+  - _Old diagram deprecated, see: c4-level3-ground-side-components.puml_
 - `c4-level3-dev-tools-components.puml`: Dev-Tools components
 
 ---
@@ -1745,7 +1842,10 @@ DPM-V2 architecture is visualized using the C4 Model (Context, Container, Compon
 
 ### Ground-Side Components
 
-**Diagram:** `c4-level3-ground-side-components.puml`
+**Diagram:** `c4-level3-ground-side-components-UPDATED-20251118.puml`
+
+**[UPDATED 2025-11-18 - WHO: CC-Ground-Side - ISSUES: #99, #113]**
+_New: SystemTools logging integration (LogHelper, StructuredLogger, NetworkSink, UdpLogReceiver enhanced)_
 
 **MVVM Layers:**
 
