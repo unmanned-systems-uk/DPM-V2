@@ -497,3 +497,56 @@ class AnomalyDetector:
             summary[alert.severity.value] += 1
 
         return summary
+
+    def check_prediction(self, prediction: Dict[str, Any], metric_name: str) -> Optional[Alert]:
+        """
+        Create alert based on prediction analysis
+
+        Args:
+            prediction: Prediction dictionary from StatisticsEngine
+            metric_name: Human-readable metric name
+
+        Returns:
+            Alert if prediction warrants attention, None otherwise
+        """
+        if not prediction:
+            return None
+
+        try:
+            time_remaining_hours = prediction['time_remaining_hours']
+            threshold = prediction['threshold']
+            current_value = prediction['current_value']
+            confidence = prediction['confidence']
+
+            # Determine severity based on time remaining
+            if time_remaining_hours < 2:
+                severity = AlertSeverity.CRITICAL
+                message = f"{metric_name} predicted to reach {threshold:.1f} in {time_remaining_hours:.1f} hours (current: {current_value:.1f})"
+                recommendation = f"Immediate action required - {metric_name} will exceed threshold very soon"
+            elif time_remaining_hours < 6:
+                severity = AlertSeverity.WARNING
+                message = f"{metric_name} predicted to reach {threshold:.1f} in {time_remaining_hours:.1f} hours (current: {current_value:.1f})"
+                recommendation = f"Monitor {metric_name} closely - threshold breach predicted within 6 hours"
+            elif time_remaining_hours < 24:
+                severity = AlertSeverity.INFO
+                message = f"{metric_name} predicted to reach {threshold:.1f} in {time_remaining_hours:.1f} hours (current: {current_value:.1f})"
+                recommendation = f"Plan for {metric_name} maintenance within 24 hours"
+            else:
+                return None  # Too far in future to alert
+
+            alert = Alert(
+                timestamp=datetime.utcnow(),
+                severity=severity,
+                metric_name=metric_name,
+                metric_value=current_value,
+                threshold_value=threshold,
+                message=message + f" [Confidence: {confidence}]",
+                recommendation=recommendation
+            )
+
+            self._add_alert(alert)
+            return alert
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to check prediction for {metric_name}: {e}")
+            return None

@@ -3,7 +3,9 @@ Statistics Engine - Calculate descriptive statistics and trends
 """
 
 import numpy as np
-from typing import List, Dict, Any, Optional
+import scipy.stats
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta
 from utils.protocol_logger import logger
 
 
@@ -259,3 +261,213 @@ class StatisticsEngine:
         ]
 
         return "\n".join(lines)
+
+    @staticmethod
+    def calculate_baseline(snapshots: List[Dict[str, Any]], metric_key: str, days: int = 7) -> Optional[Dict[str, float]]:
+        """
+        Calculate performance baseline (7-day rolling average ± 1.5σ)
+
+        Args:
+            snapshots: List of health snapshots
+            metric_key: Metric to calculate baseline for
+            days: Number of days for baseline calculation (default: 7)
+
+        Returns:
+            Dictionary with baseline_mean, baseline_std, lower_bound, upper_bound
+        """
+        if not snapshots or len(snapshots) == 0:
+            return None
+
+        try:
+            # Extract metric values
+            values = []
+            for snapshot in snapshots:
+                value = snapshot.get(metric_key)
+                if value is not None:
+                    values.append(float(value))
+
+            if len(values) < 10:  # Need at least 10 points for meaningful baseline
+                return None
+
+            # Calculate baseline statistics
+            arr = np.array(values)
+            baseline_mean = float(np.mean(arr))
+            baseline_std = float(np.std(arr))
+
+            # Calculate bounds (mean ± 1.5σ)
+            lower_bound = baseline_mean - (1.5 * baseline_std)
+            upper_bound = baseline_mean + (1.5 * baseline_std)
+
+            return {
+                'baseline_mean': baseline_mean,
+                'baseline_std': baseline_std,
+                'lower_bound': lower_bound,
+                'upper_bound': upper_bound,
+                'sample_size': len(values)
+            }
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to calculate baseline for {metric_key}: {e}")
+            return None
+
+    @staticmethod
+    def predict_time_to_threshold(
+        snapshots: List[Dict[str, Any]],
+        metric_key: str,
+        threshold: float
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Predict time until metric reaches threshold using linear regression
+
+        Args:
+            snapshots: List of health snapshots (time-ordered)
+            metric_key: Metric to predict
+            threshold: Threshold value to predict time-to-reach
+
+        Returns:
+            Dictionary with prediction info or None if cannot predict
+        """
+        if not snapshots or len(snapshots) < 10:
+            return None
+
+        try:
+            # Extract timestamps and values
+            times = []
+            values = []
+
+            for snapshot in snapshots:
+                timestamp = snapshot.get('timestamp')
+                value = snapshot.get(metric_key)
+
+                if timestamp is not None and value is not None:
+                    # Convert timestamp to datetime if string
+                    if isinstance(timestamp, str):
+                        timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+
+                    times.append(timestamp)
+                    values.append(float(value))
+
+            if len(values) < 10:
+                return None
+
+            # Convert times to numeric (seconds since first timestamp)
+            first_time = times[0]
+            times_numeric = [(t - first_time).total_seconds() for t in times]
+
+            # Perform linear regression
+            slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(times_numeric, values)
+
+            # Check if trend is meaningful (r² > 0.5 and moving toward threshold)
+            r_squared = r_value ** 2
+            if r_squared < 0.5:
+                return None  # Trend not strong enough
+
+            current_value = values[-1]
+            current_time = times[-1]
+
+            # Calculate time to threshold
+            # threshold = slope * t + intercept
+            # t = (threshold - intercept) / slope
+
+            if abs(slope) < 0.0001:  # Essentially flat
+                return None
+
+            # Check if trending toward threshold
+            if slope > 0 and current_value >= threshold:
+                return None  # Already above threshold
+            if slope < 0 and current_value <= threshold:
+                return None  # Already below threshold
+            if slope > 0 and threshold < current_value:
+                return None  # Threshold is below current value
+            if slope < 0 and threshold > current_value:
+                return None  # Threshold is above current value
+
+            # Calculate time to threshold (seconds from first timestamp)
+            time_to_threshold_sec = (threshold - intercept) / slope
+
+            # Convert to actual datetime
+            predicted_time = first_time + timedelta(seconds=time_to_threshold_sec)
+
+            # Calculate time remaining from now
+            time_remaining = predicted_time - current_time
+
+            if time_remaining.total_seconds() < 0:
+                return None  # Prediction is in the past
+
+            result = {
+                'threshold': threshold,
+                'current_value': current_value,
+                'predicted_time': predicted_time,
+                'time_remaining_seconds': time_remaining.total_seconds(),
+                'time_remaining_hours': time_remaining.total_seconds() / 3600,
+                'slope': slope,
+                'r_squared': r_squared,
+                'confidence': 'high' if r_squared > 0.8 else 'medium'
+            }
+
+            logger.debug("HEALTH", f"Predicted {metric_key} to reach {threshold} in {result['time_remaining_hours']:.1f} hours")
+            return result
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to predict time to threshold for {metric_key}: {e}")
+            return None
+
+    @staticmethod
+    def calculate_historical_comparison(
+        current_snapshot: Dict[str, Any],
+        historical_snapshots: List[Dict[str, Any]],
+        metric_key: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Compare current metric value to historical data (same time yesterday/last week)
+
+        Args:
+            current_snapshot: Current health snapshot
+            historical_snapshots: Historical snapshots for comparison
+            metric_key: Metric to compare
+
+        Returns:
+            Dictionary with comparison data
+        """
+        if not current_snapshot or not historical_snapshots:
+            return None
+
+        try:
+            current_value = current_snapshot.get(metric_key)
+            if current_value is None:
+                return None
+
+            # Calculate average of historical values
+            historical_values = []
+            for snapshot in historical_snapshots:
+                value = snapshot.get(metric_key)
+                if value is not None:
+                    historical_values.append(float(value))
+
+            if len(historical_values) == 0:
+                return None
+
+            historical_avg = float(np.mean(historical_values))
+            delta = current_value - historical_avg
+            percent_change = (delta / historical_avg * 100) if historical_avg != 0 else 0
+
+            # Determine status color
+            if abs(percent_change) < 10:
+                status = 'green'  # < 10% change
+            elif abs(percent_change) < 25:
+                status = 'yellow'  # 10-25% change
+            else:
+                status = 'red'  # > 25% change
+
+            return {
+                'current_value': current_value,
+                'historical_avg': historical_avg,
+                'delta': delta,
+                'percent_change': percent_change,
+                'status': status,
+                'sample_size': len(historical_values)
+            }
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to calculate historical comparison for {metric_key}: {e}")
+            return None

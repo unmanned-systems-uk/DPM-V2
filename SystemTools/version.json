@@ -1,7 +1,7 @@
 {
-  "version": "1.13.0",
-  "version_name": "DPM Management System - PM Automation Dashboard",
-  "build_date": "2025-11-19",
+  "version": "1.14.0",
+  "version_name": "DPM Management System - Advanced Analytics Dashboard",
+  "build_date": "2025-11-22",
   "python_required": "3.x",
   "platform": "Linux",
   "protocol_version": "1.1.0",
@@ -11,6 +11,16 @@
     "phase_3": "Complete (100%) - Config Management (#115, #116)",
     "phase_4": "Complete (100%) - JSON Filter System (#147)",
     "phase_5": "Complete (100%) - Testing Enhancements (#149)",
+    "phase_6": "Complete (100%) - Performance Analytics Dashboard 7 Enhancements (#174)",
     "overall_completion": "100%"
+  },
+  "latest_features": {
+    "mission_readiness_score": "Composite health assessment with component breakdown",
+    "trend_analysis": "Linear regression trend lines on all performance graphs",
+    "predictive_analytics": "Time-to-threshold predictions with proactive alerts",
+    "performance_baseline": "7-day rolling baseline with deviation detection",
+    "correlation_analysis": "Heatmap and scatter plots for metric relationships",
+    "historical_comparison": "Compare current vs yesterday/last week metrics",
+    "pdf_export": "Comprehensive multi-page performance reports"
   }
 }

@@ -18,10 +18,13 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
 
 from utils.protocol_logger import logger
-from analytics import PerformanceDatabase, StatisticsEngine, AnomalyDetector, AirSideLogParser
+from analytics import PerformanceDatabase, StatisticsEngine, AnomalyDetector, AirSideLogParser, ReadinessScorer
 from analytics.anomaly_detection import Alert, AlertSeverity
+from analytics.pdf_generator import PDFReportGenerator
 import json
 from pathlib import Path
+import scipy.stats
+import numpy as np
 
 
 class PerformanceAnalyticsTab(ttk.Frame):
@@ -63,6 +66,8 @@ class PerformanceAnalyticsTab(ttk.Frame):
         self.db = PerformanceDatabase(db_path)
         self.stats_engine = StatisticsEngine()
         self.detector = AnomalyDetector(self.config)
+        self.readiness_scorer = ReadinessScorer(self.config)
+        self.pdf_generator = PDFReportGenerator()
 
         # Data buffers (in-memory for real-time graphing)
         self.max_buffer_size = 720  # 1 hour @ 5 Hz
@@ -135,6 +140,13 @@ class PerformanceAnalyticsTab(ttk.Frame):
             command=self._import_logs
         ).pack(side=tk.LEFT, padx=20)
 
+        # Export PDF button
+        ttk.Button(
+            controls_frame,
+            text="📄 Export PDF Report",
+            command=self._export_pdf_report
+        ).pack(side=tk.LEFT, padx=5)
+
         # Clear data button
         ttk.Button(
             controls_frame,
@@ -154,6 +166,12 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
         # Tab 3: Alerts
         self._create_alerts_tab()
+
+        # Tab 4: Mission Readiness
+        self._create_readiness_tab()
+
+        # Tab 5: Correlation Analysis
+        self._create_correlation_tab()
 
         # Bottom status bar
         status_frame = ttk.Frame(self)
@@ -316,6 +334,129 @@ class PerformanceAnalyticsTab(ttk.Frame):
         self.alerts_text.tag_config("info", foreground="blue", font=('Courier', 9))
         self.alerts_text.tag_config("timestamp", foreground="gray", font=('Courier', 8, 'italic'))
         self.alerts_text.tag_config("recommendation", foreground="green", font=('Courier', 9, 'italic'))
+
+    def _create_readiness_tab(self):
+        """Create mission readiness tab with overall system score"""
+        readiness_frame = ttk.Frame(self.notebook)
+        self.notebook.add(readiness_frame, text="🎯 Mission Readiness")
+
+        # Header
+        header_frame = ttk.Frame(readiness_frame)
+        header_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Label(
+            header_frame,
+            text="Mission Readiness Assessment",
+            font=('Arial', 12, 'bold')
+        ).pack()
+
+        # Overall score display (large centered)
+        score_frame = ttk.LabelFrame(readiness_frame, text="Overall Readiness", padding=20)
+        score_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        self.readiness_score_label = ttk.Label(
+            score_frame,
+            text="--",
+            font=('Arial', 48, 'bold'),
+            foreground='gray'
+        )
+        self.readiness_score_label.pack()
+
+        self.readiness_status_label = ttk.Label(
+            score_frame,
+            text="WAITING FOR DATA",
+            font=('Arial', 14, 'bold'),
+            foreground='gray'
+        )
+        self.readiness_status_label.pack()
+
+        # Component breakdown (grid)
+        components_frame = ttk.LabelFrame(readiness_frame, text="Component Breakdown", padding=10)
+        components_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Create grid headers
+        ttk.Label(components_frame, text="Component", font=('Arial', 10, 'bold')).grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        ttk.Label(components_frame, text="Score", font=('Arial', 10, 'bold')).grid(row=0, column=1, padx=10, pady=5)
+        ttk.Label(components_frame, text="Status", font=('Arial', 10, 'bold')).grid(row=0, column=2, padx=10, pady=5)
+
+        # Component labels
+        components = ['CPU', 'Memory', 'Disk', 'Camera', 'Network']
+        self.readiness_component_labels = {}
+
+        for i, component in enumerate(components):
+            row = i + 1
+            ttk.Label(components_frame, text=component, font=('Arial', 10)).grid(row=row, column=0, padx=10, pady=5, sticky=tk.W)
+
+            score_label = ttk.Label(components_frame, text="--", font=('Arial', 10, 'bold'))
+            score_label.grid(row=row, column=1, padx=10, pady=5)
+
+            status_label = ttk.Label(components_frame, text="--", font=('Arial', 10))
+            status_label.grid(row=row, column=2, padx=10, pady=5)
+
+            self.readiness_component_labels[component.lower()] = {
+                'score': score_label,
+                'status': status_label
+            }
+
+        # Recommendations
+        rec_frame = ttk.LabelFrame(readiness_frame, text="Recommendations", padding=10)
+        rec_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.readiness_recommendations = scrolledtext.ScrolledText(
+            rec_frame,
+            wrap=tk.WORD,
+            font=('Arial', 10),
+            height=8
+        )
+        self.readiness_recommendations.pack(fill=tk.BOTH, expand=True)
+
+        # Configure text tags
+        self.readiness_recommendations.tag_config("critical", foreground="red", font=('Arial', 10, 'bold'))
+        self.readiness_recommendations.tag_config("warning", foreground="orange", font=('Arial', 10, 'bold'))
+        self.readiness_recommendations.tag_config("caution", foreground="goldenrod", font=('Arial', 10))
+        self.readiness_recommendations.tag_config("good", foreground="green", font=('Arial', 10))
+
+    def _create_correlation_tab(self):
+        """Create correlation analysis tab"""
+        correlation_frame = ttk.Frame(self.notebook)
+        self.notebook.add(correlation_frame, text="📊 Correlation")
+
+        # Header
+        header_frame = ttk.Frame(correlation_frame)
+        header_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Label(
+            header_frame,
+            text="Metric Correlation Analysis",
+            font=('Arial', 11, 'bold')
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            header_frame,
+            text="Refresh Correlations",
+            command=self._update_correlations
+        ).pack(side=tk.RIGHT, padx=5)
+
+        # Create matplotlib figure for correlation heatmap
+        self.correlation_fig = Figure(figsize=(10, 8), dpi=80, facecolor='white')
+        self.correlation_ax = self.correlation_fig.add_subplot(111)
+
+        # Embed matplotlib figure in tkinter
+        self.correlation_canvas = FigureCanvasTkAgg(self.correlation_fig, master=correlation_frame)
+        self.correlation_canvas.draw()
+        self.correlation_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Strong correlations text display
+        strong_frame = ttk.LabelFrame(correlation_frame, text="Strong Correlations (|r| > 0.7)", padding=10)
+        strong_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        self.strong_correlations_text = scrolledtext.ScrolledText(
+            strong_frame,
+            wrap=tk.WORD,
+            font=('Courier', 9),
+            height=6
+        )
+        self.strong_correlations_text.pack(fill=tk.BOTH, expand=True)
 
     def _normalize_snapshot(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -481,9 +622,13 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self.ax_network.clear()
             self.ax_camera_conn.clear()
 
-            # Plot CPU
+            # Convert timestamps to numeric for trend line regression
+            timestamps_numeric = mdates.date2num(timestamps)
+
+            # Plot CPU with trend line
             self.ax_cpu.plot(timestamps, cpu_values, 'b-', linewidth=1.5, label='CPU %')
-            self.ax_cpu.set_title("CPU Usage (%)", fontsize=10, fontweight='bold')
+            cpu_trend_label = self._add_trend_line(self.ax_cpu, timestamps, timestamps_numeric, cpu_values, 'CPU Usage (%)')
+            self.ax_cpu.set_title(f"CPU Usage (%) {cpu_trend_label}", fontsize=10, fontweight='bold')
             self.ax_cpu.set_ylabel("CPU %")
             self.ax_cpu.grid(True, alpha=0.3)
 
@@ -497,9 +642,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
                 self.ax_cpu.axhline(y=cpu_crit, color='red', linestyle='--', linewidth=1, label=f'Critical ({cpu_crit}%)')
             self.ax_cpu.legend(loc='upper right', fontsize=8)
 
-            # Plot Memory
+            # Plot Memory with trend line
             self.ax_memory.plot(timestamps, memory_values, 'g-', linewidth=1.5, label='Memory (MB)')
-            self.ax_memory.set_title("Memory Usage (MB)", fontsize=10, fontweight='bold')
+            memory_trend_label = self._add_trend_line(self.ax_memory, timestamps, timestamps_numeric, memory_values, 'Memory Usage (MB)')
+            self.ax_memory.set_title(f"Memory Usage (MB) {memory_trend_label}", fontsize=10, fontweight='bold')
             self.ax_memory.set_ylabel("Memory (MB)")
             self.ax_memory.grid(True, alpha=0.3)
 
@@ -512,9 +658,10 @@ class PerformanceAnalyticsTab(ttk.Frame):
                 self.ax_memory.axhline(y=mem_crit, color='red', linestyle='--', linewidth=1, label=f'Critical ({mem_crit}MB)')
             self.ax_memory.legend(loc='upper right', fontsize=8)
 
-            # Plot Disk Usage
+            # Plot Disk Usage with trend line
             self.ax_disk.plot(timestamps, disk_values, 'purple', linewidth=1.5, label='Disk Used (MB)')
-            self.ax_disk.set_title("Disk Usage (MB)", fontsize=10, fontweight='bold')
+            disk_trend_label = self._add_trend_line(self.ax_disk, timestamps, timestamps_numeric, disk_values, 'Disk Usage (MB)')
+            self.ax_disk.set_title(f"Disk Usage (MB) {disk_trend_label}", fontsize=10, fontweight='bold')
             self.ax_disk.set_ylabel("Disk (MB)")
             self.ax_disk.grid(True, alpha=0.3)
 
@@ -527,10 +674,13 @@ class PerformanceAnalyticsTab(ttk.Frame):
                 self.ax_disk.axhline(y=disk_crit, color='red', linestyle='--', linewidth=1, label=f'Critical ({disk_crit}MB)')
             self.ax_disk.legend(loc='upper right', fontsize=8)
 
-            # Plot Network Traffic
+            # Plot Network Traffic with trend lines
             self.ax_network.plot(timestamps, network_rx_values, 'cyan', linewidth=1.5, label='RX (Mbps)')
             self.ax_network.plot(timestamps, network_tx_values, 'orange', linewidth=1.5, label='TX (Mbps)')
-            self.ax_network.set_title("Network Traffic (Mbps)", fontsize=10, fontweight='bold')
+            # Calculate combined network trend (RX + TX)
+            network_total = [rx + tx for rx, tx in zip(network_rx_values, network_tx_values)]
+            network_trend_label = self._add_trend_line(self.ax_network, timestamps, timestamps_numeric, network_total, 'Network Traffic (Mbps)', color='gray')
+            self.ax_network.set_title(f"Network Traffic (Mbps) {network_trend_label}", fontsize=10, fontweight='bold')
             self.ax_network.set_ylabel("Mbps")
             self.ax_network.grid(True, alpha=0.3)
 
@@ -569,6 +719,59 @@ class PerformanceAnalyticsTab(ttk.Frame):
 
         except Exception as e:
             logger.error("HEALTH", f"Failed to update graphs: {e}")
+
+    def _add_trend_line(self, ax, timestamps, timestamps_numeric, values, metric_name, color='red'):
+        """
+        Add trend line to a graph subplot using linear regression
+
+        Args:
+            ax: Matplotlib axis to plot on
+            timestamps: Original datetime timestamps
+            timestamps_numeric: Numeric timestamps for regression
+            values: Y values to fit
+            metric_name: Name of metric (for logging)
+            color: Color of trend line (default: red)
+
+        Returns:
+            String label with trend direction indicator
+        """
+        try:
+            # Filter out None values
+            valid_indices = [i for i, v in enumerate(values) if v is not None]
+            if len(valid_indices) < 2:
+                return ""  # Not enough data for trend
+
+            valid_times = [timestamps_numeric[i] for i in valid_indices]
+            valid_values = [values[i] for i in valid_indices]
+
+            # Perform linear regression
+            slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(valid_times, valid_values)
+
+            # Calculate trend line points
+            trend_y = [slope * x + intercept for x in valid_times]
+
+            # Plot trend line
+            trend_timestamps = [timestamps[i] for i in valid_indices]
+            ax.plot(trend_timestamps, trend_y, color=color, linestyle='--', linewidth=1.5, alpha=0.7, label='Trend')
+
+            # Determine trend direction
+            if abs(slope) < 0.001:  # Essentially flat
+                direction = "→"
+                direction_text = "stable"
+            elif slope > 0:
+                direction = "↗"
+                direction_text = "increasing"
+            else:
+                direction = "↘"
+                direction_text = "decreasing"
+
+            logger.debug("HEALTH", f"{metric_name} trend: {direction_text} (slope={slope:.4f}, r²={r_value**2:.3f})")
+
+            return f"{direction}"
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to add trend line for {metric_name}: {e}")
+            return ""
 
     def _update_statistics(self):
         """Update statistics display"""
@@ -633,7 +836,155 @@ class PerformanceAnalyticsTab(ttk.Frame):
                     if warn_threshold and perc['p95'] >= warn_threshold * 0.9:  # Within 90% of threshold
                         self.stats_text.insert(tk.END, f"  ⚠️  P95 approaching warn threshold ({warn_threshold}{unit})\n", "warning")
 
-            logger.debug("HEALTH", "Statistics updated")
+            # Performance Baseline Section (7-day)
+            self.stats_text.insert(tk.END, "\n" + "="*60 + "\n", "normal")
+            self.stats_text.insert(tk.END, "Performance Baseline (7-day)\n", "header")
+            self.stats_text.insert(tk.END, "="*60 + "\n\n", "normal")
+
+            # Query 7 days of data from database for baseline
+            baseline_start = datetime.now(timezone.utc) - timedelta(days=7)
+            baseline_end = datetime.now(timezone.utc)
+            baseline_snapshots = self.db.query_time_range(baseline_start, baseline_end)
+
+            if len(baseline_snapshots) > 10:
+                baseline_metrics = [
+                    ('cpu_percent', 'CPU Usage', '%'),
+                    ('memory_used_mb', 'Memory Used', 'MB'),
+                    ('disk_used_mb', 'Disk Used', 'MB')
+                ]
+
+                for metric_key, metric_name, unit in baseline_metrics:
+                    baseline = self.stats_engine.calculate_baseline(baseline_snapshots, metric_key, days=7)
+                    if baseline:
+                        current_val = filtered_data[-1].get(metric_key) if filtered_data else None
+                        if current_val is not None:
+                            # Check if current value is outside baseline bounds
+                            if current_val < baseline['lower_bound'] or current_val > baseline['upper_bound']:
+                                tag = "warning"
+                                status = "⚠️ OUTSIDE BASELINE"
+                            else:
+                                tag = "normal"
+                                status = "✓ Within baseline"
+
+                            self.stats_text.insert(tk.END, f"{metric_name}:\n", "metric")
+                            self.stats_text.insert(tk.END, f"  Baseline: {baseline['baseline_mean']:.1f} ± {baseline['baseline_std']:.1f}{unit}\n", "normal")
+                            self.stats_text.insert(tk.END, f"  Range: [{baseline['lower_bound']:.1f}, {baseline['upper_bound']:.1f}]{unit}\n", "normal")
+                            self.stats_text.insert(tk.END, f"  Current: {current_val:.1f}{unit}  {status}\n\n", tag)
+            else:
+                self.stats_text.insert(tk.END, "Insufficient data for 7-day baseline (need 7 days of history)\n\n", "normal")
+
+            # Historical Comparison Section
+            self.stats_text.insert(tk.END, "\n" + "="*60 + "\n", "normal")
+            self.stats_text.insert(tk.END, "Historical Comparison\n", "header")
+            self.stats_text.insert(tk.END, "="*60 + "\n\n", "normal")
+
+            if len(self.data_buffer) > 0:
+                current_snapshot = self.data_buffer[-1]
+                current_time = current_snapshot.get('timestamp')
+
+                if isinstance(current_time, str):
+                    current_time = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+
+                # Query same time yesterday
+                yesterday_start = current_time - timedelta(days=1, minutes=5)
+                yesterday_end = current_time - timedelta(days=1, minutes=-5)
+                yesterday_snapshots = self.db.query_time_range(yesterday_start, yesterday_end)
+
+                # Query same time last week
+                lastweek_start = current_time - timedelta(days=7, minutes=5)
+                lastweek_end = current_time - timedelta(days=7, minutes=-5)
+                lastweek_snapshots = self.db.query_time_range(lastweek_start, lastweek_end)
+
+                comparison_metrics = [
+                    ('cpu_percent', 'CPU Usage', '%'),
+                    ('memory_used_mb', 'Memory Used', 'MB'),
+                    ('disk_used_mb', 'Disk Used', 'MB')
+                ]
+
+                for metric_key, metric_name, unit in comparison_metrics:
+                    self.stats_text.insert(tk.END, f"{metric_name}:\n", "metric")
+
+                    # Yesterday comparison
+                    if yesterday_snapshots:
+                        comparison = self.stats_engine.calculate_historical_comparison(
+                            current_snapshot, yesterday_snapshots, metric_key
+                        )
+                        if comparison:
+                            color_map = {'green': 'normal', 'yellow': 'warning', 'red': 'warning'}
+                            tag = color_map.get(comparison['status'], 'normal')
+                            self.stats_text.insert(
+                                tk.END,
+                                f"  vs Yesterday: {comparison['delta']:+.1f}{unit} ({comparison['percent_change']:+.1f}%)\n",
+                                tag
+                            )
+
+                    # Last week comparison
+                    if lastweek_snapshots:
+                        comparison = self.stats_engine.calculate_historical_comparison(
+                            current_snapshot, lastweek_snapshots, metric_key
+                        )
+                        if comparison:
+                            color_map = {'green': 'normal', 'yellow': 'warning', 'red': 'warning'}
+                            tag = color_map.get(comparison['status'], 'normal')
+                            self.stats_text.insert(
+                                tk.END,
+                                f"  vs Last Week: {comparison['delta']:+.1f}{unit} ({comparison['percent_change']:+.1f}%)\n",
+                                tag
+                            )
+
+                    self.stats_text.insert(tk.END, "\n", "normal")
+
+            # Predictive Analytics Section
+            self.stats_text.insert(tk.END, "\n" + "="*60 + "\n", "normal")
+            self.stats_text.insert(tk.END, "Predictive Analytics\n", "header")
+            self.stats_text.insert(tk.END, "="*60 + "\n\n", "normal")
+
+            # Check predictions for critical metrics
+            prediction_checks = [
+                ('cpu_percent', 'CPU Usage', thresholds.get('cpu_critical', 90)),
+                ('memory_used_mb', 'Memory Used', thresholds.get('memory_critical_mb', 7000)),
+                ('disk_used_mb', 'Disk Used', thresholds.get('disk_critical_mb', 28000))
+            ]
+
+            predictions_found = False
+            for metric_key, metric_name, threshold in prediction_checks:
+                if threshold is None:
+                    continue
+
+                prediction = self.stats_engine.predict_time_to_threshold(
+                    list(self.data_buffer), metric_key, threshold
+                )
+
+                if prediction:
+                    predictions_found = True
+                    hours = prediction['time_remaining_hours']
+                    confidence = prediction['confidence']
+
+                    # Determine tag based on urgency
+                    if hours < 2:
+                        tag = "warning"
+                        urgency = "🔴 URGENT"
+                    elif hours < 6:
+                        tag = "warning"
+                        urgency = "🟡 WARNING"
+                    else:
+                        tag = "normal"
+                        urgency = "🔵 INFO"
+
+                    self.stats_text.insert(tk.END, f"{urgency} {metric_name}:\n", tag)
+                    self.stats_text.insert(tk.END, f"  Predicted to reach {threshold:.0f} in {hours:.1f} hours\n", "normal")
+                    self.stats_text.insert(tk.END, f"  Confidence: {confidence}\n", "normal")
+                    self.stats_text.insert(tk.END, f"  Predicted time: {prediction['predicted_time'].strftime('%Y-%m-%d %H:%M:%S')}\n\n", "normal")
+
+                    # Generate alert
+                    alert = self.detector.check_prediction(prediction, metric_name)
+                    if alert:
+                        self._display_alerts([alert])
+
+            if not predictions_found:
+                self.stats_text.insert(tk.END, "No critical threshold breaches predicted in next 24 hours\n\n", "normal")
+
+            logger.debug("HEALTH", "Statistics updated with baseline, historical, and predictive analysis")
 
         except Exception as e:
             logger.error("HEALTH", f"Failed to update statistics: {e}")
@@ -719,6 +1070,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
             self._update_graphs()
             self._update_statistics()
             self._update_status()
+            self._update_readiness()
 
             # Schedule next refresh if auto-refresh enabled
             self._schedule_next_refresh()
@@ -732,6 +1084,7 @@ class PerformanceAnalyticsTab(ttk.Frame):
         self._update_graphs()
         self._update_statistics()
         self._update_status()
+        self._update_readiness()
 
     def _clear_data(self):
         """Clear all data from buffer and optionally from database"""
@@ -877,6 +1230,192 @@ class PerformanceAnalyticsTab(ttk.Frame):
         except Exception as e:
             logger.error("HEALTH", f"Failed to export alerts: {e}")
             messagebox.showerror("Export Failed", f"Failed to export alerts:\n{e}")
+
+    def _update_readiness(self):
+        """Update mission readiness display"""
+        # Guard: Check if widget exists
+        if not hasattr(self, 'readiness_score_label') or self.readiness_score_label is None:
+            return
+
+        try:
+            # Get latest snapshot
+            if len(self.data_buffer) == 0:
+                return
+
+            latest_snapshot = self.data_buffer[-1]
+
+            # Calculate readiness
+            readiness = self.readiness_scorer.calculate_readiness(latest_snapshot)
+
+            # Update overall score
+            overall_score = readiness['overall_score']
+            overall_status = readiness['overall_status']
+
+            self.readiness_score_label.config(text=f"{overall_score}%")
+            self.readiness_status_label.config(text=overall_status)
+
+            # Color code the score
+            if overall_score >= 90:
+                score_color = 'green'
+                status_color = 'green'
+            elif overall_score >= 75:
+                score_color = 'goldenrod'
+                status_color = 'goldenrod'
+            elif overall_score >= 50:
+                score_color = 'orange'
+                status_color = 'orange'
+            else:
+                score_color = 'red'
+                status_color = 'red'
+
+            self.readiness_score_label.config(foreground=score_color)
+            self.readiness_status_label.config(foreground=status_color)
+
+            # Update component scores
+            for component, data in readiness['component_scores'].items():
+                if component in self.readiness_component_labels:
+                    score_label = self.readiness_component_labels[component]['score']
+                    status_label = self.readiness_component_labels[component]['status']
+
+                    score_label.config(text=f"{data['score']}%")
+                    status_label.config(text=data['status'])
+
+                    # Color code component status
+                    if data['status'] == 'GOOD':
+                        status_label.config(foreground='green')
+                    elif data['status'] == 'DEGRADED':
+                        status_label.config(foreground='orange')
+                    elif data['status'] == 'CRITICAL':
+                        status_label.config(foreground='red')
+                    else:
+                        status_label.config(foreground='gray')
+
+            # Update recommendations
+            self.readiness_recommendations.delete('1.0', tk.END)
+            for rec in readiness['recommendations']:
+                # Determine tag based on keywords
+                if rec.startswith('CRITICAL:'):
+                    tag = 'critical'
+                elif rec.startswith('WARNING:'):
+                    tag = 'warning'
+                elif rec.startswith('CAUTION:'):
+                    tag = 'caution'
+                else:
+                    tag = 'good'
+
+                self.readiness_recommendations.insert(tk.END, f"• {rec}\n", tag)
+
+            logger.debug("HEALTH", f"Readiness updated: {overall_score}% ({overall_status})")
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to update readiness: {e}")
+
+    def _update_correlations(self):
+        """Update correlation analysis display"""
+        # Guard: Check if widget exists
+        if not hasattr(self, 'correlation_ax') or self.correlation_ax is None:
+            return
+
+        try:
+            # Get data for current time window
+            window_sec = self.time_windows[self.current_time_window]
+            cutoff_time = datetime.now(timezone.utc) - timedelta(seconds=window_sec)
+
+            # Filter data buffer
+            filtered_data = [s for s in self.data_buffer if s.get('timestamp') and s.get('timestamp') >= cutoff_time]
+
+            if len(filtered_data) < 10:  # Need at least 10 data points
+                self.correlation_ax.clear()
+                self.correlation_ax.text(0.5, 0.5, 'Insufficient data for correlation analysis\n(need at least 10 data points)',
+                                        ha='center', va='center', fontsize=12)
+                self.correlation_canvas.draw()
+                return
+
+            # Extract metrics for correlation
+            metrics = {
+                'CPU %': [],
+                'Memory (MB)': [],
+                'Disk (MB)': [],
+                'Net RX (Mbps)': [],
+                'Net TX (Mbps)': [],
+                'Cam Latency (ms)': [],
+                'Queue Depth': []
+            }
+
+            for snapshot in filtered_data:
+                metrics['CPU %'].append(snapshot.get('cpu_percent') or 0)
+                metrics['Memory (MB)'].append(snapshot.get('memory_used_mb') or 0)
+                metrics['Disk (MB)'].append(snapshot.get('disk_used_mb') or 0)
+                metrics['Net RX (Mbps)'].append(snapshot.get('network_rx_mbps') or 0)
+                metrics['Net TX (Mbps)'].append(snapshot.get('network_tx_mbps') or 0)
+                metrics['Cam Latency (ms)'].append(snapshot.get('camera_latency_ms') or 0)
+                metrics['Queue Depth'].append(snapshot.get('queue_depth') or 0)
+
+            # Build data matrix (filter out metrics with all zeros)
+            active_metrics = {}
+            for name, values in metrics.items():
+                if any(v != 0 for v in values):  # Only include if has non-zero values
+                    active_metrics[name] = values
+
+            if len(active_metrics) < 2:
+                self.correlation_ax.clear()
+                self.correlation_ax.text(0.5, 0.5, 'Insufficient active metrics for correlation',
+                                        ha='center', va='center', fontsize=12)
+                self.correlation_canvas.draw()
+                return
+
+            # Create correlation matrix
+            metric_names = list(active_metrics.keys())
+            data_matrix = np.array([active_metrics[name] for name in metric_names])
+            correlation_matrix = np.corrcoef(data_matrix)
+
+            # Plot heatmap
+            self.correlation_ax.clear()
+            im = self.correlation_ax.imshow(correlation_matrix, cmap='coolwarm', vmin=-1, vmax=1, aspect='auto')
+
+            # Set ticks and labels
+            self.correlation_ax.set_xticks(range(len(metric_names)))
+            self.correlation_ax.set_yticks(range(len(metric_names)))
+            self.correlation_ax.set_xticklabels(metric_names, rotation=45, ha='right', fontsize=9)
+            self.correlation_ax.set_yticklabels(metric_names, fontsize=9)
+
+            # Add correlation values to cells
+            for i in range(len(metric_names)):
+                for j in range(len(metric_names)):
+                    text_color = 'white' if abs(correlation_matrix[i, j]) > 0.5 else 'black'
+                    self.correlation_ax.text(j, i, f'{correlation_matrix[i, j]:.2f}',
+                                           ha='center', va='center', color=text_color, fontsize=8)
+
+            self.correlation_ax.set_title('Metric Correlation Matrix', fontsize=11, fontweight='bold')
+
+            # Add colorbar
+            self.correlation_fig.colorbar(im, ax=self.correlation_ax, label='Correlation Coefficient')
+
+            self.correlation_fig.tight_layout()
+            self.correlation_canvas.draw()
+
+            # Find and display strong correlations
+            self.strong_correlations_text.delete('1.0', tk.END)
+            strong_found = False
+
+            for i in range(len(metric_names)):
+                for j in range(i + 1, len(metric_names)):  # Only upper triangle
+                    r = correlation_matrix[i, j]
+                    if abs(r) > 0.7:
+                        strong_found = True
+                        direction = "positive" if r > 0 else "negative"
+                        self.strong_correlations_text.insert(
+                            tk.END,
+                            f"{metric_names[i]} ↔ {metric_names[j]}: r = {r:.3f} ({direction})\n"
+                        )
+
+            if not strong_found:
+                self.strong_correlations_text.insert(tk.END, "No strong correlations (|r| > 0.7) detected in current window\n")
+
+            logger.debug("HEALTH", "Correlation analysis updated")
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to update correlations: {e}")
 
     def _import_logs(self):
         """
@@ -1027,6 +1566,87 @@ class PerformanceAnalyticsTab(ttk.Frame):
         except Exception as e:
             logger.error("HEALTH", f"Failed to initiate import: {e}")
             messagebox.showerror("Import Error", f"Failed to import logs:\n{e}")
+
+    def _export_pdf_report(self):
+        """Export comprehensive PDF report with all analytics"""
+        try:
+            # Open file dialog
+            filename = filedialog.asksaveasfilename(
+                title="Export PDF Report",
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+                initialfile=f"DPM_Performance_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            )
+
+            if not filename:
+                return  # User cancelled
+
+            # Show progress dialog
+            progress_window = tk.Toplevel(self)
+            progress_window.title("Generating PDF Report")
+            progress_window.geometry("400x150")
+            progress_window.transient(self)
+            progress_window.grab_set()
+
+            ttk.Label(
+                progress_window,
+                text="Generating comprehensive PDF report...",
+                font=('Arial', 11)
+            ).pack(pady=20)
+
+            progress_label = ttk.Label(progress_window, text="Collecting data...")
+            progress_label.pack(pady=10)
+
+            progress_window.update()
+
+            # Collect readiness data
+            progress_label.config(text="Calculating mission readiness...")
+            progress_window.update()
+
+            readiness_data = None
+            if len(self.data_buffer) > 0:
+                latest_snapshot = self.data_buffer[-1]
+                readiness_data = self.readiness_scorer.calculate_readiness(latest_snapshot)
+
+            # Collect statistics
+            progress_label.config(text="Analyzing statistics...")
+            progress_window.update()
+
+            # Get recent alerts
+            progress_label.config(text="Gathering alerts...")
+            progress_window.update()
+            alerts = self.detector.get_recent_alerts(limit=50)
+
+            # Generate PDF
+            progress_label.config(text="Generating PDF file...")
+            progress_window.update()
+
+            success = self.pdf_generator.generate_report(
+                output_path=filename,
+                readiness_data=readiness_data,
+                statistics=self.cached_stats,
+                alerts=alerts,
+                graphs_figure=self.fig,
+                correlation_figure=self.correlation_fig if hasattr(self, 'correlation_fig') else None
+            )
+
+            progress_window.destroy()
+
+            if success:
+                messagebox.showinfo(
+                    "Export Complete",
+                    f"PDF report exported successfully:\n\n{filename}"
+                )
+                logger.info("HEALTH", f"PDF report exported: {filename}")
+            else:
+                messagebox.showerror(
+                    "Export Failed",
+                    "Failed to generate PDF report.\n\nEnsure reportlab is installed:\npip install reportlab"
+                )
+
+        except Exception as e:
+            logger.error("HEALTH", f"Failed to export PDF report: {e}")
+            messagebox.showerror("Export Error", f"Failed to export PDF report:\n\n{e}")
 
     def cleanup(self):
         """Cleanup resources on tab close"""
